@@ -1,1 +1,3 @@
-Results reviewed and released to ordering provider. Patient ID: SYNTH-0168. Requested medication: Drug D. Ordering provider: Dr. A. Rivera. Please retain a copy of this document for your records. Laboratory Report for SYNTH-0198. Contact the office with any questions regarding this documentation.
+CLINICAL OPERATIONS
+Results reviewed and released to ordering provider. / Patient ID: SYNTH-0045. Requested medication: Drug D. / Ordering provider: Dr. A. Rivera. / Please retain a copy of this document for your records. / Laboratory Report for SYNTH-0045. / Contact the office with any questions regarding this documentation.
+Review status: pending

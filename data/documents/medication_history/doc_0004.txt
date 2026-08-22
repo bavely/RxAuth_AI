@@ -1,1 +1,3 @@
-Regarding patient SYNTH-0065. Medication history for SYNTH-0223. Case reference number: CASE-95571. Document received and processed on file. Drug D — 19 weeks of therapy documented.
+CLINICAL OPERATIONS
+Regarding patient SYNTH-0005. / Medication history for SYNTH-0005. / Case reference number: CASE-95571. / Document received and processed on file. / Drug D — 19 weeks of therapy documented.
+Review status: pending

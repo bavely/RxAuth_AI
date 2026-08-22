@@ -1,1 +1,9 @@
-Reference range and flag included per laboratory standard reporting. Laboratory Report for SYNTH-0188. On file with Example Health Plan. Specimen type: venous blood draw.
+PATIENT SERVICES
+Reference range and flag included per laboratory standard reporting.
+
+Laboratory Report for SYNTH-0044.
+
+On file with Example Health Plan.
+
+Specimen type: venous blood draw.
+Synthetic record; not for care

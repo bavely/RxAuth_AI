@@ -1,1 +1,3 @@
-Rx: Drug C. Sig: take as directed. Pharmacy: Example Specialty Pharmacy. NPI on file for Dr. K. Osei. Prescriber: Dr. S. Ibrahim. DEA number on file. Adherence confirmed via pharmacy fill records. Substitution permitted unless otherwise indicated. Case reference number: CASE-60257.
+CASE ATTACHMENT
+Rx: Drug C. Sig: take as directed. :: Pharmacy: Example Specialty Pharmacy. NPI on file for Dr. K. Osei. :: Prescriber: Dr. S. Ibrahim. DEA number on file. :: Adherence confirmed via pharmacy fill records. :: Substitution permitted unless otherwise indicated. :: Case reference number: CASE-60257.
+Attachment complete

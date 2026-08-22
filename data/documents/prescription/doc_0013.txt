@@ -1,1 +1,11 @@
-Please retain a copy of this document for your records. Pharmacy: Example Specialty Pharmacy. NPI on file for Dr. L. Novak. Quantity: 30. Refills: 2. Dispense as written. Patient: SYNTH-0222. Date written: 2025-09-22. Prescriber: Dr. A. Rivera. DEA number on file.
+PATIENT SERVICES
+Please retain a copy of this document for your records.
+
+Pharmacy: Example Specialty Pharmacy. NPI on file for Dr. L. Novak.
+
+Quantity: 30. Refills: 2. Dispense as written.
+
+Patient: SYNTH-0014. Date written: 2025-09-22.
+
+Prescriber: Dr. A. Rivera. DEA number on file.
+Synthetic record; not for care

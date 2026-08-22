@@ -1,1 +1,7 @@
-Case reference number: CASE-87592. Reason for referral: initiation of Drug A therapy. Regarding patient SYNTH-0290.
+REVIEW PACKET
+Case reference number: CASE-87592.
+
+Reason for referral: initiation of Drug A therapy.
+
+Regarding patient SYNTH-0058.
+Validation copy

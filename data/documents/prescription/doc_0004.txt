@@ -1,1 +1,3 @@
-Patient: SYNTH-0010. Date written: 2025-01-22. Please retain a copy of this document for your records. Document received and processed on file.
+CLINICAL OPERATIONS
+Patient: SYNTH-0005. Date written: 2025-01-22. / Please retain a copy of this document for your records. / Document received and processed on file.
+Review status: pending

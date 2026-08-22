@@ -1,1 +1,3 @@
-Case reference number: CASE-20231. On file with Sample Care Network. Subjective: patient reports symptoms consistent with Sample Syndrome.
+CLINICAL OPERATIONS
+Case reference number: CASE-20231. / On file with Sample Care Network. / Subjective: patient reports symptoms consistent with Sample Syndrome.
+Review status: pending

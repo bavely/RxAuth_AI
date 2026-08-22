@@ -1,1 +1,7 @@
-This card does not guarantee coverage. Refer to plan documents for details. Contact the office with any questions regarding this documentation. Patient ID: SYNTH-0126. Requested medication: Drug B. Document received and processed on file. Regarding patient SYNTH-0266.
+SPECIALTY WORKFLOW RECORD
+This card does not guarantee coverage. Refer to plan documents for details.
+Contact the office with any questions regarding this documentation.
+Patient ID: SYNTH-0022. Requested medication: Drug B.
+Document received and processed on file.
+Regarding patient SYNTH-0022.
+Confidential synthetic example

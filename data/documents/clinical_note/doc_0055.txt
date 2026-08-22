@@ -1,1 +1,6 @@
-Regarding patient SYNTH-0250. Subjective: patient reports symptoms consistent with Sample Syndrome. On file with Demo Health Partners. Case reference number: CASE-45840.
+DOCUMENT CONTROL
+Regarding patient SYNTH-0056.
+Subjective: patient reports symptoms consistent with Sample Syndrome.
+On file with Demo Health Partners.
+Case reference number: CASE-45840.
+Archive copy

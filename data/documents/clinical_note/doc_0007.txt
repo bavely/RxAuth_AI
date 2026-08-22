@@ -1,1 +1,11 @@
-Regarding patient SYNTH-0050. Plan: continue Drug C, reassess at next follow-up visit. On file with Demo Health Partners. Assessment: Example Condition, stable on current regimen. Objective: vitals stable. eGFR reviewed and discussed with patient.
+REVIEW PACKET
+Regarding patient SYNTH-0008.
+
+Plan: continue Drug C, reassess at next follow-up visit.
+
+On file with Demo Health Partners.
+
+Assessment: Example Condition, stable on current regimen.
+
+Objective: vitals stable. eGFR reviewed and discussed with patient.
+Validation copy

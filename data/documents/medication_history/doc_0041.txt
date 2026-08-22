@@ -1,1 +1,5 @@
-Medication history for SYNTH-0102. Drug C — 14 weeks of therapy documented. Case reference number: CASE-73364.
+SPECIALTY WORKFLOW RECORD
+Medication history for SYNTH-0042.
+Drug C — 14 weeks of therapy documented.
+Case reference number: CASE-73364.
+Confidential synthetic example

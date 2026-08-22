@@ -1,1 +1,7 @@
-Visit date: 2025-11-05. Next follow-up in 8 weeks. Subjective: patient reports symptoms consistent with Example Condition. Case reference number: CASE-59699.
+REVIEW PACKET
+Visit date: 2025-11-05. Next follow-up in 8 weeks.
+
+Subjective: patient reports symptoms consistent with Example Condition.
+
+Case reference number: CASE-59699.
+Validation copy

@@ -1,1 +1,3 @@
-Specimen type: venous blood draw. Ordering provider: Dr. S. Ibrahim. On file with Example Health Plan.
+TRANSMITTAL
+Specimen type: venous blood draw. -- Ordering provider: Dr. S. Ibrahim. -- On file with Example Health Plan.
+Generated for training only

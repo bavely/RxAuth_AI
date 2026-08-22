@@ -1,1 +1,7 @@
-Progress note for patient SYNTH-0175 seen by Dr. S. Ibrahim. Plan: continue Drug D, reassess at next follow-up visit. Objective: vitals stable. A1c reviewed and discussed with patient. Pharmacy: Example Specialty Pharmacy. NPI on file for Dr. M. Chen. Contact the office with any questions regarding this documentation.
+DOCUMENT CONTROL
+Progress note for patient SYNTH-0026 seen by Dr. S. Ibrahim.
+Plan: continue Drug D, reassess at next follow-up visit.
+Objective: vitals stable. A1c reviewed and discussed with patient.
+Pharmacy: Example Specialty Pharmacy. NPI on file for Dr. M. Chen.
+Contact the office with any questions regarding this documentation.
+Archive copy

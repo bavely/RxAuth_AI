@@ -1,1 +1,9 @@
-Plan: continue Drug A, reassess at next follow-up visit. Visit date: 2025-06-05. Next follow-up in 8 weeks. Progress note for patient SYNTH-0087 seen by Dr. K. Osei. Case reference number: CASE-92449.
+REVIEW PACKET
+Plan: continue Drug A, reassess at next follow-up visit.
+
+Visit date: 2025-06-05. Next follow-up in 8 weeks.
+
+Progress note for patient SYNTH-0028 seen by Dr. K. Osei.
+
+Case reference number: CASE-92449.
+Validation copy

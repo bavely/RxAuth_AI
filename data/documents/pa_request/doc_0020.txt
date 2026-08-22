@@ -1,1 +1,3 @@
-On file with Demo Health Partners. Prescriber: Dr. M. Chen. Diagnosis: Example Condition. Contact the office with any questions regarding this documentation.
+DOCUMENT INTAKE
+On file with Demo Health Partners. | Prescriber: Dr. M. Chen. Diagnosis: Example Condition. | Contact the office with any questions regarding this documentation.
+End of intake record

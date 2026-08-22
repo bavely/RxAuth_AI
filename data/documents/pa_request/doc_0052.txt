@@ -1,1 +1,3 @@
-On file with Example Health Plan. Regarding patient SYNTH-0130. This request is submitted in accordance with the plan's step-therapy and prior-authorization policy. Please retain a copy of this document for your records.
+TRANSMITTAL
+On file with Example Health Plan. -- Regarding patient SYNTH-0053. -- This request is submitted in accordance with the plan's step-therapy and prior-authorization policy. -- Please retain a copy of this document for your records.
+Generated for training only

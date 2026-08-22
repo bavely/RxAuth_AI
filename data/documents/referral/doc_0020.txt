@@ -1,1 +1,3 @@
-Patient: SYNTH-0226. Please schedule an intake appointment. Contact the office with any questions regarding this documentation. Reason for referral: initiation of Drug A therapy.
+DOCUMENT INTAKE
+Patient: SYNTH-0021. Please schedule an intake appointment. | Contact the office with any questions regarding this documentation. | Reason for referral: initiation of Drug A therapy.
+End of intake record

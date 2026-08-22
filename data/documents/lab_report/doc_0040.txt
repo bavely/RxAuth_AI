@@ -1,1 +1,3 @@
-eGFR: 7.4 — collected 2025-07-14. Health plan: Example Health Plan. Please review the attached clinical documentation and approve coverage. Contact the office with any questions regarding this documentation. Reference range and flag included per laboratory standard reporting.
+DOCUMENT INTAKE
+eGFR: 7.4 — collected 2025-07-14. | Health plan: Example Health Plan. Please review the attached clinical documentation and approve coverage. | Contact the office with any questions regarding this documentation. | Reference range and flag included per laboratory standard reporting.
+End of intake record

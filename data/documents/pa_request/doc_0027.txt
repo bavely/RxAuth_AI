@@ -1,1 +1,9 @@
-Document received and processed on file. Diagnosis code on file for Example Condition. Health plan: Sample Care Network. Please review the attached clinical documentation and approve coverage. Patient ID: SYNTH-0009. Requested medication: Drug A.
+REVIEW PACKET
+Document received and processed on file.
+
+Diagnosis code on file for Example Condition.
+
+Health plan: Sample Care Network. Please review the attached clinical documentation and approve coverage.
+
+Patient ID: SYNTH-0028. Requested medication: Drug A.
+Validation copy

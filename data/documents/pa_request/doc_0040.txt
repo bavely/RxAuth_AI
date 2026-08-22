@@ -1,1 +1,3 @@
-Patient ID: SYNTH-0196. Requested medication: Drug A. Document received and processed on file. Case reference number: CASE-19718. Regarding patient SYNTH-0035.
+DOCUMENT INTAKE
+Patient ID: SYNTH-0041. Requested medication: Drug A. | Document received and processed on file. | Case reference number: CASE-19718. | Regarding patient SYNTH-0041.
+End of intake record

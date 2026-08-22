@@ -1,1 +1,9 @@
-Patient ID: SYNTH-0190. Requested medication: Drug C. Health plan: Sample Care Network. Please review the attached clinical documentation and approve coverage. Contact the office with any questions regarding this documentation. Drug B — 9 weeks of therapy documented.
+PATIENT SERVICES
+Patient ID: SYNTH-0024. Requested medication: Drug C.
+
+Health plan: Sample Care Network. Please review the attached clinical documentation and approve coverage.
+
+Contact the office with any questions regarding this documentation.
+
+Drug B — 9 weeks of therapy documented.
+Synthetic record; not for care

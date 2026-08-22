@@ -1,1 +1,3 @@
-Progress note for patient SYNTH-0299 seen by Dr. K. Osei. Visit date: 2025-11-05. Next follow-up in 8 weeks. Subjective: patient reports symptoms consistent with Sample Syndrome. On file with Placeholder Insurance Co.. Objective: vitals stable. eGFR reviewed and discussed with patient.
+TRANSMITTAL
+Progress note for patient SYNTH-0053 seen by Dr. K. Osei. -- Visit date: 2025-11-05. Next follow-up in 8 weeks. -- Subjective: patient reports symptoms consistent with Sample Syndrome. -- On file with Placeholder Insurance Co.. -- Objective: vitals stable. eGFR reviewed and discussed with patient.
+Generated for training only

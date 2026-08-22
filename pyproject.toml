@@ -8,12 +8,22 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
+    "numpy>=2.0",
+    "opencv-python-headless>=4.10",
+    "pillow>=11.0",
     "pydantic>=2.0",
+    "pypdf>=5.0",
+    "reportlab>=4.2",
     "scikit-learn>=1.4",
 ]
 
+[project.optional-dependencies]
+ocr = ["pytesseract>=0.3.13"]
+
 [project.scripts]
 rxauth-build-dataset = "rxauth_ai.build_dataset:main"
+rxauth-benchmark-ingestion = "rxauth_ai.benchmark_ingestion:main"
+rxauth-ingest = "rxauth_ai.ingestion:main"
 rxauth-milestone0 = "rxauth_ai.cli:main"
 rxauth-train-classifier = "rxauth_ai.train_classifier:main"
 

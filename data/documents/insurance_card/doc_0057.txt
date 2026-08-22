@@ -1,1 +1,13 @@
-Pharmacy: Example Specialty Pharmacy. NPI on file for Dr. S. Ibrahim. Contact the office with any questions regarding this documentation. Member ID: SYNTH-0086. Group Number: GRP-2954. Case reference number: CASE-97544. This card does not guarantee coverage. Refer to plan documents for details. On file with Sample Care Network.
+REVIEW PACKET
+Pharmacy: Example Specialty Pharmacy. NPI on file for Dr. S. Ibrahim.
+
+Contact the office with any questions regarding this documentation.
+
+Member ID: SYNTH-0058. Group Number: GRP-2954.
+
+Case reference number: CASE-97544.
+
+This card does not guarantee coverage. Refer to plan documents for details.
+
+On file with Sample Care Network.
+Validation copy

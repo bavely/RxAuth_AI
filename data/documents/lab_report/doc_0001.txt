@@ -1,1 +1,6 @@
-Regarding patient SYNTH-0063. ALT: 7.5 — collected 2025-08-22. Results reviewed and released to ordering provider. Document received and processed on file.
+SPECIALTY WORKFLOW RECORD
+Regarding patient SYNTH-0002.
+ALT: 7.5 — collected 2025-08-22.
+Results reviewed and released to ordering provider.
+Document received and processed on file.
+Confidential synthetic example

@@ -1,1 +1,3 @@
-Contact the office with any questions regarding this documentation. RxBIN: 610014  RxPCN: EXPL  RxGRP: SAMPLE01. Demo Health Partners Member Identification Card.
+CASE ATTACHMENT
+Contact the office with any questions regarding this documentation. :: RxBIN: 610014  RxPCN: EXPL  RxGRP: SAMPLE01. :: Demo Health Partners Member Identification Card.
+Attachment complete

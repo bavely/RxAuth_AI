@@ -1,1 +1,7 @@
-Regarding patient SYNTH-0001. Case reference number: CASE-13463. Reason for referral: initiation of Drug A therapy. Referring provider: Dr. K. Osei. Referred to: Specialty Clinic. Relevant history and prior treatment records are attached for review.
+SPECIALTY WORKFLOW RECORD
+Regarding patient SYNTH-0042.
+Case reference number: CASE-13463.
+Reason for referral: initiation of Drug A therapy.
+Referring provider: Dr. K. Osei. Referred to: Specialty Clinic.
+Relevant history and prior treatment records are attached for review.
+Confidential synthetic example

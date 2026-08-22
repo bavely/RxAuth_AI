@@ -1,1 +1,3 @@
-Referring provider: Dr. K. Osei. Referred to: Specialty Clinic. Reason for referral: initiation of Drug D therapy. Document received and processed on file. Date of referral: 2025-10-05.
+DOCUMENT INTAKE
+Referring provider: Dr. K. Osei. Referred to: Specialty Clinic. | Reason for referral: initiation of Drug D therapy. | Document received and processed on file. | Date of referral: 2025-10-05.
+End of intake record

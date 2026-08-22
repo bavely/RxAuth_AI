@@ -1,1 +1,3 @@
-No acute distress noted on exam today. Subjective: patient reports symptoms consistent with Example Condition. Medication history for SYNTH-0072. Case reference number: CASE-23125. Objective: vitals stable. LDL cholesterol reviewed and discussed with patient.
+CASE ATTACHMENT
+No acute distress noted on exam today. :: Subjective: patient reports symptoms consistent with Example Condition. :: Medication history for SYNTH-0047. :: Case reference number: CASE-23125. :: Objective: vitals stable. LDL cholesterol reviewed and discussed with patient.
+Attachment complete

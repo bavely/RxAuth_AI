@@ -1,1 +1,7 @@
-Quantity: 30. Refills: 2. Dispense as written. On file with Placeholder Insurance Co.. Regarding patient SYNTH-0204. Please confirm receipt of this referral within 5 business days. Document received and processed on file.
+DOCUMENT CONTROL
+Quantity: 30. Refills: 2. Dispense as written.
+On file with Placeholder Insurance Co..
+Regarding patient SYNTH-0006.
+Please confirm receipt of this referral within 5 business days.
+Document received and processed on file.
+Archive copy

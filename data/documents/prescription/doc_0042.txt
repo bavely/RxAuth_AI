@@ -1,1 +1,3 @@
-Please retain a copy of this document for your records. On file with Sample Care Network. Rx: Drug D. Sig: take as directed. Patient: SYNTH-0259. Please schedule an intake appointment.
+TRANSMITTAL
+Please retain a copy of this document for your records. -- On file with Sample Care Network. -- Rx: Drug D. Sig: take as directed. -- Patient: SYNTH-0043. Please schedule an intake appointment.
+Generated for training only

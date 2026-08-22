@@ -1,1 +1,5 @@
-Regarding patient SYNTH-0283. Quantity: 30. Refills: 2. Dispense as written. Prescriber: Dr. A. Rivera. DEA number on file.
+SCANNED CORRESPONDENCE
+Regarding pat1ent SYNTH-0030.
+Quantity: 30. Refills: 2. Dispense as written.
+Prescriber: Dr. A. Rivera. DEA number on file.
+Image quality may affect recognition

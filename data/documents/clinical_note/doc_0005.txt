@@ -1,1 +1,7 @@
-Regarding patient SYNTH-0050. Visit date: 2025-10-14. Next follow-up in 8 weeks. Plan: continue Drug C, reassess at next follow-up visit. Objective: vitals stable. LDL cholesterol reviewed and discussed with patient. Assessment: Example Condition, stable on current regimen.
+DOCUMENT CONTROL
+Regarding patient SYNTH-0006.
+Visit date: 2025-10-14. Next follow-up in 8 weeks.
+Plan: continue Drug C, reassess at next follow-up visit.
+Objective: vitals stable. LDL cholesterol reviewed and discussed with patient.
+Assessment: Example Condition, stable on current regimen.
+Archive copy

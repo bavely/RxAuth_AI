@@ -1,1 +1,3 @@
-Assessment: Example Condition, stable on current regimen. Please retain a copy of this document for your records. Progress note for patient SYNTH-0245 seen by Dr. S. Ibrahim.
+CASE ATTACHMENT
+Assessment: Example Condition, stable on current regimen. :: Please retain a copy of this document for your records. :: Progress note for patient SYNTH-0027 seen by Dr. S. Ibrahim.
+Attachment complete

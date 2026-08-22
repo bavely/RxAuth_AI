@@ -1,1 +1,3 @@
-Case reference number: CASE-91946. Diagnosis code on file for Sample Syndrome. This request is submitted in accordance with the plan's step-therapy and prior-authorization policy.
+CLINICAL OPERATIONS
+Case reference number: CASE-91946. / Diagnosis code on file for Sample Syndrome. / This request is submitted in accordance with the plan's step-therapy and prior-authorization policy.
+Review status: pending

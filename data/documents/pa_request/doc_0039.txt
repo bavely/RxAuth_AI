@@ -1,1 +1,6 @@
-Regarding patient SYNTH-0286. Patient ID: SYNTH-0214. Requested medication: Drug D. Prescriber: Dr. L. Novak. Diagnosis: Example Condition.
+SCANNED CORRESPONDENCE
+Patient ID: 5YNTH-0040. Requested medication: Drug D.
+Regarding patient SYNTH-0040.
+Rx: Drug D. Sig: take as directed.
+Prescriber: Dr. L. Novak. Diagnosis: Example Condition.
+1mage quality may affect recogniti0n

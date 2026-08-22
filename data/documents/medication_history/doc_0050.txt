@@ -1,1 +1,3 @@
-Drug A — 5 weeks of therapy documented. No known drug allergies reported. Contact the office with any questions regarding this documentation.
+DOCUMENT INTAKE
+Drug A — 5 weeks of therapy documented. | No known drug allergies reported. | Contact the office with any questions regarding this documentation.
+End of intake record

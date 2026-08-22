@@ -1,1 +1,5 @@
-Pharmacy: Example Specialty Pharmacy. NPI on file for Dr. S. Ibrahim. Regarding patient SYNTH-0202. On file with Placeholder Insurance Co..
+DOCUMENT CONTROL
+Pharmacy: Example Specialty Pharmacy. NPI on file for Dr. S. Ibrahim.
+Regarding patient SYNTH-0036.
+On file with Placeholder Insurance Co..
+Archive copy

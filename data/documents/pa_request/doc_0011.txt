@@ -1,1 +1,5 @@
-Case reference number: CASE-95807. Regarding patient SYNTH-0266. Diagnosis code on file for Placeholder Disorder.
+SPECIALTY WORKFLOW RECORD
+Case reference number: CASE-95807.
+Regarding patient SYNTH-0012.
+Diagnosis code on file for Placeholder Disorder.
+Confidential synthetic example

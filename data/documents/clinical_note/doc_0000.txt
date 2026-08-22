@@ -1,1 +1,3 @@
-Patient ID: SYNTH-0260. Requested medication: Drug C. Document received and processed on file. Progress note for patient SYNTH-0276 seen by Dr. A. Rivera. On file with Placeholder Insurance Co.. No acute distress noted on exam today.
+DOCUMENT INTAKE
+Patient ID: SYNTH-0001. Requested medication: Drug C. | Document received and processed on file. | Progress note for patient SYNTH-0001 seen by Dr. A. Rivera. | On file with Placeholder Insurance Co.. | No acute distress noted on exam today.
+End of intake record

@@ -1,1 +1,3 @@
-General correspondence regarding account and billing inquiry. Health plan: Placeholder Insurance Co.. Please review the attached clinical documentation and approve coverage. On file with Sample Care Network. Prescriber: Dr. S. Ibrahim. Diagnosis: Sample Syndrome.
+TRANSMITTAL
+General correspondence regarding account and billing inquiry. -- Health plan: Placeholder Insurance Co.. Please review the attached clinical documentation and approve coverage. -- On file with Sample Care Network. -- Prescriber: Dr. S. Ibrahim. Diagnosis: Sample Syndrome.
+Generated for training only

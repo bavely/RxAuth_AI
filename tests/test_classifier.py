@@ -1,11 +1,4 @@
-"""Tests for the document classification baseline (main README §8, Phase 1).
-
-Generates a small synthetic dataset into a temp directory (independent of the
-checked-in data/documents/ corpus) so the test is fast and self-contained, then
-verifies the dataset builder's contract and the classifier's train/eval path.
-
-Run: uv run pytest
-"""
+"""Tests for the hardened Phase 1.5 classification benchmark."""
 
 from __future__ import annotations
 
@@ -14,62 +7,92 @@ import tempfile
 from pathlib import Path
 
 from rxauth_ai.build_dataset import build_dataset
-from rxauth_ai.classifier import load_manifest, train_and_evaluate
+from rxauth_ai.classifier import DocumentClassifier, load_manifest, train_and_evaluate
 from rxauth_ai.models import DocumentType
 
 
-def test_dataset_covers_full_taxonomy_and_all_splits():
+def _rows(path: Path) -> list[dict[str, str]]:
+    with path.open(newline="", encoding="utf-8") as handle:
+        return list(csv.DictReader(handle))
+
+
+def test_dataset_covers_taxonomy_grouped_splits_and_contract():
     with tempfile.TemporaryDirectory() as tmp:
         out_dir = Path(tmp)
-        manifest_path = build_dataset(out_dir, per_class=20, seed=1)
-
-        assert manifest_path.exists()
-        with manifest_path.open(newline="", encoding="utf-8") as f:
-            rows = list(csv.DictReader(f))
+        rows = _rows(build_dataset(out_dir, per_class=20, seed=1))
 
         assert len(rows) == 20 * len(DocumentType)
-        assert {r["label"] for r in rows} == {d.value for d in DocumentType}
-        assert {r["split"] for r in rows} == {"train", "val", "test"}
+        assert {row["label"] for row in rows} == {
+            document_type.value for document_type in DocumentType
+        }
+        assert {row["split"] for row in rows} == {"train", "val", "test", "challenge"}
+        assert all(row["case_id"] and row["template_family_id"] for row in rows)
         for row in rows:
             assert (out_dir / row["relative_path"]).exists()
+
+        for left in ("train", "val", "test", "challenge"):
+            left_rows = [row for row in rows if row["split"] == left]
+            for right in ("train", "val", "test", "challenge"):
+                if left >= right:
+                    continue
+                right_rows = [row for row in rows if row["split"] == right]
+                assert {row["case_id"] for row in left_rows}.isdisjoint(
+                    {row["case_id"] for row in right_rows}
+                )
+                assert {row["template_family_id"] for row in left_rows}.isdisjoint(
+                    {row["template_family_id"] for row in right_rows}
+                )
 
 
 def test_dataset_is_reproducible_given_same_seed():
     with tempfile.TemporaryDirectory() as tmp_a, tempfile.TemporaryDirectory() as tmp_b:
-        build_dataset(Path(tmp_a), per_class=10, seed=7)
-        build_dataset(Path(tmp_b), per_class=10, seed=7)
+        path_a = build_dataset(Path(tmp_a), per_class=10, seed=7)
+        path_b = build_dataset(Path(tmp_b), per_class=10, seed=7)
 
-        text_a = (Path(tmp_a) / "documents" / "clinical_note" / "doc_0000.txt").read_text(
-            encoding="utf-8"
-        )
-        text_b = (Path(tmp_b) / "documents" / "clinical_note" / "doc_0000.txt").read_text(
-            encoding="utf-8"
-        )
-        assert text_a == text_b
+        assert path_a.read_bytes() == path_b.read_bytes()
+        assert (Path(tmp_a) / "documents" / "clinical_note" / "doc_0009.txt").read_bytes() == (
+            Path(tmp_b) / "documents" / "clinical_note" / "doc_0009.txt"
+        ).read_bytes()
 
 
 def test_dataset_rebuild_removes_stale_generated_documents():
     with tempfile.TemporaryDirectory() as tmp:
         out_dir = Path(tmp)
+        build_dataset(out_dir, per_class=20, seed=7)
         build_dataset(out_dir, per_class=10, seed=7)
-        build_dataset(out_dir, per_class=6, seed=7)
 
         generated = list((out_dir / "documents").glob("*/doc_*.txt"))
-        assert len(generated) == 6 * len(DocumentType)
+        assert len(generated) == 10 * len(DocumentType)
 
 
-def test_classifier_trains_and_beats_random_baseline():
+def test_classifier_evaluates_challenge_and_persists_bundle():
     with tempfile.TemporaryDirectory() as tmp:
         out_dir = Path(tmp)
         build_dataset(out_dir, per_class=30, seed=42)
-
         splits = load_manifest(out_dir)
         results = train_and_evaluate(splits)
 
         n_classes = len(DocumentType)
-        random_baseline = 1.0 / n_classes
-        assert results["test_accuracy"] > random_baseline * 3
-        assert results["n_train"] > 0
-        assert results["n_test"] > 0
-        assert set(results["labels"]) == {d.value for d in DocumentType}
+        assert results["test_accuracy"] > (1.0 / n_classes) * 2
+        assert results["n_challenge"] > 0
+        assert set(results["labels"]) == {document_type.value for document_type in DocumentType}
         assert results["confusion_matrix"].shape == (n_classes, n_classes)
+        assert 0 <= results["evaluations"]["challenge"]["macro_f1"] <= 1
+
+        artifact = out_dir / "classifier.pkl"
+        results["classifier"].save(artifact)
+        restored = DocumentClassifier.load(artifact)
+        before = results["classifier"].predict_text(splits["test"].texts[0])
+        after = restored.predict_text(splits["test"].texts[0])
+        assert after == before
+
+
+def test_high_confidence_threshold_routes_prediction_to_review():
+    with tempfile.TemporaryDirectory() as tmp:
+        out_dir = Path(tmp)
+        build_dataset(out_dir, per_class=20, seed=42)
+        splits = load_manifest(out_dir)
+        classifier = train_and_evaluate(splits, confidence_threshold=1.0)["classifier"]
+
+        prediction = classifier.predict_text("unfamiliar short document")
+        assert prediction.requires_human_review

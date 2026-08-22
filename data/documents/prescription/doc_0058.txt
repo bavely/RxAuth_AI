@@ -1,1 +1,3 @@
-Pharmacy: Example Specialty Pharmacy. NPI on file for Dr. A. Rivera. Results reviewed and released to ordering provider. Rx: Drug D. Sig: take as directed. Case reference number: CASE-42012.
+SOURCE DOCUMENT
+Pharmacy: Example Specialty Pharmacy. NPI on file for Dr. A. Rivera. ~ Results reviewed and released to ordering provider. ~ Rx: Drug D. Sig: take as directed. ~ Case reference number: CASE-42012.
+End of source document

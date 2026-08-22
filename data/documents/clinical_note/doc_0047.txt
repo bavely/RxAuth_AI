@@ -1,1 +1,13 @@
-Regarding patient SYNTH-0068. Objective: vitals stable. A1c reviewed and discussed with patient. Case reference number: CASE-13307. On file with Example Health Plan. Prescriber: Dr. M. Chen. DEA number on file. Visit date: 2025-11-14. Next follow-up in 8 weeks.
+REVIEW PACKET
+Regarding patient SYNTH-0048.
+
+Objective: vitals stable. A1c reviewed and discussed with patient.
+
+Case reference number: CASE-13307.
+
+On file with Example Health Plan.
+
+Prescriber: Dr. M. Chen. DEA number on file.
+
+Visit date: 2025-11-14. Next follow-up in 8 weeks.
+Validation copy

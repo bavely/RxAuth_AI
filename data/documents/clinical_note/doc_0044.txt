@@ -1,1 +1,3 @@
-Plan: continue Drug D, reassess at next follow-up visit. Please retain a copy of this document for your records. No acute distress noted on exam today. Objective: vitals stable. LDL cholesterol reviewed and discussed with patient. Subjective: patient reports symptoms consistent with Placeholder Disorder.
+CLINICAL OPERATIONS
+Plan: continue Drug D, reassess at next follow-up visit. / Please retain a copy of this document for your records. / No acute distress noted on exam today. / Objective: vitals stable. LDL cholesterol reviewed and discussed with patient. / Subjective: patient reports symptoms consistent with Placeholder Disorder.
+Review status: pending

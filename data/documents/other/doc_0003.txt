@@ -1,1 +1,13 @@
-Regarding patient SYNTH-0178. Thank you letter from Sample Care Network member services. Case reference number: CASE-55049. RxBIN: 610014  RxPCN: EXPL  RxGRP: SAMPLE01. General correspondence regarding account and billing inquiry. Fax cover sheet. Number of pages: 3.
+PATIENT SERVICES
+Regarding patient SYNTH-0004.
+
+Thank you letter from Sample Care Network member services.
+
+Case reference number: CASE-55049.
+
+RxBIN: 610014  RxPCN: EXPL  RxGRP: SAMPLE01.
+
+General correspondence regarding account and billing inquiry.
+
+Fax cover sheet. Number of pages: 3.
+Synthetic record; not for care

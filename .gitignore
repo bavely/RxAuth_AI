@@ -9,6 +9,7 @@ wheels/
 .ruff_cache/
 .coverage
 htmlcov/
+artifacts/
 
 # Virtual environments
 .venv/

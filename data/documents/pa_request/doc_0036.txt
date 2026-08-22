@@ -1,1 +1,3 @@
-Patient ID: SYNTH-0299. Requested medication: Drug C. Contact the office with any questions regarding this documentation. Prescriber: Dr. S. Ibrahim. Diagnosis: Placeholder Disorder.
+CASE ATTACHMENT
+Patient ID: SYNTH-0037. Requested medication: Drug C. :: Contact the office with any questions regarding this documentation. :: Prescriber: Dr. S. Ibrahim. Diagnosis: Placeholder Disorder.
+Attachment complete

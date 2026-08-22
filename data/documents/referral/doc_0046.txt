@@ -1,1 +1,3 @@
-Please retain a copy of this document for your records. Referral to specialty pharmacy program for Example Condition. Relevant history and prior treatment records are attached for review. Case reference number: CASE-13994. Reason for referral: initiation of Drug D therapy.
+CASE ATTACHMENT
+Please retain a copy of this document for your records. :: Referral to specialty pharmacy program for Example Condition. :: Relevant history and prior treatment records are attached for review. :: Case reference number: CASE-13994. :: Reason for referral: initiation of Drug D therapy.
+Attachment complete

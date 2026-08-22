@@ -1,1 +1,3 @@
-On file with Demo Health Partners. Subjective: patient reports symptoms consistent with Placeholder Disorder. Case reference number: CASE-36709. Plan: continue Drug A, reassess at next follow-up visit. Contact the office with any questions regarding this documentation.
+SOURCE DOCUMENT
+On file with Demo Health Partners. ~ Subjective: patient reports symptoms consistent with Placeholder Disorder. ~ Case reference number: CASE-36709. ~ Plan: continue Drug A, reassess at next follow-up visit. ~ Contact the office with any questions regarding this documentation.
+End of source document

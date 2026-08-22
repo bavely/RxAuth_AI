@@ -1,1 +1,5 @@
-Case reference number: CASE-20030. Pharmacy: Example Specialty Pharmacy. NPI on file for Dr. K. Osei. Rx: Drug D. Sig: take as directed.
+SPECIALTY WORKFLOW RECORD
+Case reference number: CASE-20030.
+Pharmacy: Example Specialty Pharmacy. NPI on file for Dr. K. Osei.
+Rx: Drug D. Sig: take as directed.
+Confidential synthetic example

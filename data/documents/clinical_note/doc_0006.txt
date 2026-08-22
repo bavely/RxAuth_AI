@@ -1,1 +1,3 @@
-Regarding patient SYNTH-0294. Visit date: 2025-06-05. Next follow-up in 8 weeks. Document received and processed on file. Plan: continue Drug B, reassess at next follow-up visit.
+CASE ATTACHMENT
+Regarding patient SYNTH-0007. :: Visit date: 2025-06-05. Next follow-up in 8 weeks. :: Document received and processed on file. :: Plan: continue Drug B, reassess at next follow-up visit.
+Attachment complete

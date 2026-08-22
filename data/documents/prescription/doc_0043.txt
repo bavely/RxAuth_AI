@@ -1,1 +1,7 @@
-Substitution permitted unless otherwise indicated. Case reference number: CASE-91363. Regarding patient SYNTH-0101.
+PATIENT SERVICES
+Substitution permitted unless otherwise indicated.
+
+Case reference number: CASE-91363.
+
+Regarding patient SYNTH-0044.
+Synthetic record; not for care

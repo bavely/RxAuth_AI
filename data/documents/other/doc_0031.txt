@@ -1,1 +1,8 @@
-Patient ID: SYNTH-0091. Requested medication: Drug A. General correspondence regarding account and billing inquiry. Appointment reminder for SYNTH-0187 on 2025-07-22. Case reference number: CASE-40372. Office hours and holiday closure notice. Thank you letter from Sample Care Network member services.
+SPECIALTY WORKFLOW RECORD
+Patient ID: SYNTH-0032. Requested medication: Drug A.
+General correspondence regarding account and billing inquiry.
+Appointment reminder for SYNTH-0032 on 2025-07-22.
+Case reference number: CASE-40372.
+Office hours and holiday closure notice.
+Thank you letter from Sample Care Network member services.
+Confidential synthetic example

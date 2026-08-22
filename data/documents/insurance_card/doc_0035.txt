@@ -1,1 +1,7 @@
-RxBIN: 610014  RxPCN: EXPL  RxGRP: SAMPLE01. This card does not guarantee coverage. Refer to plan documents for details. On file with Example Health Plan. In case of emergency call 911 or go to the nearest emergency room. Customer Service: 1-800-555-0100. Pharmacy Helpdesk: 1-800-555-0199.
+DOCUMENT CONTROL
+RxBIN: 610014  RxPCN: EXPL  RxGRP: SAMPLE01.
+This card does not guarantee coverage. Refer to plan documents for details.
+On file with Example Health Plan.
+In case of emergency call 911 or go to the nearest emergency room.
+Customer Service: 1-800-555-0100. Pharmacy Helpdesk: 1-800-555-0199.
+Archive copy

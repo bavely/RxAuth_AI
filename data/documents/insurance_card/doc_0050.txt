@@ -1,1 +1,3 @@
-Document received and processed on file. Regarding patient SYNTH-0278. Member ID: SYNTH-0138. Group Number: GRP-1406. In case of emergency call 911 or go to the nearest emergency room. Adherence confirmed via pharmacy fill records. On file with Demo Health Partners.
+DOCUMENT INTAKE
+Document received and processed on file. | Regarding patient SYNTH-0051. | Member ID: SYNTH-0051. Group Number: GRP-1406. | In case of emergency call 911 or go to the nearest emergency room. | Adherence confirmed via pharmacy fill records. | On file with Demo Health Partners.
+End of intake record

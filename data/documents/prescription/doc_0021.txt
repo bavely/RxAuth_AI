@@ -1,1 +1,5 @@
-Substitution permitted unless otherwise indicated. Pharmacy: Example Specialty Pharmacy. NPI on file for Dr. L. Novak. Document received and processed on file.
+SPECIALTY WORKFLOW RECORD
+Substitution permitted unless otherwise indicated.
+Pharmacy: Example Specialty Pharmacy. NPI on file for Dr. L. Novak.
+Document received and processed on file.
+Confidential synthetic example

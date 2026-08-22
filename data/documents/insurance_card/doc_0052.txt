@@ -1,1 +1,3 @@
-RxBIN: 610014  RxPCN: EXPL  RxGRP: SAMPLE01. Contact the office with any questions regarding this documentation. Case reference number: CASE-45941. Please retain a copy of this document for your records.
+TRANSMITTAL
+RxBIN: 610014  RxPCN: EXPL  RxGRP: SAMPLE01. -- Contact the office with any questions regarding this documentation. -- Case reference number: CASE-45941. -- Please retain a copy of this document for your records.
+Generated for training only

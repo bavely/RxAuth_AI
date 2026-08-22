@@ -1,1 +1,5 @@
-Regarding patient SYNTH-0223. Prescriber: Dr. A. Rivera. Diagnosis: Placeholder Disorder. On file with Example Health Plan.
+SPECIALTY WORKFLOW RECORD
+Regarding patient SYNTH-0042.
+Prescriber: Dr. A. Rivera. Diagnosis: Placeholder Disorder.
+On file with Example Health Plan.
+Confidential synthetic example

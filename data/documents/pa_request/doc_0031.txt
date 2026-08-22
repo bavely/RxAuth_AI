@@ -1,1 +1,6 @@
-Contact the office with any questions regarding this documentation. Prescriber: Dr. A. Rivera. Diagnosis: Example Condition. Document received and processed on file. Ordering provider: Dr. S. Ibrahim.
+SPECIALTY WORKFLOW RECORD
+Contact the office with any questions regarding this documentation.
+Prescriber: Dr. A. Rivera. Diagnosis: Example Condition.
+Document received and processed on file.
+Ordering provider: Dr. S. Ibrahim.
+Confidential synthetic example

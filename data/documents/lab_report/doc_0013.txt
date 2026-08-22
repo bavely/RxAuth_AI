@@ -1,1 +1,11 @@
-Specimen type: venous blood draw. Document received and processed on file. Reference range and flag included per laboratory standard reporting. CRP: 11.5 — collected 2025-03-05. Ordering provider: Dr. L. Novak.
+PATIENT SERVICES
+Specimen type: venous blood draw.
+
+Document received and processed on file.
+
+Reference range and flag included per laboratory standard reporting.
+
+CRP: 11.5 — collected 2025-03-05.
+
+Ordering provider: Dr. L. Novak.
+Synthetic record; not for care

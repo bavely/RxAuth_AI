@@ -1,1 +1,7 @@
-Customer Service: 1-800-555-0100. Pharmacy Helpdesk: 1-800-555-0199. Document received and processed on file. Plan type: PPO. Effective date: 2025-08-22. RxBIN: 610014  RxPCN: EXPL  RxGRP: SAMPLE01.
+SCANNED CORRESPONDENCE
+Customer Service: 1-800-555-0100. Pharmacy Helpdesk: 1-800-555-0199.
+Plan type: PPO. Effective date: 2025-08-22.
+Pharmacy: Example Specialty Pharmacy. NPI on file for Dr. S. Ibrahim.
+Document received and processed on file.
+RxBIN: 610014  RxPCN: EXPL  RxGRP: SAMPLE01.
+Image quality may affect recognition

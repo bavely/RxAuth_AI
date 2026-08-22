@@ -1,1 +1,3 @@
-On file with Placeholder Insurance Co.. Pharmacy: Example Specialty Pharmacy. NPI on file for Dr. L. Novak. Prescriber: Dr. S. Ibrahim. DEA number on file.
+SOURCE DOCUMENT
+On file with Placeholder Insurance Co.. ~ Pharmacy: Example Specialty Pharmacy. NPI on file for Dr. L. Novak. ~ Prescriber: Dr. S. Ibrahim. DEA number on file.
+End of source document

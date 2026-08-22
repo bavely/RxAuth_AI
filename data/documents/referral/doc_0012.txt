@@ -1,1 +1,3 @@
-Patient: SYNTH-0281. Please schedule an intake appointment. Please retain a copy of this document for your records. Regarding patient SYNTH-0038. Document received and processed on file.
+TRANSMITTAL
+Patient: SYNTH-0013. Please schedule an intake appointment. -- Please retain a copy of this document for your records. -- Regarding patient SYNTH-0013. -- Document received and processed on file.
+Generated for training only

@@ -1,1 +1,11 @@
-Health plan: Placeholder Insurance Co.. Please review the attached clinical documentation and approve coverage. Regarding patient SYNTH-0049. On file with Example Health Plan. Diagnosis code on file for Example Condition. Document received and processed on file.
+REVIEW PACKET
+Health plan: Placeholder Insurance Co.. Please review the attached clinical documentation and approve coverage.
+
+Regarding patient SYNTH-0058.
+
+On file with Example Health Plan.
+
+Diagnosis code on file for Example Condition.
+
+Document received and processed on file.
+Validation copy

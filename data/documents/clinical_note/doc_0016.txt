@@ -1,1 +1,3 @@
-Subjective: patient reports symptoms consistent with Sample Syndrome. Objective: vitals stable. LDL cholesterol reviewed and discussed with patient. Progress note for patient SYNTH-0153 seen by Dr. A. Rivera. Plan: continue Drug C, reassess at next follow-up visit. Contact the office with any questions regarding this documentation.
+CASE ATTACHMENT
+Subjective: patient reports symptoms consistent with Sample Syndrome. :: Objective: vitals stable. LDL cholesterol reviewed and discussed with patient. :: Progress note for patient SYNTH-0017 seen by Dr. A. Rivera. :: Plan: continue Drug C, reassess at next follow-up visit. :: Contact the office with any questions regarding this documentation.
+Attachment complete

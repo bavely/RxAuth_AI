@@ -1,1 +1,6 @@
-Fax cover sheet. Number of pages: 3. Regarding patient SYNTH-0199. On file with Demo Health Partners. This request is submitted in accordance with the plan's step-therapy and prior-authorization policy.
+SPECIALTY WORKFLOW RECORD
+Fax cover sheet. Number of pages: 3.
+Regarding patient SYNTH-0012.
+On file with Demo Health Partners.
+This request is submitted in accordance with the plan's step-therapy and prior-authorization policy.
+Confidential synthetic example

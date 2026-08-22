@@ -1,1 +1,11 @@
-Regarding patient SYNTH-0210. Pharmacy: Example Specialty Pharmacy. NPI on file for Dr. L. Novak. On file with Example Health Plan. Contact the office with any questions regarding this documentation. Prior authorization on file with Placeholder Insurance Co. for prior therapy.
+REVIEW PACKET
+Regarding patient SYNTH-0008.
+
+Pharmacy: Example Specialty Pharmacy. NPI on file for Dr. L. Novak.
+
+On file with Example Health Plan.
+
+Contact the office with any questions regarding this documentation.
+
+Prior authorization on file with Placeholder Insurance Co. for prior therapy.
+Validation copy

@@ -1,1 +1,5 @@
-Regarding patient SYNTH-0188. Prescriber: Dr. M. Chen. DEA number on file. Rx: Drug C. Sig: take as directed.
+DOCUMENT CONTROL
+Regarding patient SYNTH-0056.
+Prescriber: Dr. M. Chen. DEA number on file.
+Rx: Drug C. Sig: take as directed.
+Archive copy

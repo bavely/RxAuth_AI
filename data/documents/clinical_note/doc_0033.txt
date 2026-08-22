@@ -1,1 +1,11 @@
-Assessment: Example Condition, stable on current regimen. Visit date: 2025-07-14. Next follow-up in 8 weeks. Case reference number: CASE-93264. Progress note for patient SYNTH-0129 seen by Dr. L. Novak. On file with Example Health Plan.
+PATIENT SERVICES
+Assessment: Example Condition, stable on current regimen.
+
+Visit date: 2025-07-14. Next follow-up in 8 weeks.
+
+Case reference number: CASE-93264.
+
+Progress note for patient SYNTH-0034 seen by Dr. L. Novak.
+
+On file with Example Health Plan.
+Synthetic record; not for care

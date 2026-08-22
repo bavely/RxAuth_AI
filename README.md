@@ -1,7 +1,7 @@
 # RxAuth AI
 ## Specialty Pharmacy Prior Authorization Intelligence Copilot
 
-> **Status:** Architecture / planning stage.
+> **Status:** Phase 1.5 ingestion and benchmark hardening complete.
 > **Goal:** One flagship AI-engineering project that begins as IBM AI Engineering coursework, grows into a portfolio system, and has a credible path to a commercial pilot — built incrementally so the commit history traces the progression from classical ML through deep learning to RAG and agentic systems.
 
 **Author:** Bavely S. Tawfik — [pavli-tawfik.com](https://pavli-tawfik.com) · [linkedin.com/in/bavelytawfik](https://www.linkedin.com/in/bavelytawfik) · [github.com/bavely](https://github.com/bavely)
@@ -15,11 +15,23 @@ The current implementation is a Python 3.12 prototype with an offline Milestone 
 ```bash
 uv sync --group dev
 uv run rxauth-milestone0
+uv run rxauth-build-dataset
+uv run rxauth-benchmark-ingestion
 uv run rxauth-train-classifier
 uv run pytest
 ```
 
-The synthetic classifier corpus is checked in for reproducibility. Rebuild it with `uv run rxauth-build-dataset`. See [the Milestone 0 guide](docs/milestone-0.md) for expected output and implementation details.
+The synthetic classifier and rendered ingestion corpora are checked in for reproducibility. See [the Milestone 0 guide](docs/milestone-0.md) for the pipeline spine and [the Phase 1.5 guide](docs/phase-1.5.md) for ingestion and benchmark details.
+
+### Phase 1.5 outcomes
+
+- Text, text-PDF, and image ingestion share a page-level typed contract.
+- Images pass through deterministic grayscale, denoise, deskew, and threshold preprocessing.
+- Synthetic PDFs and degraded PNG scans are reproducibly rendered and tracked in `data/ingestion_manifest.csv`.
+- Classification uses case- and template-family-isolated train/validation/test/challenge splits.
+- The baseline reports macro F1, confidence calibration, review-routing rate, latency, and challenge failures.
+- The fitted classifier can be saved, loaded, and used to create typed `Document` predictions.
+- OCR text accuracy is intentionally unreported until an OCR runtime is configured; optional Tesseract support and an injectable backend are available.
 
 ### Repository layout
 
@@ -243,7 +255,7 @@ That principle governs the architecture, interface, evaluation strategy, and com
 ## Roadmap status
 
 - [x] Milestone 0 — one case, end to end (Python-only)
-- [ ] Ingestion pipeline + synthetic dataset (§7) — text-level synthetic corpus done; PDF/image rendering + OpenCV preprocessing still open
+- [x] Phase 1.5 — ingestion pipeline + hardened synthetic benchmark (§7)
 - [x] Classifier baseline (§8, Phase 1)
 - [ ] Deep-learning classifier + comparison (§8, Phase 2)
 - [ ] Information extraction with confidence (§9)

@@ -1,54 +1,114 @@
-# Classifier baseline — TF-IDF + Logistic Regression
+# Phase 1.5 classifier benchmark — TF-IDF + Logistic Regression
 
-_Main README §8, Phase 1. Reproducible: `rxauth-build-dataset` then `rxauth-train-classifier`._
+_Reproducible: `rxauth-build-dataset` then `rxauth-train-classifier`._
 
-## Dataset
+## Dataset contract
 - Source: `data/manifest.csv`
-- Train / val / test sizes: 336 / 72 / 72
+- Train / val / test / challenge sizes: 336 / 48 / 48 / 48
 - Classes (8): clinical_note, insurance_card, lab_report, medication_history, other, pa_request, prescription, referral
-- All documents are template-generated synthetic text (main README §3 guardrail) — no real patient, provider, or payer data.
-- The vectorizer is fit on the train split only; val/test text is never seen during fitting (leakage check).
+- Cases and template families are mutually exclusive across every split.
+- Challenge documents use an unseen layout family, cross-class noise, and deterministic OCR-like character corruption.
+- All content is synthetic; these metrics do not claim clinical or production validity.
 
-## Headline metrics
-- Train accuracy: 0.991
-- Test accuracy: 0.986
-- Train/test accuracy gap: 0.005 (no evidence of overfitting)
-- Inference latency: 0.628 ms/document (single-document predict, CPU, includes vectorization)
+## Training
+- Train accuracy: 0.994
+- Vectorizer fit: train split only
+- Confidence threshold for human review: 0.65
 
-## Per-class precision / recall / F1
+## Val metrics
+- Accuracy: 0.938
+- Macro F1: 0.936
+- Mean confidence: 0.614
+- Expected calibration error (10 bins): 0.323
+- Human-review routing rate: 45.8%
+- Batch inference latency: 0.004 ms/document (CPU)
+
 ```
                     precision    recall  f1-score   support
 
-     clinical_note      1.000     1.000     1.000         9
-    insurance_card      1.000     1.000     1.000         9
-        lab_report      1.000     1.000     1.000         9
-medication_history      1.000     1.000     1.000         9
-             other      1.000     1.000     1.000         9
-        pa_request      0.900     1.000     0.947         9
-      prescription      1.000     1.000     1.000         9
-          referral      1.000     0.889     0.941         9
+     clinical_note      1.000     1.000     1.000         6
+    insurance_card      1.000     1.000     1.000         6
+        lab_report      1.000     0.833     0.909         6
+medication_history      1.000     0.667     0.800         6
+             other      1.000     1.000     1.000         6
+        pa_request      0.750     1.000     0.857         6
+      prescription      0.857     1.000     0.923         6
+          referral      1.000     1.000     1.000         6
 
-          accuracy                          0.986        72
-         macro avg      0.988     0.986     0.986        72
-      weighted avg      0.987     0.986     0.986        72
+          accuracy                          0.938        48
+         macro avg      0.951     0.938     0.936        48
+      weighted avg      0.951     0.938     0.936        48
 ```
 
-## Confusion matrix (rows = true label, columns = predicted label)
+## Test metrics
+- Accuracy: 0.979
+- Macro F1: 0.979
+- Mean confidence: 0.561
+- Expected calibration error (10 bins): 0.418
+- Human-review routing rate: 68.8%
+- Batch inference latency: 0.004 ms/document (CPU)
+
+```
+                    precision    recall  f1-score   support
+
+     clinical_note      1.000     1.000     1.000         6
+    insurance_card      1.000     1.000     1.000         6
+        lab_report      1.000     1.000     1.000         6
+medication_history      1.000     0.833     0.909         6
+             other      1.000     1.000     1.000         6
+        pa_request      0.857     1.000     0.923         6
+      prescription      1.000     1.000     1.000         6
+          referral      1.000     1.000     1.000         6
+
+          accuracy                          0.979        48
+         macro avg      0.982     0.979     0.979        48
+      weighted avg      0.982     0.979     0.979        48
+```
+
+## Challenge metrics
+- Accuracy: 0.917
+- Macro F1: 0.916
+- Mean confidence: 0.560
+- Expected calibration error (10 bins): 0.357
+- Human-review routing rate: 68.8%
+- Batch inference latency: 0.004 ms/document (CPU)
+
+```
+                    precision    recall  f1-score   support
+
+     clinical_note      1.000     1.000     1.000         6
+    insurance_card      0.750     1.000     0.857         6
+        lab_report      1.000     1.000     1.000         6
+medication_history      1.000     1.000     1.000         6
+             other      0.857     1.000     0.923         6
+        pa_request      0.800     0.667     0.727         6
+      prescription      1.000     0.833     0.909         6
+          referral      1.000     0.833     0.909         6
+
+          accuracy                          0.917        48
+         macro avg      0.926     0.917     0.916        48
+      weighted avg      0.926     0.917     0.916        48
+```
+
+## Test confusion matrix (rows = true label, columns = predicted label)
 | true \ pred | clinical_note | insurance_card | lab_report | medication_history | other | pa_request | prescription | referral |
 |---|---|---|---|---|---|---|---|---|
-| clinical_note | 9 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| insurance_card | 0 | 9 | 0 | 0 | 0 | 0 | 0 | 0 |
-| lab_report | 0 | 0 | 9 | 0 | 0 | 0 | 0 | 0 |
-| medication_history | 0 | 0 | 0 | 9 | 0 | 0 | 0 | 0 |
-| other | 0 | 0 | 0 | 0 | 9 | 0 | 0 | 0 |
-| pa_request | 0 | 0 | 0 | 0 | 0 | 9 | 0 | 0 |
-| prescription | 0 | 0 | 0 | 0 | 0 | 0 | 9 | 0 |
-| referral | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 8 |
+| clinical_note | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| insurance_card | 0 | 6 | 0 | 0 | 0 | 0 | 0 | 0 |
+| lab_report | 0 | 0 | 6 | 0 | 0 | 0 | 0 | 0 |
+| medication_history | 0 | 0 | 0 | 5 | 0 | 1 | 0 | 0 |
+| other | 0 | 0 | 0 | 0 | 6 | 0 | 0 | 0 |
+| pa_request | 0 | 0 | 0 | 0 | 0 | 6 | 0 | 0 |
+| prescription | 0 | 0 | 0 | 0 | 0 | 0 | 6 | 0 |
+| referral | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 6 |
 
-## Failure cases
+## Challenge failure cases
 | file | true | predicted | text snippet |
 |---|---|---|---|
-| documents/referral/doc_0029.txt | referral | pa_request | Referring provider: Dr. S. Ibrahim. Referred to: Specialty Clinic. Contact the office with... |
+| documents/pa_request/doc_0019.txt | pa_request | insurance_card | SCANNED CORRESPONDENCE Plcase retain a copy of this document for your records. Contact the... |
+| documents/pa_request/doc_0029.txt | pa_request | other | SCANNED CORRESPONDENCE Contact the office with any questions regarding this documentation.... |
+| documents/referral/doc_0029.txt | referral | pa_request | SCANNED CORRESPONDENCE Referring provider: Dr. S. Ibrahim. Referred to: Specialty Clinic.... |
+| documents/prescription/doc_0049.txt | prescription | insurance_card | SCANNED CORRESPONDENCC Contact the office with any questions regarding this documentation.... |
 
-## Known limitation
-This dataset is template-generated synthetic text, not real scanned/OCR'd documents. These numbers validate the pipeline and evaluation methodology end to end — they are not a claim about real-world generalization (main README §3, no-fabricated-metrics guardrail). Phase 2 (§8) compares a deep model against this same methodology on the same dataset contract.
+## Interpretation
+The grouped test set is the primary Phase 1.5 comparison point. The challenge set is deliberately harder and should be used for robustness/error analysis, not model selection. The rendered PDF/image corpus separately validates the ingestion boundary; image OCR quality depends on the configured OCR backend.

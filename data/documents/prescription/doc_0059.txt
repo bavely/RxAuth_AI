@@ -1,1 +1,8 @@
-Rx: Drug D. Sig: take as directed. Prescriber: Dr. S. Ibrahim. DEA number on file. Patient: SYNTH-0197. Date written: 2025-05-22. Pharmacy: Example Specialty Pharmacy. NPI on file for Dr. S. Ibrahim. Document received and processed on file.
+SCANNED CORRESPONDENCE
+Prescriber: Dr. S. Ibrahim. DEA number on file.
+Patient: SYNTH-0060. Date wr1tten: 2025-05-22.
+Document received and processed on file.
+Rx: Drug D. Sig: takc as directed.
+Specimen type: venous blood draw.
+Pharmacy: Example Specialty Pharmacy. NPI 0n file for Dr. S. Ibrahim.
+Image quality may affect recognition

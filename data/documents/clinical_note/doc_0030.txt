@@ -1,1 +1,3 @@
-Document received and processed on file. Please retain a copy of this document for your records. Case reference number: CASE-57262. Subjective: patient reports symptoms consistent with Example Condition. Plan: continue Drug C, reassess at next follow-up visit.
+DOCUMENT INTAKE
+Document received and processed on file. | Please retain a copy of this document for your records. | Case reference number: CASE-57262. | Subjective: patient reports symptoms consistent with Example Condition. | Plan: continue Drug C, reassess at next follow-up visit.
+End of intake record

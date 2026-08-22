@@ -1,1 +1,3 @@
-Diagnosis code on file for Example Condition. This request is submitted in accordance with the plan's step-therapy and prior-authorization policy. Prior Authorization Request for Drug C. Medication history for SYNTH-0103. Quantity requested: 30-day supply. Date of request: 2025-02-14. Regarding patient SYNTH-0156.
+TRANSMITTAL
+Diagnosis code on file for Example Condition. -- This request is submitted in accordance with the plan's step-therapy and prior-authorization policy. -- Prior Authorization Request for Drug C. -- Medication history for SYNTH-0013. -- Quantity requested: 30-day supply. Date of request: 2025-02-14. -- Regarding patient SYNTH-0013.
+Generated for training only

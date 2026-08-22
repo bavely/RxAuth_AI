@@ -1,1 +1,11 @@
-Quantity: 30. Refills: 2. Dispense as written. On file with Placeholder Insurance Co.. Case reference number: CASE-58400. Please retain a copy of this document for your records. Rx: Drug A. Sig: take as directed.
+REVIEW PACKET
+Quantity: 30. Refills: 2. Dispense as written.
+
+On file with Placeholder Insurance Co..
+
+Case reference number: CASE-58400.
+
+Please retain a copy of this document for your records.
+
+Rx: Drug A. Sig: take as directed.
+Validation copy

@@ -1,1 +1,3 @@
-Contact the office with any questions regarding this documentation. Patient: SYNTH-0019. Please schedule an intake appointment. Referring provider: Dr. K. Osei. Referred to: Specialty Clinic.
+CASE ATTACHMENT
+Contact the office with any questions regarding this documentation. :: Patient: SYNTH-0037. Please schedule an intake appointment. :: Referring provider: Dr. K. Osei. Referred to: Specialty Clinic.
+Attachment complete

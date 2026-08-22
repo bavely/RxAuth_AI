@@ -1,1 +1,7 @@
-On file with Sample Care Network. Patient: SYNTH-0199. Please schedule an intake appointment. Reason for referral: initiation of Drug C therapy. Case reference number: CASE-92452. Please confirm receipt of this referral within 5 business days.
+SCANNED CORRE5PONDCNCE
+On file with Sample Care Network.
+Patient: SYNTH-0060. Pleasc schedule an intake appointment.
+Reason for referral: initiation of Drug C therapy.
+Case reference number: CASC-92452.
+Please confirm receipt of this referral within 5 business day5.
+Image quality may affect recognition

@@ -1,1 +1,7 @@
-Case reference number: CASE-99498. Pharmacy: Example Specialty Pharmacy. NPI on file for Dr. S. Ibrahim. Substitution permitted unless otherwise indicated.
+PATIENT SERVICES
+Case reference number: CASE-99498.
+
+Pharmacy: Example Specialty Pharmacy. NPI on file for Dr. S. Ibrahim.
+
+Substitution permitted unless otherwise indicated.
+Synthetic record; not for care

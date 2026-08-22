@@ -1,1 +1,5 @@
-Progress note for patient SYNTH-0099 seen by Dr. S. Ibrahim. On file with Example Health Plan. Contact the office with any questions regarding this documentation.
+SPECIALTY WORKFLOW RECORD
+Progress note for patient SYNTH-0002 seen by Dr. S. Ibrahim.
+On file with Example Health Plan.
+Contact the office with any questions regarding this documentation.
+Confidential synthetic example

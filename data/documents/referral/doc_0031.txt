@@ -1,1 +1,7 @@
-Regarding patient SYNTH-0019. On file with Demo Health Partners. Document received and processed on file. Relevant history and prior treatment records are attached for review. Patient: SYNTH-0091. Please schedule an intake appointment.
+SPECIALTY WORKFLOW RECORD
+Regarding patient SYNTH-0032.
+On file with Demo Health Partners.
+Document received and processed on file.
+Relevant history and prior treatment records are attached for review.
+Patient: SYNTH-0032. Please schedule an intake appointment.
+Confidential synthetic example

@@ -1,1 +1,6 @@
-Patient: SYNTH-0216. Please schedule an intake appointment. Please confirm receipt of this referral within 5 business days. Contact the office with any questions regarding this documentation. Attached: chart notes, lab results, and medication history supporting this request.
+SCANNED CORRESPONDENCE
+Patient: SYNTH-0020. Please schedule an intake appointment.
+Please c0nfirm receipt of this referral within 5 business days.
+Contact the office with any questions regarding this documentation.
+Attached: chart notes, lab results, and medication history supporting this request.
+Image quality may affect recognition

@@ -1,1 +1,3 @@
-Drug A — 18 weeks of therapy documented. No known drug allergies reported. Case reference number: CASE-84974. Document received and processed on file.
+DOCUMENT INTAKE
+Drug A — 18 weeks of therapy documented. | No known drug allergies reported. | Case reference number: CASE-84974. | Document received and processed on file.
+End of intake record

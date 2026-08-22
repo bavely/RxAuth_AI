@@ -1,1 +1,3 @@
-Visit date: 2025-05-22. Next follow-up in 8 weeks. Assessment: Sample Syndrome, stable on current regimen. Contact the office with any questions regarding this documentation. No acute distress noted on exam today. Plan: continue Drug D, reassess at next follow-up visit. Pharmacy: Example Specialty Pharmacy. NPI on file for Dr. L. Novak.
+SOURCE DOCUMENT
+Visit date: 2025-05-22. Next follow-up in 8 weeks. ~ Assessment: Sample Syndrome, stable on current regimen. ~ Contact the office with any questions regarding this documentation. ~ No acute distress noted on exam today. ~ Plan: continue Drug D, reassess at next follow-up visit. ~ Pharmacy: Example Specialty Pharmacy. NPI on file for Dr. L. Novak.
+End of source document

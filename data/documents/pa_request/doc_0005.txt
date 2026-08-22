@@ -1,1 +1,6 @@
-Regarding patient SYNTH-0290. Health plan: Sample Care Network. Please review the attached clinical documentation and approve coverage. Prior Authorization Request for Drug C. Prescriber: Dr. L. Novak. Diagnosis: Sample Syndrome.
+DOCUMENT CONTROL
+Regarding patient SYNTH-0006.
+Health plan: Sample Care Network. Please review the attached clinical documentation and approve coverage.
+Prior Authorization Request for Drug C.
+Prescriber: Dr. L. Novak. Diagnosis: Sample Syndrome.
+Archive copy
