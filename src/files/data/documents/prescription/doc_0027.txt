@@ -1,0 +1,1 @@
+Patient: SYNTH-0017. Date written: 2025-11-05. Case reference number: CASE-68088. Rx: Drug A. Sig: take as directed. Pharmacy: Example Specialty Pharmacy. NPI on file for Dr. M. Chen.

@@ -1,0 +1,1 @@
+On file with Example Health Plan. Rx: Drug A. Sig: take as directed. Quantity: 30. Refills: 2. Dispense as written. Pharmacy: Example Specialty Pharmacy. NPI on file for Dr. M. Chen. Regarding patient SYNTH-0173.

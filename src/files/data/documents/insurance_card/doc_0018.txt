@@ -1,0 +1,1 @@
+On file with Sample Care Network. In case of emergency call 911 or go to the nearest emergency room. RxBIN: 610014  RxPCN: EXPL  RxGRP: SAMPLE01.

@@ -1,0 +1,1 @@
+Prescriber: Dr. S. Ibrahim. Diagnosis: Sample Syndrome. Diagnosis code on file for Example Condition. Regarding patient SYNTH-0115. Patient ID: SYNTH-0105. Requested medication: Drug B. Health plan: Demo Health Partners. Please review the attached clinical documentation and approve coverage.
