@@ -1,9 +1,9 @@
 # Classifier baseline — TF-IDF + Logistic Regression
 
-_Main README §8, Phase 1. Reproducible: `python data/build_dataset.py` then `python train_classifier_baseline.py`._
+_Main README §8, Phase 1. Reproducible: `rxauth-build-dataset` then `rxauth-train-classifier`._
 
 ## Dataset
-- Source: `D:/Cloud/DevLap/Projects/RxAuth AI/files/src/files/data/manifest.csv`
+- Source: `data/manifest.csv`
 - Train / val / test sizes: 336 / 72 / 72
 - Classes (8): clinical_note, insurance_card, lab_report, medication_history, other, pa_request, prescription, referral
 - All documents are template-generated synthetic text (main README §3 guardrail) — no real patient, provider, or payer data.
@@ -13,7 +13,7 @@ _Main README §8, Phase 1. Reproducible: `python data/build_dataset.py` then `py
 - Train accuracy: 0.991
 - Test accuracy: 0.986
 - Train/test accuracy gap: 0.005 (no evidence of overfitting)
-- Inference latency: 0.418 ms/document (single-document predict, CPU, includes vectorization)
+- Inference latency: 0.628 ms/document (single-document predict, CPU, includes vectorization)
 
 ## Per-class precision / recall / F1
 ```
@@ -48,7 +48,7 @@ medication_history      1.000     1.000     1.000         9
 ## Failure cases
 | file | true | predicted | text snippet |
 |---|---|---|---|
-| doc_0029.txt | referral | pa_request | Referring provider: Dr. S. Ibrahim. Referred to: Specialty Clinic. Contact the office with... |
+| documents/referral/doc_0029.txt | referral | pa_request | Referring provider: Dr. S. Ibrahim. Referred to: Specialty Clinic. Contact the office with... |
 
 ## Known limitation
 This dataset is template-generated synthetic text, not real scanned/OCR'd documents. These numbers validate the pipeline and evaluation methodology end to end — they are not a claim about real-world generalization (main README §3, no-fabricated-metrics guardrail). Phase 2 (§8) compares a deep model against this same methodology on the same dataset contract.

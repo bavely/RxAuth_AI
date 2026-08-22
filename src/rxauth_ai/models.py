@@ -8,10 +8,11 @@ back to where it came from.
 Milestone 0 is deterministic and offline: there is no database and no LLM.
 The point is to prove the *shape* of the pipeline end to end for one case.
 """
+
 from __future__ import annotations
 
 from enum import Enum
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -43,6 +44,7 @@ class EvaluationMethod(str, Enum):
 
 class Provenance(BaseModel):
     """Where a value came from. Attached to every extracted value and criterion."""
+
     document_id: Optional[str] = None
     filename: Optional[str] = None
     page: Optional[int] = None
@@ -61,6 +63,7 @@ class Document(BaseModel):
 
 class Evidence(BaseModel):
     """A normalized fact extracted from a document, with provenance and confidence."""
+
     id: str
     evidence_type: str
     medication: Optional[str] = None
@@ -74,12 +77,13 @@ class Evidence(BaseModel):
 
 class Criterion(BaseModel):
     """A structured payer requirement extracted from policy prose."""
+
     id: str
     policy_id: str
     description: str
     criterion_type: str
     medication: Optional[str] = None
-    operator: Optional[str] = Field(
+    operator: Optional[Literal[">=", "<=", ">", "<", "==", "exists"]] = Field(
         default=None, description="One of >=, <=, >, <, ==, exists."
     )
     expected_value: Optional[float] = None
@@ -115,6 +119,7 @@ class Case(BaseModel):
 
 class CriterionEvaluation(BaseModel):
     """Result of checking one criterion against the case evidence."""
+
     criterion_id: str
     case_id: str
     result: CriterionResult
@@ -129,6 +134,7 @@ class CriterionEvaluation(BaseModel):
 
 class CaseReadinessReport(BaseModel):
     """The end-to-end output of Milestone 0 for one case."""
+
     case_id: str
     policy_id: str
     payer: str
@@ -136,7 +142,7 @@ class CaseReadinessReport(BaseModel):
     indication: str
     pa_required: bool
     documents_detected: int
-    mean_extraction_confidence: float
+    mean_classification_confidence: float
     criteria_total: int
     criteria_satisfied: int
     criteria_not_satisfied: int

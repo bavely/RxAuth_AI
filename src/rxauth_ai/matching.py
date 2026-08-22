@@ -9,6 +9,7 @@ calling any model — an ambiguous value is routed to a human instead of guessed
 Every evaluation returns a five-state result:
     SATISFIED / NOT_SATISFIED / MISSING / AMBIGUOUS / HUMAN_REVIEW_REQUIRED
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -18,8 +19,8 @@ from .models import (
     Criterion,
     CriterionEvaluation,
     CriterionResult,
-    Evidence,
     EvaluationMethod,
+    Evidence,
 )
 
 # Operators we can evaluate deterministically.
@@ -39,15 +40,13 @@ def _find_evidence(criterion: Criterion, case: Case) -> Optional[Evidence]:
     type, and same medication when the criterion names one. A later phase would
     replace this with retrieval + model-assisted linking.
     """
-    candidates = [
-        e for e in case.evidence if e.evidence_type == criterion.criterion_type
-    ]
+    candidates = [e for e in case.evidence if e.evidence_type == criterion.criterion_type]
     if criterion.medication is not None:
         candidates = [
             e
             for e in candidates
-            if e.medication is None
-            or e.medication.lower() == criterion.medication.lower()
+            if e.medication is not None
+            and e.medication.casefold() == criterion.medication.casefold()
         ]
     if not candidates:
         return None
@@ -115,6 +114,23 @@ def evaluate_criterion(criterion: Criterion, case: Case) -> CriterionEvaluation:
                 **base,
             )
 
+        if (
+            criterion.unit is not None
+            and evidence.unit is not None
+            and criterion.unit.casefold() != evidence.unit.casefold()
+        ):
+            return CriterionEvaluation(
+                result=CriterionResult.HUMAN_REVIEW_REQUIRED,
+                supporting_evidence_ids=[evidence.id],
+                confidence=min(evidence.confidence, 0.50),
+                evaluation_method=EvaluationMethod.NONE,
+                explanation=(
+                    f"Cannot compare evidence in {evidence.unit!r} with a criterion in "
+                    f"{criterion.unit!r} without an explicit unit conversion."
+                ),
+                **base,
+            )
+
         # 4. Deterministic numeric comparison.
         op = _OPERATORS[criterion.operator]
         passed = op(evidence.value, criterion.expected_value)
@@ -130,9 +146,7 @@ def evaluate_criterion(criterion: Criterion, case: Case) -> CriterionEvaluation:
             )
 
         result = (
-            CriterionResult.SATISFIED
-            if (passed and outcome_ok)
-            else CriterionResult.NOT_SATISFIED
+            CriterionResult.SATISFIED if (passed and outcome_ok) else CriterionResult.NOT_SATISFIED
         )
         return CriterionEvaluation(
             result=result,
@@ -146,7 +160,23 @@ def evaluate_criterion(criterion: Criterion, case: Case) -> CriterionEvaluation:
             **base,
         )
 
-    # 5. Existence-only criterion (no numeric comparison) and evidence is present.
+    # 5. Outcome-only criterion and evidence is present.
+    if criterion.required_outcome is not None:
+        outcome_ok = (evidence.outcome or "").casefold() == criterion.required_outcome.casefold()
+        return CriterionEvaluation(
+            result=(CriterionResult.SATISFIED if outcome_ok else CriterionResult.NOT_SATISFIED),
+            supporting_evidence_ids=[evidence.id],
+            confidence=min(evidence.confidence, 0.98),
+            evaluation_method=EvaluationMethod.DETERMINISTIC,
+            explanation=(
+                f"Required outcome {criterion.required_outcome!r} "
+                f"{'matches' if outcome_ok else 'does not match'} evidence outcome "
+                f"{evidence.outcome!r}."
+            ),
+            **base,
+        )
+
+    # 6. Existence-only criterion (no numeric/outcome comparison) and evidence is present.
     return CriterionEvaluation(
         result=CriterionResult.SATISFIED,
         supporting_evidence_ids=[evidence.id],

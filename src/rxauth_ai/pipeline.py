@@ -13,6 +13,7 @@ proves is the *spine*: structured entities flowing through a deterministic
 evaluation core, every result carrying provenance, uncertainty routed to a human,
 and a groundedness gate before anything is presented.
 """
+
 from __future__ import annotations
 
 from .groundedness import check_groundedness
@@ -26,6 +27,15 @@ from .models import (
 
 
 def run_pipeline(case: Case, policy: Policy) -> CaseReadinessReport:
+    mismatches = [
+        field
+        for field in ("payer", "medication", "indication")
+        if getattr(case, field).casefold() != getattr(policy, field).casefold()
+    ]
+    if mismatches:
+        fields = ", ".join(mismatches)
+        raise ValueError(f"Case and policy do not match on: {fields}.")
+
     # 1. Evaluate every policy criterion against the case evidence.
     evaluations = evaluate_case(case, policy.criteria)
 
@@ -37,10 +47,7 @@ def run_pipeline(case: Case, policy: Policy) -> CaseReadinessReport:
     for ev in evaluations:
         counts[ev.result] += 1
 
-    needs_review = (
-        counts[CriterionResult.AMBIGUOUS]
-        + counts[CriterionResult.HUMAN_REVIEW_REQUIRED]
-    )
+    needs_review = counts[CriterionResult.AMBIGUOUS] + counts[CriterionResult.HUMAN_REVIEW_REQUIRED]
 
     mean_conf = (
         sum(d.classification_confidence for d in case.documents) / len(case.documents)
@@ -56,7 +63,7 @@ def run_pipeline(case: Case, policy: Policy) -> CaseReadinessReport:
         indication=policy.indication,
         pa_required=case.pa_required,
         documents_detected=len(case.documents),
-        mean_extraction_confidence=round(mean_conf, 3),
+        mean_classification_confidence=round(mean_conf, 3),
         criteria_total=len(evaluations),
         criteria_satisfied=counts[CriterionResult.SATISFIED],
         criteria_not_satisfied=counts[CriterionResult.NOT_SATISFIED],

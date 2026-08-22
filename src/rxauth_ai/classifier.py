@@ -1,12 +1,13 @@
 """Document classification baseline — TF-IDF + Logistic Regression (main README §8, Phase 1).
 
-Loads the synthetic dataset built by `data/build_dataset.py`, trains a TF-IDF +
+Loads the reproducible synthetic dataset in `data/`, trains a TF-IDF +
 Logistic Regression classifier on the train split, and evaluates it on a held-out
 test split it never saw during fitting (val is reserved for future Phase-2
 comparison / hyperparameter selection, not used here). Reports accuracy,
 per-class precision/recall/F1, a confusion matrix, and inference latency —
 the numbers `reports/classifier_baseline.md` is built from.
 """
+
 from __future__ import annotations
 
 import csv
@@ -33,23 +34,25 @@ class DatasetSplit:
 def load_manifest(data_dir: Path) -> dict[str, DatasetSplit]:
     manifest_path = data_dir / "manifest.csv"
     if not manifest_path.exists():
-        raise FileNotFoundError(
-            f"{manifest_path} not found — run `python data/build_dataset.py` first."
-        )
+        raise FileNotFoundError(f"{manifest_path} not found — run `rxauth-build-dataset` first.")
 
-    splits: dict[str, DatasetSplit] = {"train": DatasetSplit(), "val": DatasetSplit(), "test": DatasetSplit()}
+    splits = {name: DatasetSplit() for name in ("train", "val", "test")}
     with manifest_path.open(newline="", encoding="utf-8") as f:
         for row in csv.DictReader(f):
+            if row["split"] not in splits:
+                raise ValueError(f"Unknown dataset split: {row['split']!r}")
             text = (data_dir / row["relative_path"]).read_text(encoding="utf-8")
             split = splits[row["split"]]
             split.texts.append(text)
             split.labels.append(row["label"])
-            split.filenames.append(row["filename"])
+            split.filenames.append(row["relative_path"])
     return splits
 
 
 def train_and_evaluate(splits: dict[str, DatasetSplit]) -> dict[str, Any]:
     train, test = splits["train"], splits["test"]
+    if not train or not test:
+        raise ValueError("Both train and test splits must contain at least one document.")
 
     # Fit the vectorizer on train only — fitting on test/val would leak
     # test-set vocabulary statistics into training (main README §8 leakage prevention).
@@ -61,9 +64,7 @@ def train_and_evaluate(splits: dict[str, DatasetSplit]) -> dict[str, Any]:
         sublinear_tf=True,
     )
     x_train = vectorizer.fit_transform(train.texts)
-    x_test = vectorizer.transform(test.texts)
-
-    model = LogisticRegression(max_iter=1000, class_weight="balanced")
+    model = LogisticRegression(max_iter=1000, class_weight="balanced", random_state=42)
     model.fit(x_train, train.labels)
 
     train_pred = model.predict(x_train)
@@ -83,7 +84,9 @@ def train_and_evaluate(splits: dict[str, DatasetSplit]) -> dict[str, Any]:
 
     misclassified = [
         (fn, true, pred, text[:90].replace("\n", " ").strip())
-        for fn, true, pred, text in zip(test.filenames, test.labels, test_pred, test.texts)
+        for fn, true, pred, text in zip(
+            test.filenames, test.labels, test_pred, test.texts, strict=True
+        )
         if true != pred
     ]
 
@@ -111,11 +114,11 @@ def render_report_md(results: dict[str, Any], data_dir: Path) -> str:
     lines = [
         "# Classifier baseline — TF-IDF + Logistic Regression",
         "",
-        "_Main README §8, Phase 1. Reproducible: `python data/build_dataset.py` then "
-        "`python train_classifier_baseline.py`._",
+        "_Main README §8, Phase 1. Reproducible: `rxauth-build-dataset` then "
+        "`rxauth-train-classifier`._",
         "",
         "## Dataset",
-        f"- Source: `{(data_dir / 'manifest.csv').as_posix()}`",
+        f"- Source: `{data_dir.name}/manifest.csv`",
         f"- Train / val / test sizes: {results['n_train']} / {results['n_val']} / {results['n_test']}",
         f"- Classes ({len(labels)}): {', '.join(labels)}",
         "- All documents are template-generated synthetic text (main README §3 guardrail) "
@@ -127,7 +130,9 @@ def render_report_md(results: dict[str, Any], data_dir: Path) -> str:
         f"- Train accuracy: {results['train_accuracy']:.3f}",
         f"- Test accuracy: {results['test_accuracy']:.3f}",
         f"- Train/test accuracy gap: {gap:.3f} "
-        + ("(no evidence of overfitting)" if gap < 0.05 else "(gap worth watching for overfitting)"),
+        + (
+            "(no evidence of overfitting)" if gap < 0.05 else "(gap worth watching for overfitting)"
+        ),
         f"- Inference latency: {results['latency_ms_per_doc']:.3f} ms/document "
         "(single-document predict, CPU, includes vectorization)",
         "",

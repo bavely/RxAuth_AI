@@ -18,14 +18,13 @@ The core design principles are all live here, even though the ML/RAG components 
 ## Run it
 
 ```bash
-pip install -r requirements.txt              # pydantic + scikit-learn
-python run_milestone0.py                     # human-readable summary + trace + JSON
-python run_milestone0.py --json-only         # structured output only
-python test_pipeline.py                      # or: python -m pytest -q
+uv sync --group dev
+uv run rxauth-milestone0                     # human-readable summary + trace + JSON
+uv run rxauth-milestone0 --json-only         # structured output only
 
-python data/build_dataset.py                 # generate the synthetic document dataset
-python train_classifier_baseline.py          # train + evaluate TF-IDF + LogReg (§8, Phase 1)
-python test_classifier.py                    # or: python -m pytest -q
+uv run rxauth-build-dataset                  # rebuild the synthetic document dataset
+uv run rxauth-train-classifier               # train + evaluate TF-IDF + LogReg (§8, Phase 1)
+uv run pytest                                # run the complete test suite
 ```
 
 Milestone 0 expected: 4 supported, 1 needs review (ambiguous), 1 missing, groundedness gate PASS. Structured output lands in `reports/case_PA-DEMO-001.json`.
@@ -35,23 +34,23 @@ Classifier baseline expected: ~0.98 test accuracy on the synthetic corpus, one o
 ## Layout
 
 ```
-files/
-├── run_milestone0.py             # Milestone 0 CLI entry point
-├── train_classifier_baseline.py  # §8 Phase 1 CLI entry point
-├── requirements.txt
-├── models.py                     # typed entities (main README §17)
-├── synthetic_case.py             # the one synthetic case + policy fixture
-├── matching.py                   # deterministic + ambiguity-aware evaluation (§12)
-├── groundedness.py               # citation/provenance gate (§14)
-├── pipeline.py                   # orchestrator → CaseReadinessReport
-├── classifier.py                 # TF-IDF + LogReg train/eval (§8, Phase 1)
-├── test_pipeline.py              # all five states + gate
-├── test_classifier.py            # dataset contract + classifier sanity checks
-├── data/
+.
+├── src/rxauth_ai/
+│   ├── cli.py                    # Milestone 0 CLI entry point
+│   ├── train_classifier.py       # §8 Phase 1 CLI entry point
 │   ├── build_dataset.py          # reproducible synthetic document generator (§7)
+│   ├── models.py                 # typed entities (main README §17)
+│   ├── synthetic_case.py         # the one synthetic case + policy fixture
+│   ├── matching.py               # deterministic + ambiguity-aware evaluation (§12)
+│   ├── groundedness.py           # citation/provenance gate (§14)
+│   ├── pipeline.py               # orchestrator → CaseReadinessReport
+│   └── classifier.py             # TF-IDF + LogReg train/eval (§8, Phase 1)
+├── tests/                        # pipeline and classifier tests
+├── data/
 │   ├── documents/<class>/*.txt   # generated corpus (8 classes)
 │   └── manifest.csv              # doc_id, label, split, ...
-└── reports/                      # JSON + classifier_baseline.md output
+├── reports/                      # JSON + classifier_baseline.md output
+└── pyproject.toml                # dependencies, CLI commands, and tool config
 ```
 
 ## What is intentionally NOT here yet
@@ -68,7 +67,7 @@ Per the main README's "what not to build first," Milestone 0 stubs the component
 
 The matching engine, five-state contract, provenance model, and groundedness gate built in Milestone 0 are the real thing and carry forward unchanged.
 
-**Scope note on §7:** `data/build_dataset.py` generates document *text* directly (standing in for what a real OCR/PDF-extraction step would output) rather than rendering actual PDF/image files and running them through deskew/denoise/OpenCV preprocessing. That's a deliberate simplification to unblock the classifier — real PDF/image ingestion is still open if a more realistic (scanned-document) corpus is wanted later.
+**Scope note on §7:** `rxauth-build-dataset` generates document *text* directly (standing in for what a real OCR/PDF-extraction step would output) rather than rendering actual PDF/image files and running them through deskew/denoise/OpenCV preprocessing. That's a deliberate simplification to unblock the classifier — real PDF/image ingestion is still open if a more realistic (scanned-document) corpus is wanted later.
 
 ## Next step
 

@@ -8,6 +8,32 @@
 
 ---
 
+## Quick start
+
+The current implementation is a Python 3.12 prototype with an offline Milestone 0 pipeline and a reproducible classical-ML document classifier.
+
+```bash
+uv sync --group dev
+uv run rxauth-milestone0
+uv run rxauth-train-classifier
+uv run pytest
+```
+
+The synthetic classifier corpus is checked in for reproducibility. Rebuild it with `uv run rxauth-build-dataset`. See [the Milestone 0 guide](docs/milestone-0.md) for expected output and implementation details.
+
+### Repository layout
+
+```text
+.
+├── src/rxauth_ai/    # installable application package and CLI entry points
+├── tests/            # automated tests
+├── data/             # synthetic corpus and manifest
+├── reports/          # reproducible evaluation artifacts
+├── docs/             # milestone and architecture documentation
+├── pyproject.toml    # package, dependency, test, and lint configuration
+└── uv.lock           # reproducible dependency lock
+```
+
 ## 1. What it is
 
 RxAuth AI is a **human-in-the-loop** prior-authorization intelligence platform for specialty-pharmacy workflows. Given a patient case, it ingests the supporting documents, classifies them, extracts structured evidence, retrieves the applicable payer policy, converts that policy into structured requirements, matches the evidence against those requirements, flags what's missing or ambiguous, drafts a citation-grounded response, validates the draft for unsupported claims, and presents everything to a human reviewer before submission.

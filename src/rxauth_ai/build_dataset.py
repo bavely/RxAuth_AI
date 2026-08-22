@@ -1,8 +1,7 @@
-#!/usr/bin/env python3
 """Reproducible synthetic document dataset builder (main README §7).
 
 Generates fabricated, template-based text documents across the taxonomy in
-`files.models.DocumentType` (pa_request, insurance_card, referral, prescription,
+`rxauth_ai.models.DocumentType` (pa_request, insurance_card, referral, prescription,
 clinical_note, medication_history, lab_report, other). These stand in for the
 text a real OCR/PDF-extraction step would produce, until that ingestion path
 is built for real.
@@ -14,27 +13,28 @@ Deterministic: the same --seed and --per-class always produce byte-identical
 output, so the dataset (and everything trained on it) is reproducible.
 
 Usage:
-    python build_dataset.py                    # default: 60 docs/class, seed 42
-    python build_dataset.py --per-class 100 --seed 7
+    rxauth-build-dataset                    # default: 60 docs/class, seed 42
+    rxauth-build-dataset --per-class 100 --seed 7
 """
+
 from __future__ import annotations
 
 import argparse
 import csv
 import random
-import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-
-from files.models import DocumentType  # noqa: E402
-
-OUT_DIR = Path(__file__).resolve().parent
+from .models import DocumentType
 
 # ---- synthetic vocabularies — all fabricated placeholders (README §3) ----
 SYNTH_PATIENTS = [f"SYNTH-{i:04d}" for i in range(1, 300)]
 SYNTH_PROVIDERS = ["Dr. A. Rivera", "Dr. M. Chen", "Dr. K. Osei", "Dr. L. Novak", "Dr. S. Ibrahim"]
-SYNTH_PAYERS = ["Example Health Plan", "Sample Care Network", "Placeholder Insurance Co.", "Demo Health Partners"]
+SYNTH_PAYERS = [
+    "Example Health Plan",
+    "Sample Care Network",
+    "Placeholder Insurance Co.",
+    "Demo Health Partners",
+]
 SYNTH_DRUGS = ["Drug A", "Drug B", "Drug C", "Drug D"]
 SYNTH_CONDITIONS = ["Example Condition", "Sample Syndrome", "Placeholder Disorder"]
 SYNTH_DATES = [f"2025-{m:02d}-{d:02d}" for m in range(1, 13) for d in (5, 14, 22)]
@@ -74,11 +74,17 @@ TEMPLATES: dict[str, list] = {
         lambda r: f"Prior Authorization Request for {_drug(r)}.",
         lambda r: f"Patient ID: {_p(r)}. Requested medication: {_drug(r)}.",
         lambda r: f"Prescriber: {_prov(r)}. Diagnosis: {_cond(r)}.",
-        lambda r: f"Health plan: {_payer(r)}. Please review the attached clinical documentation and approve coverage.",
+        lambda r: (
+            f"Health plan: {_payer(r)}. Please review the attached clinical documentation and approve coverage."
+        ),
         lambda r: f"Quantity requested: 30-day supply. Date of request: {_date(r)}.",
-        lambda r: "This request is submitted in accordance with the plan's step-therapy and prior-authorization policy.",
+        lambda r: (
+            "This request is submitted in accordance with the plan's step-therapy and prior-authorization policy."
+        ),
         lambda r: f"Diagnosis code on file for {_cond(r)}.",
-        lambda r: "Attached: chart notes, lab results, and medication history supporting this request.",
+        lambda r: (
+            "Attached: chart notes, lab results, and medication history supporting this request."
+        ),
     ],
     DocumentType.INSURANCE_CARD.value: [
         lambda r: f"{_payer(r)} Member Identification Card.",
@@ -111,7 +117,9 @@ TEMPLATES: dict[str, list] = {
         lambda r: f"Assessment: {_cond(r)}, stable on current regimen.",
         lambda r: f"Plan: continue {_drug(r)}, reassess at next follow-up visit.",
         lambda r: f"Subjective: patient reports symptoms consistent with {_cond(r)}.",
-        lambda r: f"Objective: vitals stable. {r.choice(SYNTH_LAB_NAMES)} reviewed and discussed with patient.",
+        lambda r: (
+            f"Objective: vitals stable. {r.choice(SYNTH_LAB_NAMES)} reviewed and discussed with patient."
+        ),
         lambda r: f"Visit date: {_date(r)}. Next follow-up in 8 weeks.",
         lambda r: "No acute distress noted on exam today.",
     ],
@@ -125,7 +133,9 @@ TEMPLATES: dict[str, list] = {
     ],
     DocumentType.LAB_REPORT.value: [
         lambda r: f"Laboratory Report for {_p(r)}.",
-        lambda r: f"{r.choice(SYNTH_LAB_NAMES)}: {r.uniform(4.0, 12.0):.1f} — collected {_date(r)}.",
+        lambda r: (
+            f"{r.choice(SYNTH_LAB_NAMES)}: {r.uniform(4.0, 12.0):.1f} — collected {_date(r)}."
+        ),
         lambda r: f"Ordering provider: {_prov(r)}.",
         lambda r: "Reference range and flag included per laboratory standard reporting.",
         lambda r: "Specimen type: venous blood draw.",
@@ -191,6 +201,9 @@ def build_dataset(out_dir: Path, per_class: int, seed: int) -> Path:
 
     Returns the path to the written manifest.csv.
     """
+    if per_class < 6:
+        raise ValueError("per_class must be at least 6 so train, val, and test are non-empty.")
+
     doc_dir = out_dir / "documents"
     manifest_path = out_dir / "manifest.csv"
 
@@ -201,6 +214,8 @@ def build_dataset(out_dir: Path, per_class: int, seed: int) -> Path:
         splits = _assign_splits(per_class, label_rng)
         label_dir = doc_dir / label
         label_dir.mkdir(parents=True, exist_ok=True)
+        for stale_document in label_dir.glob("doc_*.txt"):
+            stale_document.unlink()
 
         for i in range(per_class):
             doc_rng = random.Random(f"{seed}:{label}:{i}")
@@ -213,7 +228,9 @@ def build_dataset(out_dir: Path, per_class: int, seed: int) -> Path:
                 {
                     "doc_id": f"SYN-{doc_index:05d}",
                     "filename": filename,
-                    "relative_path": str((label_dir / filename).relative_to(out_dir)).replace("\\", "/"),
+                    "relative_path": str((label_dir / filename).relative_to(out_dir)).replace(
+                        "\\", "/"
+                    ),
                     "label": label,
                     "split": splits[i],
                     "char_count": len(text),
@@ -221,7 +238,9 @@ def build_dataset(out_dir: Path, per_class: int, seed: int) -> Path:
             )
 
     with manifest_path.open("w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["doc_id", "filename", "relative_path", "label", "split", "char_count"])
+        writer = csv.DictWriter(
+            f, fieldnames=["doc_id", "filename", "relative_path", "label", "split", "char_count"]
+        )
         writer.writeheader()
         writer.writerows(rows)
 
@@ -229,12 +248,25 @@ def build_dataset(out_dir: Path, per_class: int, seed: int) -> Path:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Build the synthetic document classification dataset.")
-    parser.add_argument("--per-class", type=int, default=60, help="Documents to generate per class.")
+    parser = argparse.ArgumentParser(
+        description="Build the synthetic document classification dataset."
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("data"),
+        help="Destination directory (default: ./data).",
+    )
+    parser.add_argument(
+        "--per-class",
+        type=int,
+        default=60,
+        help="Documents to generate per class; minimum 6 (default: 60).",
+    )
     parser.add_argument("--seed", type=int, default=42, help="Random seed (reproducibility).")
     args = parser.parse_args()
 
-    manifest_path = build_dataset(OUT_DIR, args.per_class, args.seed)
+    manifest_path = build_dataset(args.output_dir, args.per_class, args.seed)
     total = args.per_class * len(LABELS)
     print(f"Generated {total} synthetic documents across {len(LABELS)} classes.")
     print(f"Manifest: {manifest_path}")

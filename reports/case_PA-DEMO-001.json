@@ -6,7 +6,7 @@
   "indication": "Example Condition",
   "pa_required": true,
   "documents_detected": 5,
-  "mean_extraction_confidence": 0.96,
+  "mean_classification_confidence": 0.96,
   "criteria_total": 6,
   "criteria_satisfied": 4,
   "criteria_not_satisfied": 0,

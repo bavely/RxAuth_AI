@@ -13,6 +13,7 @@ A later phase adds LLM-drafted content and a semantic faithfulness check
 (e.g. Ragas). The interface stays the same: the gate returns PASS or FAIL plus
 the list of any ungrounded claims.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -40,6 +41,9 @@ def check_groundedness(evaluations: list[CriterionEvaluation]) -> GroundednessRe
     issues: list[str] = []
 
     for ev in evaluations:
+        if ev.supporting_evidence_ids and ev.patient_evidence_source is None:
+            issues.append(f"{ev.criterion_id}: cited patient evidence has no provenance.")
+
         # Any concrete satisfied/not-satisfied claim must cite patient evidence.
         if ev.result in _NEEDS_PATIENT_EVIDENCE:
             if not ev.supporting_evidence_ids:
@@ -47,16 +51,8 @@ def check_groundedness(evaluations: list[CriterionEvaluation]) -> GroundednessRe
                     f"{ev.criterion_id}: result {ev.result.value} claims support "
                     f"but cites no patient evidence."
                 )
-            if ev.patient_evidence_source is None:
-                issues.append(
-                    f"{ev.criterion_id}: result {ev.result.value} has no patient "
-                    f"evidence provenance."
-                )
-
         # Every evaluation must know which policy requirement it came from.
         if ev.policy_source is None:
-            issues.append(
-                f"{ev.criterion_id}: evaluation has no policy source provenance."
-            )
+            issues.append(f"{ev.criterion_id}: evaluation has no policy source provenance.")
 
     return GroundednessResult(passed=not issues, issues=issues)
