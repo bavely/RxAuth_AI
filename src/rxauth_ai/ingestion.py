@@ -103,8 +103,10 @@ def preprocess_image(path: Path) -> Any:
 
 def _tesseract_backend(image: Any) -> tuple[str, float]:
     try:
-        import pytesseract
-        from pytesseract import Output
+        from importlib import import_module
+
+        pytesseract = import_module("pytesseract")
+        output = pytesseract.Output
     except ImportError as exc:
         raise OCRUnavailableError(
             "Image OCR requires the optional `ocr` dependency and a Tesseract system binary. "
@@ -112,7 +114,7 @@ def _tesseract_backend(image: Any) -> tuple[str, float]:
         ) from exc
 
     try:
-        data = pytesseract.image_to_data(image, output_type=Output.DICT)
+        data = pytesseract.image_to_data(image, output_type=output.DICT)
     except Exception as exc:  # noqa: BLE001 - normalize backend/system failures
         raise OCRUnavailableError(
             "Tesseract could not process the image. Verify that its system binary is installed "

@@ -1,7 +1,7 @@
 # RxAuth AI
 ## Specialty Pharmacy Prior Authorization Intelligence Copilot
 
-> **Status:** Phase 1.5 ingestion and benchmark hardening complete.
+> **Status:** Phase 1.5 complete; Phase 2 transformer experiment harness implemented.
 > **Goal:** One flagship AI-engineering project that begins as IBM AI Engineering coursework, grows into a portfolio system, and has a credible path to a commercial pilot — built incrementally so the commit history traces the progression from classical ML through deep learning to RAG and agentic systems.
 
 **Author:** Bavely S. Tawfik — [pavli-tawfik.com](https://pavli-tawfik.com) · [linkedin.com/in/bavelytawfik](https://www.linkedin.com/in/bavelytawfik) · [github.com/bavely](https://github.com/bavely)
@@ -10,7 +10,7 @@
 
 ## Quick start
 
-The current implementation is a Python 3.12 prototype with an offline Milestone 0 pipeline and a reproducible classical-ML document classifier.
+The current implementation is a Python 3.12 prototype with an offline Milestone 0 pipeline, a reproducible classical-ML document classifier, and an optional Phase 2 transformer experiment.
 
 ```bash
 uv sync --group dev
@@ -21,7 +21,14 @@ uv run rxauth-train-classifier
 uv run pytest
 ```
 
-The synthetic classifier and rendered ingestion corpora are checked in for reproducibility. See [the Milestone 0 guide](docs/milestone-0.md) for the pipeline spine and [the Phase 1.5 guide](docs/phase-1.5.md) for ingestion and benchmark details.
+Run the optional deep-learning comparison separately:
+
+```bash
+uv sync --extra deep --group dev
+uv run rxauth-train-deep-classifier
+```
+
+The synthetic classifier and rendered ingestion corpora are checked in for reproducibility. See [the Milestone 0 guide](docs/milestone-0.md) for the pipeline spine, [the Phase 1.5 guide](docs/phase-1.5.md) for ingestion and benchmark details, and [the Phase 2 guide](docs/phase-2.md) for the transformer protocol and remaining acceptance work.
 
 ### Phase 1.5 outcomes
 
@@ -32,6 +39,14 @@ The synthetic classifier and rendered ingestion corpora are checked in for repro
 - The baseline reports macro F1, confidence calibration, review-routing rate, latency, and challenge failures.
 - The fitted classifier can be saved, loaded, and used to create typed `Document` predictions.
 - OCR text accuracy is intentionally unreported until an OCR runtime is configured; optional Tesseract support and an injectable backend are available.
+
+### Phase 2 build status
+
+- The transformer uses the same leakage-resistant train/validation/test/challenge contract as the baseline.
+- Checkpoint selection and early stopping use validation macro F1 only; test and challenge data never select the model.
+- The paired report compares F1, calibration, review routing, latency, artifact size, and failure cases.
+- Deep-learning dependencies are optional, so the core package and CI stay lightweight.
+- A full seeded training run, repeat-seed analysis, and manual failure review are still required before Phase 2 can be marked complete.
 
 ### Repository layout
 
@@ -257,7 +272,7 @@ That principle governs the architecture, interface, evaluation strategy, and com
 - [x] Milestone 0 — one case, end to end (Python-only)
 - [x] Phase 1.5 — ingestion pipeline + hardened synthetic benchmark (§7)
 - [x] Classifier baseline (§8, Phase 1)
-- [ ] Deep-learning classifier + comparison (§8, Phase 2)
+- [ ] Deep-learning classifier + comparison (§8, Phase 2) — harness complete; benchmark run and model decision pending
 - [ ] Information extraction with confidence (§9)
 - [ ] Payer-policy RAG (§10) + criteria extraction (§11)
 - [ ] Criteria-to-evidence matching (§12)

@@ -18,6 +18,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+deep = [
+    "torch>=2.5",
+    "transformers>=4.48,<6",
+]
 ocr = ["pytesseract>=0.3.13"]
 
 [project.scripts]
@@ -26,6 +30,7 @@ rxauth-benchmark-ingestion = "rxauth_ai.benchmark_ingestion:main"
 rxauth-ingest = "rxauth_ai.ingestion:main"
 rxauth-milestone0 = "rxauth_ai.cli:main"
 rxauth-train-classifier = "rxauth_ai.train_classifier:main"
+rxauth-train-deep-classifier = "rxauth_ai.train_deep_classifier:main"
 
 [build-system]
 requires = ["hatchling"]
