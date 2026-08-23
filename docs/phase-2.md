@@ -1,9 +1,9 @@
 # Phase 2 — transformer classifier experiment
 
 Phase 2 compares a fine-tuned transformer with the Phase 1 TF-IDF + logistic-regression
-baseline under the same leakage-resistant benchmark contract. The implementation is ready;
-the full benchmark and model-selection decision remain intentionally open until metrics have
-been produced and reviewed.
+baseline under the same leakage-resistant benchmark contract. The three-seed experiment is
+complete: the classical baseline remains the selected classifier because it is more accurate,
+more robust, smaller, faster, and easier to route at a useful confidence threshold on this corpus.
 
 ## What is implemented
 
@@ -17,20 +17,22 @@ been produced and reviewed.
 - `save_pretrained` model/tokenizer persistence plus versioned RxAuth metadata;
 - val, test, and challenge accuracy, macro F1, calibration error, review rate, latency,
   confusion matrix, and failure cases;
+- repeat-seed mean and sample-standard-deviation reporting;
+- validation-only artifact selection across seeds and explicit hardware recording;
 - artifact-size and training-time measurement;
 - a paired Markdown comparison against a freshly trained classical baseline.
 
-The default model is `distilbert-base-uncased`. This is an experiment default, not a final
-architecture decision.
+The evaluated deep candidate is `distilbert-base-uncased`. It remains available for learning
+and future experiments, but is not the selected application classifier.
 
-## Run the first full experiment
+## Reproduce the comparison
 
 From a machine with sufficient memory and network access for the initial model download:
 
 ```bash
 uv sync --extra deep --group dev
 uv run rxauth-build-dataset
-uv run rxauth-train-deep-classifier
+uv run rxauth-train-deep-classifier --seeds 7 42 73
 uv run pytest
 ```
 
@@ -52,7 +54,7 @@ uv run rxauth-train-deep-classifier \
   --batch-size 16 \
   --max-length 256 \
   --device auto \
-  --seed 42
+  --seeds 7 42 73
 ```
 
 On PowerShell, replace the trailing backslashes with backticks or put the command on one line.
@@ -68,26 +70,66 @@ On PowerShell, replace the trailing backslashes with backticks or put the comman
 6. Record the hardware because latency is machine-dependent.
 7. Do not interpret synthetic-corpus performance as clinical or production validity.
 
-## Work required to complete Phase 2
+## Results
 
-The roadmap checkbox should remain open until all of the following are done:
+The reproducible run used seeds 7, 42, and 73 on an Intel CPU. The seed-7 artifact had the
+highest validation macro F1 and was saved; test and challenge results did not participate in
+artifact selection.
 
-- Run the default seed-42 experiment and commit the generated comparison report.
-- Repeat at least three seeds to estimate macro-F1 and calibration variance. The current CLI
-  creates one paired run at a time; run it with distinct report destinations or extend the
-  runner with aggregate multi-seed reporting.
-- Review every test failure and a representative set of challenge failures. Classify errors as
-  missing class signal, cross-class noise, OCR corruption, or template/layout dependence.
-- Inspect the validation learning curve for underfitting/overfitting. Adjust epochs or learning
-  rate using validation only if necessary, then run the held-out test once for the selected setup.
-- Calibrate probabilities on validation data if the transformer still has high expected
-  calibration error. Re-evaluate the review-routing threshold after calibration.
-- Compare model quality with latency and artifact size. Keep the baseline if the transformer
-  does not provide a defensible robustness or error-profile improvement.
-- Add one load-and-infer integration test using a tiny local transformer fixture or a CI job
-  with the `deep` extra; the default CI intentionally tests only dependency-free Phase 2 logic.
-- Document the selected model and tradeoff decision in this guide and mark the README roadmap
-  item complete only then.
+| Split | TF-IDF + LogReg macro F1 | Transformer macro F1, mean ± SD |
+|---|---:|---:|
+| Validation | 0.936 | 0.951 ± 0.031 |
+| Test | 0.979 | 0.889 ± 0.042 |
+| Challenge | 0.916 | 0.830 ± 0.060 |
+
+Transformer test expected calibration error was `0.429 ± 0.090`, compared with `0.418` for
+the baseline. Its test human-review rate was `86.1% ± 13.6%`, compared with `68.8%`. The
+selected artifact measured 256.12 MiB and 33.676 ms/document for model execution; the baseline
+measured 0.09 MiB and 0.004 ms/document in the same paired invocation. See
+[`reports/classifier_deep_vs_baseline.md`](../reports/classifier_deep_vs_baseline.md) for the
+complete per-seed metrics, learning curve, confusion matrix, and concrete failures.
+
+The variance is itself an important result. Seed 7 had the best validation macro F1 (`0.979`)
+but only `0.858` test macro F1, while seed 73 reached `0.936` test macro F1 from a lower `0.957`
+validation score. The small 48-document validation/test splits make fine-tuning and selection
+unstable even though seeding is deterministic.
+
+## Failure analysis
+
+All seven selected-run test failures were reviewed:
+
+- sparse PA-request documents were confused with medication history despite a short PA phrase;
+- a sparse medication-history document containing “prior authorization” was confused with a
+  PA request;
+- prescription, clinical-note, and medication-history examples containing deliberately borrowed
+  sentences were pulled toward the noise class;
+- every test document uses an unseen template family, exposing layout/template sensitivity.
+
+The selected-run challenge failures follow the same pattern with deterministic OCR-like
+corruption added. Each challenge example contains heavy cross-class contamination; examples
+include a PA request with insurance-card helpdesk text, a prescription with insurance emergency
+language, and a lab report with clinical-note prose. The dominant failure modes are therefore
+sparse class signal and cross-class noise, amplified by unseen layout and OCR corruption.
+
+## Model decision
+
+Keep **TF-IDF + Logistic Regression** as the application classifier. DistilBERT does not improve
+held-out or challenge quality, has unstable seed-to-seed generalization, routes more documents
+to review at the shared threshold, and imposes a much larger latency/artifact cost. Probability
+calibration could change routing behavior but cannot repair the observed F1, robustness, and
+deployment-cost gap, so calibrating a rejected candidate is not a useful next investment.
+
+The real train/save/load/infer path was smoke-tested locally. A permanent deep-extra CI job was
+not added because the deep candidate is optional and rejected; dependency-light tests continue
+to cover configuration, missing-dependency behavior, sizing, and single/multi-seed report logic.
+
+## Next step
+
+Proceed to information extraction with confidence (README §9). Start with deterministic,
+provenance-preserving extraction for the synthetic document vocabulary before introducing a
+learned NLP model. Define a gold field-level evaluation set first so extraction confidence,
+exact match, normalized-value accuracy, and human-review routing can be measured from the first
+implementation.
 
 ## Current limitation
 

@@ -14,7 +14,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class DocumentType(str, Enum):
@@ -48,9 +48,27 @@ class Provenance(BaseModel):
     document_id: Optional[str] = None
     filename: Optional[str] = None
     page: Optional[int] = None
+    start_char: Optional[int] = Field(
+        default=None, ge=0, description="Inclusive character offset within the source page."
+    )
+    end_char: Optional[int] = Field(
+        default=None, ge=0, description="Exclusive character offset within the source page."
+    )
     source_text: Optional[str] = Field(
         default=None, description="Raw span the value was read from."
     )
+
+    @model_validator(mode="after")
+    def validate_character_span(self) -> Provenance:
+        if (self.start_char is None) != (self.end_char is None):
+            raise ValueError("start_char and end_char must be provided together.")
+        if (
+            self.start_char is not None
+            and self.end_char is not None
+            and self.end_char < self.start_char
+        ):
+            raise ValueError("end_char must not be before start_char.")
+        return self
 
 
 class Document(BaseModel):
@@ -67,6 +85,7 @@ class Evidence(BaseModel):
     id: str
     evidence_type: str
     medication: Optional[str] = None
+    text_value: Optional[str] = None
     value: Optional[float] = None
     unit: Optional[str] = None
     outcome: Optional[str] = None

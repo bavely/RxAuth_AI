@@ -83,5 +83,43 @@ def test_comparison_report_records_protocol_and_tradeoffs():
     assert "validation macro F1 only" in report
     assert "TF-IDF + LogReg" in report
     assert "Transformer" in report
+    assert "Transformer test failure cases" in report
     assert "single seeded run" in report
     assert "+0.100" in report
+
+
+def test_comparison_report_aggregates_repeat_seeds():
+    baseline = {"evaluations": {name: _evaluation(0.7) for name in ("val", "test", "challenge")}}
+    first = {
+        "labels": ["clinical_note", "other"],
+        "config": DeepTrainingConfig(epochs=1, seed=7),
+        "device": "cpu",
+        "hardware": "test CPU",
+        "history": [{"epoch": 1, "train_loss": 0.5, "val_macro_f1": 0.8}],
+        "best_epoch": 1,
+        "training_seconds": 3.0,
+        "n_train": 20,
+        "n_val": 4,
+        "n_test": 4,
+        "n_challenge": 4,
+        "evaluations": {name: _evaluation(0.8) for name in ("val", "test", "challenge")},
+    }
+    second = {
+        **first,
+        "config": DeepTrainingConfig(epochs=1, seed=42),
+        "evaluations": {name: _evaluation(0.9) for name in ("val", "test", "challenge")},
+    }
+
+    report = render_comparison_report(
+        baseline,
+        second,
+        data_dir=Path("data"),
+        baseline_artifact_mb=0.2,
+        deep_artifact_mb=250.0,
+        deep_runs=[first, second],
+    )
+
+    assert "Seeds run: 7, 42" in report
+    assert "Repeat-seed summary" in report
+    assert "0.850 ± 0.071" in report
+    assert "Across 2 seeded runs" in report

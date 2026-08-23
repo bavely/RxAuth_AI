@@ -2,8 +2,9 @@
 
 A line-by-line-level reference for every module in the package: every import, every
 class, every function. Companion to [milestone-0.md](milestone-0.md),
-[phase-1.5.md](phase-1.5.md), and [phase-2.md](phase-2.md), which explain *why* the
-system is built this way — this document explains *what each line does*.
+[phase-1.5.md](phase-1.5.md), [phase-2.md](phase-2.md), and
+[phase-3-extraction.md](phase-3-extraction.md), which explain *why* the system is
+built this way — this document explains *what each line does*.
 
 ## Module map
 
@@ -11,6 +12,7 @@ system is built this way — this document explains *what each line does*.
 |---|---|
 | [`models.py`](#modelspy) | Typed data model (Pydantic) shared by every other module. |
 | [`ingestion.py`](#ingestionpy) | Extracts text from `.txt`/`.md`, PDF, and image files. |
+| [`extraction.py`](#extractionpy) | Converts ingested text into confidence-scored evidence with exact provenance. |
 | [`matching.py`](#matchingpy) | Evaluates one policy criterion against case evidence. |
 | [`groundedness.py`](#groundednesspy) | Citation gate — refuses ungrounded claims. |
 | [`pipeline.py`](#pipelinepy) | Wires matching + groundedness into one case report. |
@@ -22,6 +24,7 @@ system is built this way — this document explains *what each line does*.
 | [`train_classifier.py`](#train_classifierpy) | `rxauth-train-classifier` CLI. |
 | [`deep_classifier.py`](#deep_classifierpy) | Optional PyTorch/Transformers classifier and paired comparison report. |
 | [`train_deep_classifier.py`](#train_deep_classifierpy) | `rxauth-train-deep-classifier` CLI. |
+| [`benchmark_extraction.py`](#benchmark_extractionpy) | Gold field/provenance/review benchmark for information extraction. |
 | [`benchmark_ingestion.py`](#benchmark_ingestionpy) | `rxauth-benchmark-ingestion` CLI. |
 | [`__init__.py`](#__init__py) | Package marker + version. |
 
@@ -31,18 +34,22 @@ Console scripts (from `pyproject.toml`), left to right in rough pipeline order:
 |---|---|
 | `rxauth-build-dataset` | `build_dataset:main` |
 | `rxauth-ingest` | `ingestion:main` |
+| `rxauth-extract` | `extraction:main` |
 | `rxauth-train-classifier` | `train_classifier:main` |
 | `rxauth-train-deep-classifier` | `train_deep_classifier:main` |
+| `rxauth-benchmark-extraction` | `benchmark_extraction:main` |
 | `rxauth-benchmark-ingestion` | `benchmark_ingestion:main` |
 | `rxauth-milestone0` | `cli:main` |
 
 Dependency direction (who imports whom): `models` is imported by almost everything;
-`ingestion` is imported by both classifiers and `benchmark_ingestion`; `matching` and
+`ingestion` is imported by both classifiers, `extraction`, and `benchmark_ingestion`; `matching` and
 `groundedness` are imported only by `pipeline`; `pipeline` and `synthetic_case` are
 imported only by `cli`; `build_dataset` imports `rendering` lazily; `train_classifier`
 imports `classifier`; `deep_classifier` reuses the classical classifier's dataset,
 prediction, and calibration contracts; `train_deep_classifier` orchestrates both
-classifiers so the generated comparison comes from the same loaded splits.
+classifiers so the generated comparison comes from the same loaded splits;
+`benchmark_extraction` imports the extractor plus ingestion/evidence contracts and evaluates
+hand-authored JSONL without changing the extractor.
 
 Every CLI-capable module ends with the same guard:
 
@@ -70,7 +77,7 @@ value ever exists without a trace back to where it came from.
 | `from __future__ import annotations` | Postpones evaluation of type hints so forward references (a class referring to another defined later, or to itself) don't need string quoting. |
 | `from enum import Enum` | Base class for the three closed-vocabulary enums below. |
 | `from typing import Literal, Optional` | `Literal` restricts a field to an exact set of string values; `Optional` marks nullable fields. |
-| `from pydantic import BaseModel, Field` | `BaseModel` gives every class validation, JSON (de)serialization, and `.model_dump()`; `Field` adds per-field constraints/metadata (`ge=`, `le=`, `default_factory=`, `description=`). |
+| `from pydantic import BaseModel, Field, model_validator` | `BaseModel` gives every class validation, JSON (de)serialization, and `.model_dump()`; `Field` adds per-field constraints/metadata; `model_validator` enforces relationships between provenance offsets. |
 
 ### Enums
 
@@ -90,7 +97,10 @@ value ever exists without a trace back to where it came from.
 
 ### Models
 
-- **`Provenance`** — `document_id`, `filename`, `page`, `source_text`, all optional.
+- **`Provenance`** — `document_id`, `filename`, `page`, page-relative `start_char`
+  (inclusive), `end_char` (exclusive), and `source_text`, all optional. Character offsets
+  are non-negative, must be supplied together, and cannot be reversed; the
+  `validate_character_span` model validator enforces that contract.
   Attached to every extracted value and every criterion so a reviewer can always see
   exactly where a fact came from.
 - **`Document`** — one classified file: `id`, `filename`, `document_type`,
@@ -98,7 +108,7 @@ value ever exists without a trace back to where it came from.
   `page_count` (default `1`).
 - **`Evidence`** — one normalized fact pulled from a document: `id`, `evidence_type`
   (free-form string matched against `Criterion.criterion_type`), optional
-  `medication`/`value`/`unit`/`outcome`, `confidence` (`[0,1]`), a required
+  `medication`/`text_value`/numeric `value`/`unit`/`outcome`, `confidence` (`[0,1]`), a required
   `provenance`, and `extraction_method` (default `"synthetic"` since Milestone 0
   fabricates evidence rather than extracting it).
 - **`Criterion`** — one structured payer requirement: `id`, `policy_id`,
@@ -239,6 +249,178 @@ depending on a real Tesseract install.
   - **Anything else** — raises `IngestionError` naming the unsupported extension.
 - **`main()`** — the `rxauth-ingest` CLI: one positional `path` argument, ingests it,
   and prints `ingest_document(path).model_dump()` as indented JSON.
+
+---
+
+## `extraction.py`
+
+The first README §9 slice (see [phase-3-extraction.md](phase-3-extraction.md)):
+deterministic, pattern-based extraction of normalized `Evidence` from the shared
+`IngestedDocument` boundary. Its purpose is to establish the provenance and
+review-routing contract — every value traceable to an exact source span, every
+low-confidence value flagged rather than silently trusted or discarded — before a
+learned NLP model is ever introduced.
+
+### Imports
+
+| Import | Why |
+|---|---|
+| `argparse`, `json` | Parse the `rxauth-extract` command and print its result as indented JSON. |
+| `re` | Compile and run the sixteen deterministic extraction patterns. |
+| `dataclass` | Defines the internal `_ExtractedFields`/`_ExtractionRule` records and the `ExtractionResult` return type. |
+| `Path` | Types the CLI's input path. |
+| `Callable`, `Optional` | Type each rule's field-builder function and its optional output fields. |
+| `BaseModel`, `Field` | Gives `ExtractionIssue` validation, bounded confidence, and `.model_dump()` for the CLI's JSON output. |
+| `IngestedDocument`, `ingest_document` | Reuses the Phase 1.5 ingestion boundary rather than re-implementing text extraction. |
+| `Evidence`, `Provenance` | Emits the same typed domain entities `matching.py` and `groundedness.py` already consume. |
+
+### Module constants
+
+- **`EXTRACTOR_VERSION = "regex-v1"`** — recorded on every `Evidence.extraction_method`
+  it produces, so a later learned extractor can be versioned and compared instead of
+  silently replacing this baseline.
+- **`DEFAULT_CONFIDENCE_THRESHOLD = 0.65`** — the same review-routing default already
+  used by `DocumentClassifier`/`DeepDocumentClassifier`.
+
+### `ExtractionIssue(BaseModel)`
+
+One flag on a retained-but-uncertain `Evidence` item: `evidence_id`, `evidence_type`,
+bounded `confidence`, and a human-readable `reason`. Raising an issue never causes the
+evidence itself to be dropped — it's an additional signal alongside it.
+
+### `ExtractionResult` (`@dataclass`)
+
+The return value of `extract_evidence`: `evidence: list[Evidence]` and
+`issues: list[ExtractionIssue]`.
+
+- **`requires_human_review` (property)** — `bool(self.issues)`. This is the flag the
+  CLI surfaces at the top level of its JSON output.
+
+### `_ExtractedFields` (`@dataclass(frozen=True)`)
+
+The internal, pre-`Evidence` bundle every rule's builder function returns:
+`evidence_type`, and optional `medication`/`text_value`/`value`/`unit`/`outcome`, plus
+`confidence` (default `0.9`). Keeps each builder focused on producing *values*;
+`extract_evidence` alone is responsible for turning that into a fully-provenanced
+`Evidence` record.
+
+### Normalization helpers
+
+- **`_normalize_duration_unit(raw) -> str`** — lowercases and folds any singular/plural
+  `week(s)`/`month(s)`/`day(s)` capture to the canonical `weeks`/`months`/`days`, so
+  `matching.py`'s unit-equality check (`criterion.unit.casefold() !=
+  evidence.unit.casefold()`) doesn't fail on a plural mismatch.
+- **`_normalize_outcome(raw) -> Optional[str]`** — lowercases and replaces spaces with
+  underscores (`"inadequate response"` → `"inadequate_response"`), matching the
+  underscore convention every `Criterion.required_outcome` in `synthetic_case.py`
+  already uses. Returns `None` unchanged.
+
+### Field-builder functions
+
+Each takes a `re.Match` and returns `_ExtractedFields`. One per recognized form:
+
+| Builder | Recognizes | Confidence |
+|---|---|---:|
+| `_diagnosis_fields` | Confirmed `Diagnosis:`/`Assessment:`; a fixed-width negative lookbehind excludes `No Diagnosis:` | `0.95` |
+| `_prescription_fields` | `Rx: Drug X.` | `0.9` |
+| `_previous_therapy_used_for_fields` | `Drug X used for N weeks[; OUTCOME]` (the Milestone-0 fixture's own phrasing) | `0.9` with outcome, else `0.85` |
+| `_previous_therapy_documented_fields` | `Drug X — N weeks of therapy documented.` (the real corpus's phrasing — this form never carries an outcome) | `0.85` |
+| `_previous_therapy_outcome_only_fields` | `Drug X — started DATE, discontinued due to OUTCOME` (outcome present, no duration) | `0.60` |
+| `_lab_value_fields` | `A1c: N[%]` | `0.95` with an explicit `%`, else `0.75` (the real corpus never includes `%`) |
+| `_patient_id_fields` | `Patient ID: IDENTIFIER` | `0.98` |
+| `_member_id_fields` | `Member ID: IDENTIFIER` | `0.98` |
+| `_payer_fields` | `Health plan: NAME` or `NAME Health Plan Member Identification Card` | `0.95` |
+| `_days_supply_fields` | `Quantity requested: N-day supply` | `0.95` |
+| `_prescription_quantity_fields` | `Quantity: N` | `0.95` |
+| `_document_date_fields` | `Date written:`, `Date of request:`, or `Visit date:` followed by an ISO date | `0.98` |
+| `_additional_lab_fields` | Numeric LDL cholesterol, ALT, eGFR, or CRP; maps the label to a typed `lab_*` evidence type | `0.9` |
+| `_screening_documentation_fields` | Exact `Screening documentation attached` statement | `0.9` |
+| `_therapy_duration_vague_fields` | `on therapy for {several months / a few weeks / some time / an extended period}` | `0.60` |
+
+The two `0.60` confidences are a deliberate seam, not a rounding coincidence: `0.60`
+clears `matching.py`'s own `evidence.confidence < 0.60` human-review gate (so a
+numeric-comparison criterion correctly falls through to `AMBIGUOUS` instead of
+`HUMAN_REVIEW_REQUIRED` — see the `matching.py` section above) while still sitting
+below `DEFAULT_CONFIDENCE_THRESHOLD` (`0.65`), so `extract_evidence` still raises an
+`ExtractionIssue` for it. This module's issue list and `matching.py`'s five-state
+result end up agreeing the value needs a human, for consistent reasons.
+
+### `_ExtractionRule` (`@dataclass(frozen=True)`) and `_RULES`
+
+`_ExtractionRule` pairs one compiled, case-insensitive `re.Pattern` with its builder
+function. `_RULES` is the ordered list of all sixteen: patient/member IDs; two payer
+forms; days supply; prescription quantity; document dates; added labs; screening
+documentation; diagnosis; prescription; three previous-therapy forms; A1c; and vague duration.
+Order determines the sequence (not the correctness) of the returned evidence list; one
+page can and does match more than one rule.
+
+### `extract_evidence(document, *, document_id, confidence_threshold=DEFAULT_CONFIDENCE_THRESHOLD) -> ExtractionResult`
+
+1. Walks `document.pages` in order; for each page, runs every rule's pattern via
+   `.finditer(page.text)` so multiple matches of the same rule on one page are all
+   captured.
+2. For each match, calls the rule's builder to get `_ExtractedFields`, then builds a
+   full `Evidence`: a deterministic ID (`f"{document_id}-EV{n}"`, `n` counting up
+   across the whole document, not per-page or per-rule), the builder's fields, and a
+   `Provenance` carrying `document_id`, `filename`, `page.page_number`,
+   `match.start()`/`match.end()` (inclusive/exclusive, matching Python slicing and
+   `Provenance`'s own validator), and `match.group(0)` as `source_text`.
+3. Appends the `Evidence` to the result unconditionally — nothing is ever dropped for
+   low confidence.
+4. If `fields.confidence < confidence_threshold`, additionally appends an
+   `ExtractionIssue` referencing that evidence's ID.
+5. Returns `ExtractionResult(evidence, issues)`.
+
+A page with no matching text simply contributes no evidence for that type — an absent
+requirement stays `MISSING` when `matching.py` later evaluates it, rather than being
+invented.
+
+### `main()`
+
+The `rxauth-extract` CLI: one positional `path`, a required `--document-id`, and
+`--confidence-threshold` (default `DEFAULT_CONFIDENCE_THRESHOLD`, validated into
+`[0, 1]` via `parser.error(...)`). Calls `ingest_document(path)`, then
+`extract_evidence`, then prints indented JSON with three top-level keys: `evidence`
+(each item's `.model_dump()`), `issues` (same), and `requires_human_review` (the
+`ExtractionResult` property) — exactly the shape
+[phase-3-extraction.md](phase-3-extraction.md) documents.
+
+The current rules are an engineering baseline, not measured probabilities. The Phase 3
+gold JSONL benchmark now protects this contract. Broader medication names, multi-span
+provenance, overlap/deduplication, and calibrated confidence are still required before
+connecting extraction to the case pipeline.
+
+### Phase 3 tests
+
+`tests/test_extraction.py` (20 tests) covers every rule plus integration checks
+that exercise the module against real inputs, not just crafted strings:
+
+- one test per recognized form (`Diagnosis:`, the real corpus's `Assessment:` form,
+  `Rx:`, both previous-therapy duration phrasings, the outcome-only phrasing, A1c with
+  and without `%`, and the vague-duration phrasing), each checking the specific typed
+  fields it should populate;
+- grouped tests cover patient/member/payer fields, the payer-card heading, quantities and
+  all three date labels, all four added labs, and screening-document presence;
+- the two intentionally-low-confidence forms (outcome-only previous-therapy, vague
+  duration) assert `confidence < DEFAULT_CONFIDENCE_THRESHOLD` *and* that exactly one
+  `ExtractionIssue` is raised;
+- `test_confidence_threshold_is_configurable` passes `confidence_threshold=0.0` and
+  checks no issue is raised even for an otherwise-flagged match;
+- provenance tests confirm `text[start:end] == source_text` (the offset contract
+  actually round-trips) and that a multi-page document assigns each match to its own
+  page number;
+- `test_evidence_ids_are_unique_and_ordered` guards the ID-generation scheme;
+- the negated-diagnosis regression test proves `No Diagnosis:` cannot create supported
+  diagnosis evidence;
+- `test_extracted_evidence_reproduces_milestone_zero_criterion_outcomes` runs the real
+  extractor over document text and feeds the result into `matching.evaluate_case`,
+  asserting all six Milestone-0 criteria land on the exact same result (`SATISFIED`
+  ×4, `MISSING`, `AMBIGUOUS`) as the hand-authored `synthetic_case.py` fixture —
+  proving extraction is a drop-in replacement for pre-supplied evidence;
+- `test_extracts_evidence_from_the_documented_cli_example_file` runs extraction
+  against the exact corpus file (`data/documents/clinical_note/doc_0002.txt`) that
+  this file's and the README's `rxauth-extract` usage example references, so the
+  documented command is guaranteed to actually produce evidence.
 
 ---
 
@@ -845,8 +1027,10 @@ them.
 | Import | Why |
 |---|---|
 | `json` | Writes and reads the versioned RxAuth metadata beside the Hugging Face artifact. |
+| `platform` | Records the selected CPU/accelerator description in the generated benchmark report. |
 | `random`, `numpy` | Seed Python and NumPy and perform arg-max/mean calculations during evaluation. |
 | `time` | Measures fine-tuning time and model-only inference latency. |
+| `statistics.mean`, `statistics.stdev` | Aggregates repeat-seed metrics with sample standard deviation. |
 | `dataclass` | Defines immutable experiment/dependency configuration and the inference wrapper. |
 | `import_module` | Loads optional `torch` and `transformers` only when deep training or inference is requested. |
 | `Path`, `Any` | Filesystem-safe artifact paths and intentionally opaque third-party model/tensor types. |
@@ -894,6 +1078,9 @@ silently change partway through an experiment.
   all CUDA devices. It also asks PyTorch for deterministic algorithms with
   `warn_only=True`: nondeterministic operations are surfaced without making the
   experiment unusable on a backend lacking a deterministic implementation.
+- **`_hardware_description(torch, device) -> str`** — records the CUDA device name,
+  Apple Silicon architecture, or CPU description so latency results name the hardware
+  that produced them.
 
 ### `_EncodedDataset`
 
@@ -972,10 +1159,11 @@ The full Phase 2 fine-tuning/evaluation flow:
 6. After each epoch, evaluates **validation only**. A strictly higher validation macro
    F1 becomes the best checkpoint: every state-dict tensor is detached, cloned, and
    held on CPU. Otherwise the no-improvement counter advances and can trigger early
-   stopping. Neither test nor challenge data can select a checkpoint.
+   stopping. A progress line prints epoch, mean train loss, and validation macro F1 so
+   long CPU runs remain observable. Neither test nor challenge data can select a checkpoint.
 7. Restores the best validation checkpoint, evaluates validation/test/challenge, then
    evaluates train once as a fit diagnostic.
-8. Returns the classifier, labels/config/device, learning history, best epoch, total
+8. Returns the classifier, labels/config/device/hardware, learning history, best epoch, total
    training seconds, train accuracy, all split evaluations, and split sizes. Test is
    the held-out comparison; challenge remains error/robustness analysis only.
 
@@ -985,14 +1173,15 @@ The full Phase 2 fine-tuning/evaluation flow:
   sums a Hugging Face artifact directory, returning MiB; raises `FileNotFoundError`
   for a missing path.
 - **`render_comparison_report(baseline, deep, *, data_dir,
-  baseline_artifact_mb, deep_artifact_mb) -> str`** — builds
+  baseline_artifact_mb, deep_artifact_mb, deep_runs=None) -> str`** — builds
   `classifier_deep_vs_baseline.md`: experiment/split guarantees, transformer
   hyperparameters, paired val/test/challenge metrics, artifact/device cost, training
-  history, transformer test classification report/confusion matrix, up to 20 challenge
-  failures, and the single-run test macro-F1 delta. Its interpretation explicitly
-  requires repeat-seed variance and considers calibration, review routing, challenge
-  robustness, latency, and size rather than declaring the deep model better from one
-  headline number.
+  history, test failures/classification report/confusion matrix, and up to 20 challenge
+  failures. With multiple runs it adds per-seed metrics plus mean/sample-standard-
+  deviation tables and computes the interpretation from mean test macro F1. The
+  selected run is still the one chosen by validation macro F1 only. The checked-in
+  three-seed report supports the Phase 2 decision to retain the classical baseline;
+  the renderer records evidence and tradeoffs rather than hard-coding that decision.
 
 ---
 
@@ -1004,7 +1193,7 @@ requires the optional `deep` dependency group.
 
 ### Imports
 
-`argparse`, `Path`; from `.classifier`: `load_manifest`, `train_and_evaluate`; from
+`argparse`, `gc`, `Path`; from `.classifier`: `load_manifest`, `train_and_evaluate`; from
 `.deep_classifier`: `DeepTrainingConfig`, `artifact_size_mb`,
 `render_comparison_report`, `train_and_evaluate_deep`.
 
@@ -1012,16 +1201,21 @@ requires the optional `deep` dependency group.
 
 1. Parses paths for data, reports, the deep artifact directory, and the paired
    baseline pickle. It also exposes model name, epochs, batch size, learning rate,
-   weight decay, max tokens, seed, early-stopping patience, device, and the shared
-   confidence threshold.
-2. Validates the threshold into `[0,1]`; constructs `DeepTrainingConfig` and converts
-   any configuration `ValueError` into an `argparse` usage error.
+   weight decay, max tokens, mutually exclusive `--seed`/`--seeds`, early-stopping
+   patience, device, and the shared confidence threshold.
+2. Validates the threshold into `[0,1]`, defaults to seed 42 when neither seed option
+   is supplied, and rejects duplicate repeat-seed values.
 3. Loads the manifest **once**, so both candidates receive the exact same in-memory
    `DatasetSplit` objects.
 4. Trains and saves a fresh classical baseline for a genuinely paired run rather than
    comparing against stale/copied metrics.
-5. Fine-tunes and saves the deep classifier, then measures both completed artifacts.
-6. Renders the comparison, writes
+5. For each seed, constructs a validated `DeepTrainingConfig`, fine-tunes/evaluates the
+   transformer, and keeps a metric-only summary. When a run exceeds the current best
+   validation macro F1, its classifier replaces the saved artifact. Test/challenge
+   metrics never participate in that selection. `gc.collect()` releases each full
+   in-memory model before the next seed.
+6. Measures both completed artifacts and renders the selected run plus every seeded
+   summary, writes
    `<output-dir>/classifier_deep_vs_baseline.md`, and prints the report plus output
    paths.
 
@@ -1029,7 +1223,7 @@ Install and run it with:
 
 ```bash
 uv sync --extra deep --group dev
-uv run rxauth-train-deep-classifier
+uv run rxauth-train-deep-classifier --seeds 7 42 73
 ```
 
 The core install/CI continues to use `uv sync --group dev`; because `torch` and
@@ -1047,13 +1241,115 @@ PyTorch merely to validate the experiment harness:
 - one file and one nested directory verify `artifact_size_mb` uses MiB and recursive
   directory sizing correctly;
 - small fabricated result dictionaries verify the paired report records validation-only
-  selection, both model names, the single-seed warning, and a correctly signed F1 delta.
+  selection, both model names, the single-seed warning, and a correctly signed F1 delta;
+- a two-seed fixture verifies seed listing, mean/sample-standard-deviation aggregation,
+  and the multi-seed interpretation.
 
-These tests cover dependency-free control logic. The Phase 2 guide deliberately leaves
-one follow-up item open: add a tiny local transformer fixture or a separate `deep` CI
-job for automated train/save/load/infer integration coverage. The implementation has
-also been manually smoke-tested through that complete runtime path without publishing
-the tiny random model's meaningless metrics as a benchmark.
+These tests cover dependency-free control logic. The implementation was manually
+smoke-tested through train/save/load/infer, and the real three-seed experiment exercised
+the full runtime. A permanent deep-extra CI job is intentionally omitted because the
+deep candidate was rejected and remains optional.
+
+---
+
+## `benchmark_extraction.py`
+
+The `rxauth-benchmark-extraction` CLI and evaluation library. It measures the
+deterministic extractor against `data/extraction_gold.jsonl` at field, normalization,
+provenance, review-routing, and latency levels. Expected labels are never inferred from
+the rules being evaluated.
+
+### Imports
+
+| Import | Why |
+|---|---|
+| `argparse`, `Path` | Parse CLI paths/threshold and write the generated report. |
+| `time` | Measure extraction-only elapsed time per document. |
+| `Counter` | Perform duplicate-safe multiset matching of exact expected/predicted fields. |
+| `Any`, `Literal` | Type heterogeneous signatures/results and restrict gold splits. |
+| `BaseModel`, `Field` | Validate every JSONL row and safely default expected-field lists. |
+| extraction constants/function | Run the exact version and confidence threshold being reported. |
+| `IngestedDocument`, `IngestedPage` | Wrap gold text in the same page-level contract consumed by extraction. |
+| `Evidence` | Share normalization/signature logic between predictions and gold fields. |
+
+### Gold models
+
+- **`GoldEvidence(BaseModel)`** — expected evidence type plus optional medication,
+  text/numeric value, unit, outcome, an exact hand-authored `source_text`, and
+  `requires_review` (default `False`). Confidence is intentionally absent: gold says
+  whether review is required, not which arbitrary score a rule must emit.
+- **`GoldDocument(BaseModel)`** — unique `document_id`, `split` restricted to
+  `validation`/`test`, synthetic filename/text, and zero or more expected fields.
+
+The companion [extraction dataset card](extraction-gold.md) documents the 45 records,
+schema, synthetic-only guardrail, coverage, the disclosed test-to-validation move after
+the initial negated-diagnosis failure, and the frozen-rule first run of eight new test records.
+
+### `load_gold(path) -> list[GoldDocument]`
+
+1. Requires the JSONL file to exist and parses each nonblank line with
+   `GoldDocument.model_validate_json`, adding the line number to malformed-JSON errors.
+2. Rejects duplicate document IDs.
+3. Requires every expected `source_text` to occur **exactly once** in its document.
+   This makes the expected start/end offsets unambiguous without deriving the source
+   phrase from extractor output.
+4. Rejects an empty corpus or one missing either validation or test records.
+
+### Signature and metric helpers
+
+- **`_normalized_signature(item)`** — tuple of evidence type, medication, text value,
+  numeric value, unit, and outcome.
+- **`_exact_signature(item)`** — appends cited source text to the normalized tuple.
+  `_evaluate_records` additionally prefixes `document_id`; therefore an error in one
+  document cannot cancel an opposite error in another with the same text/value.
+- **`_safe_divide`** — returns `0.0` for a zero denominator rather than crashing on a
+  split with no positives.
+- **`_f1`** — harmonic mean through `_safe_divide`.
+- **`_format_signature`** — renders only non-`None` tuple fields into readable failure
+  details for the Markdown report.
+
+### `_evaluate_records(records, *, confidence_threshold) -> dict`
+
+For every gold document:
+
+1. Wraps its text as one confidence-1.0 `IngestedPage`, times `extract_evidence`, and
+   collects issue IDs.
+2. Adds gold/predicted exact signatures to document-scoped `Counter` objects.
+3. Aligns fields by `(evidence_type, source_text)`. For aligned fields it separately
+   checks normalized-value equality and exact page/start/end/source provenance.
+4. Builds evidence-level expected/predicted review keys and document-level review sets.
+
+After all documents it uses Counter intersection/subtraction for true positives, false
+positives, and false negatives, then calculates:
+
+- exact field precision, recall, and F1;
+- normalized-value accuracy and provenance-span accuracy over aligned fields;
+- evidence review precision, recall, and F1;
+- document review-routing accuracy;
+- extraction latency per document;
+- concrete false-positive/false-negative signatures.
+
+### Public functions and CLI
+
+- **`benchmark_extraction(gold_path, *, confidence_threshold=...)`** — validates the
+  threshold, loads gold once, evaluates validation and test independently, and returns
+  extractor/version/corpus metadata plus both result dictionaries.
+- **`render_report(results, gold_path) -> str`** — writes the contract, a paired metrics
+  table, per-split failures, and definitions/limitations. The checked-in report states
+  corpus size and synthetic status beside the perfect current score.
+- **`main()`** — parses `--gold-path`, `--output-dir`, and threshold; runs the benchmark;
+  writes `reports/extraction_benchmark.md`; and prints report/output path.
+
+### Benchmark tests
+
+`tests/test_benchmark_extraction.py` contains four focused checks:
+
+- a perfect diagnosis/vague-duration fixture must score 1.0 for exact fields, values,
+  spans, and routing;
+- an unsupported `HbA1c` phrasing must appear as a measurable false negative;
+- document-scoped signatures prevent a false positive and false negative with otherwise
+  identical signatures from cancelling across documents;
+- the loader rejects duplicate IDs and source strings occurring more than once.
 
 ---
 

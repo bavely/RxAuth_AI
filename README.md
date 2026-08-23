@@ -1,7 +1,7 @@
 # RxAuth AI
 ## Specialty Pharmacy Prior Authorization Intelligence Copilot
 
-> **Status:** Phase 1.5 complete; Phase 2 transformer experiment harness implemented.
+> **Status:** Phase 2 complete; information extraction with confidence is now in progress.
 > **Goal:** One flagship AI-engineering project that begins as IBM AI Engineering coursework, grows into a portfolio system, and has a credible path to a commercial pilot — built incrementally so the commit history traces the progression from classical ML through deep learning to RAG and agentic systems.
 
 **Author:** Bavely S. Tawfik — [pavli-tawfik.com](https://pavli-tawfik.com) · [linkedin.com/in/bavelytawfik](https://www.linkedin.com/in/bavelytawfik) · [github.com/bavely](https://github.com/bavely)
@@ -18,6 +18,8 @@ uv run rxauth-milestone0
 uv run rxauth-build-dataset
 uv run rxauth-benchmark-ingestion
 uv run rxauth-train-classifier
+uv run rxauth-extract data/documents/clinical_note/doc_0002.txt --document-id SYN-EXAMPLE
+uv run rxauth-benchmark-extraction
 uv run pytest
 ```
 
@@ -25,10 +27,10 @@ Run the optional deep-learning comparison separately:
 
 ```bash
 uv sync --extra deep --group dev
-uv run rxauth-train-deep-classifier
+uv run rxauth-train-deep-classifier --seeds 7 42 73
 ```
 
-The synthetic classifier and rendered ingestion corpora are checked in for reproducibility. See [the Milestone 0 guide](docs/milestone-0.md) for the pipeline spine, [the Phase 1.5 guide](docs/phase-1.5.md) for ingestion and benchmark details, and [the Phase 2 guide](docs/phase-2.md) for the transformer protocol and remaining acceptance work.
+The synthetic classifier and rendered ingestion corpora are checked in for reproducibility. See [the Milestone 0 guide](docs/milestone-0.md) for the pipeline spine, [the Phase 1.5 guide](docs/phase-1.5.md) for ingestion and benchmark details, and [the Phase 2 guide](docs/phase-2.md) for the transformer protocol, results, and model decision.
 
 ### Phase 1.5 outcomes
 
@@ -40,13 +42,27 @@ The synthetic classifier and rendered ingestion corpora are checked in for repro
 - The fitted classifier can be saved, loaded, and used to create typed `Document` predictions.
 - OCR text accuracy is intentionally unreported until an OCR runtime is configured; optional Tesseract support and an injectable backend are available.
 
-### Phase 2 build status
+### Phase 2 outcomes
 
 - The transformer uses the same leakage-resistant train/validation/test/challenge contract as the baseline.
 - Checkpoint selection and early stopping use validation macro F1 only; test and challenge data never select the model.
 - The paired report compares F1, calibration, review routing, latency, artifact size, and failure cases.
+- Three deterministic seeds report mean and sample standard deviation; the saved artifact is selected by validation macro F1 only.
+- Transformer mean macro F1 was `0.889 ± 0.042` on test and `0.830 ± 0.060` on challenge, below the baseline's `0.979` and `0.916`.
+- The selected transformer artifact was about 256 MiB and 33.7 ms/document on CPU versus 0.09 MiB and 0.004 ms/document for the baseline on the same run.
+- The classical TF-IDF + Logistic Regression model remains selected; the transformer did not justify its quality, calibration, routing, latency, or size cost.
 - Deep-learning dependencies are optional, so the core package and CI stay lightweight.
-- A full seeded training run, repeat-seed analysis, and manual failure review are still required before Phase 2 can be marked complete.
+
+### Information extraction build status
+
+- The deterministic extractor recognizes diagnoses, prior-therapy duration/outcome, prescriptions, patient/member IDs, payer names, days supply, prescription quantities, document dates, A1c/LDL/ALT/eGFR/CRP values, screening-document presence, and ambiguous therapy duration in the synthetic vocabulary.
+- Every extracted field records document, filename, page, exact source text, inclusive/exclusive character offsets, confidence, and extractor version.
+- Low-confidence ambiguous fields route to human review instead of receiving a fabricated normalized value.
+- The extractor reuses the text/PDF/image ingestion contract and exposes `rxauth-extract` for path-level inference.
+- A 45-document hand-authored JSONL gold set separates 25 validation from 20 refreshed test examples and covers positive, absent, ambiguous, multi-field, negated, administrative, quantity/date, added-lab, screening, and distractor cases.
+- `rxauth-benchmark-extraction` reports exact field precision/recall/F1, normalized-value accuracy, provenance-span accuracy, review routing, latency, and concrete failures.
+- `regex-v1` scores 1.000 on the current validation and refreshed test splits; this small in-distribution result validates the contract, not production generalization.
+- Broader medication-name normalization, multi-span evidence linking, overlap/deduplication, confidence calibration, OCR-aware confidence, and learned-model comparison remain before §9 is complete.
 
 ### Repository layout
 
@@ -272,8 +288,8 @@ That principle governs the architecture, interface, evaluation strategy, and com
 - [x] Milestone 0 — one case, end to end (Python-only)
 - [x] Phase 1.5 — ingestion pipeline + hardened synthetic benchmark (§7)
 - [x] Classifier baseline (§8, Phase 1)
-- [ ] Deep-learning classifier + comparison (§8, Phase 2) — harness complete; benchmark run and model decision pending
-- [ ] Information extraction with confidence (§9)
+- [x] Deep-learning classifier + comparison (§8, Phase 2) — baseline retained after three-seed comparison
+- [ ] Information extraction with confidence (§9) — administrative/date/quantity/lab/screening coverage added; multi-span, deduplication, and calibration pending
 - [ ] Payer-policy RAG (§10) + criteria extraction (§11)
 - [ ] Criteria-to-evidence matching (§12)
 - [ ] LangGraph workflow (§13)

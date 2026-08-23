@@ -8,11 +8,13 @@ Transformers; this module loads them only when training or inference begins.
 from __future__ import annotations
 
 import json
+import platform
 import random
 import time
 from dataclasses import dataclass
 from importlib import import_module
 from pathlib import Path
+from statistics import mean, stdev
 from typing import Any
 
 import numpy as np
@@ -108,6 +110,15 @@ def _seed_everything(torch: Any, seed: int) -> None:
         torch.cuda.manual_seed_all(seed)
     if hasattr(torch, "use_deterministic_algorithms"):
         torch.use_deterministic_algorithms(True, warn_only=True)
+
+
+def _hardware_description(torch: Any, device: str) -> str:
+    if device == "cuda":
+        return str(torch.cuda.get_device_name(torch.cuda.current_device()))
+    if device == "mps":
+        return f"Apple Silicon ({platform.machine()})"
+    processor = platform.processor().strip()
+    return processor or platform.machine() or "unknown CPU"
 
 
 class _EncodedDataset:
@@ -371,6 +382,10 @@ def train_and_evaluate_deep(
         history.append(
             {"epoch": epoch, "train_loss": mean_loss, "val_macro_f1": validation["macro_f1"]}
         )
+        print(
+            f"[deep_classifier] epoch {epoch}/{config.epochs} "
+            f"train_loss={mean_loss:.4f} val_macro_f1={validation['macro_f1']:.3f}"
+        )
         if validation["macro_f1"] > best_val_f1:
             best_val_f1 = validation["macro_f1"]
             best_epoch = epoch
@@ -412,6 +427,7 @@ def train_and_evaluate_deep(
         "labels": labels,
         "config": config,
         "device": device,
+        "hardware": _hardware_description(torch, device),
         "history": history,
         "best_epoch": best_epoch,
         "training_seconds": training_seconds,
@@ -439,8 +455,10 @@ def render_comparison_report(
     data_dir: Path,
     baseline_artifact_mb: float,
     deep_artifact_mb: float,
+    deep_runs: list[dict[str, Any]] | None = None,
 ) -> str:
-    """Render the Phase 2 report from metrics produced by one paired run."""
+    """Render the Phase 2 report from one or more paired seeded runs."""
+    runs = deep_runs or [deep]
     labels = deep["labels"]
     config: DeepTrainingConfig = deep["config"]
     lines = [
@@ -463,8 +481,10 @@ def render_comparison_report(
         "",
         "## Training configuration",
         f"- Pretrained model: `{config.model_name}`",
-        f"- Seed: {config.seed}",
+        "- Seeds run: " + ", ".join(str(run["config"].seed) for run in runs),
+        f"- Selected artifact seed: {config.seed} (highest validation macro F1)",
         f"- Device: {deep['device']}",
+        f"- Hardware: {deep.get('hardware', 'not recorded')}",
         f"- Epochs completed / selected: {len(deep['history'])} / {deep['best_epoch']}",
         f"- Batch size / max tokens: {config.batch_size} / {config.max_length}",
         f"- Learning rate / weight decay: {config.learning_rate:g} / {config.weight_decay:g}",
@@ -483,6 +503,49 @@ def render_comparison_report(
                 f"{evaluation['expected_calibration_error']:.3f} | "
                 f"{evaluation['review_rate']:.1%} | "
                 f"{evaluation['latency_ms_per_doc']:.3f} |"
+            )
+
+    if len(runs) > 1:
+        lines += [
+            "",
+            "## Repeat-seed summary",
+            "| Seed | Val macro F1 | Test macro F1 | Challenge macro F1 | Test ECE | "
+            "Test review rate |",
+            "|---:|---:|---:|---:|---:|---:|",
+        ]
+        for run in runs:
+            evaluations = run["evaluations"]
+            lines.append(
+                f"| {run['config'].seed} | {evaluations['val']['macro_f1']:.3f} | "
+                f"{evaluations['test']['macro_f1']:.3f} | "
+                f"{evaluations['challenge']['macro_f1']:.3f} | "
+                f"{evaluations['test']['expected_calibration_error']:.3f} | "
+                f"{evaluations['test']['review_rate']:.1%} |"
+            )
+        lines += [
+            "",
+            "| Split | Accuracy mean ± SD | Macro F1 mean ± SD | ECE mean ± SD | "
+            "Review rate mean ± SD |",
+            "|---|---:|---:|---:|---:|",
+        ]
+        for split_name in ("val", "test", "challenge"):
+            values = {
+                metric: [run["evaluations"][split_name][metric] for run in runs]
+                for metric in (
+                    "accuracy",
+                    "macro_f1",
+                    "expected_calibration_error",
+                    "review_rate",
+                )
+            }
+            lines.append(
+                f"| {split_name} | {mean(values['accuracy']):.3f} ± "
+                f"{stdev(values['accuracy']):.3f} | {mean(values['macro_f1']):.3f} ± "
+                f"{stdev(values['macro_f1']):.3f} | "
+                f"{mean(values['expected_calibration_error']):.3f} ± "
+                f"{stdev(values['expected_calibration_error']):.3f} | "
+                f"{mean(values['review_rate']):.1%} ± "
+                f"{stdev(values['review_rate']):.1%} |"
             )
     lines += [
         "",
@@ -503,6 +566,15 @@ def render_comparison_report(
         lines.append(f"| {row['epoch']} | {row['train_loss']:.4f} | {row['val_macro_f1']:.3f} |")
 
     test = deep["evaluations"]["test"]
+    lines += ["", "## Transformer test failure cases"]
+    test_failures = test["misclassified"]
+    if test_failures:
+        lines += ["| file | true | predicted | text snippet |", "|---|---|---|---|"]
+        for filename, truth, prediction, snippet in test_failures[:20]:
+            lines.append(f"| {filename} | {truth} | {prediction} | {snippet}... |")
+    else:
+        lines.append("None on this test split.")
+
     lines += [
         "",
         "## Transformer test classification report",
@@ -530,16 +602,23 @@ def render_comparison_report(
     else:
         lines.append("None on this challenge split.")
 
-    test_delta = (
-        deep["evaluations"]["test"]["macro_f1"] - baseline["evaluations"]["test"]["macro_f1"]
-    )
-    lines += [
-        "",
-        "## Interpretation",
-        f"The transformer test macro-F1 delta versus the baseline is {test_delta:+.3f} in this "
-        "single seeded run. Model choice must also account for calibration, review routing, "
-        "challenge robustness, latency, and artifact size. Repeat-seed variance and error review "
-        "are required before promoting either model.",
-        "",
-    ]
+    mean_test_f1 = mean(run["evaluations"]["test"]["macro_f1"] for run in runs)
+    test_delta = mean_test_f1 - baseline["evaluations"]["test"]["macro_f1"]
+    lines += ["", "## Interpretation"]
+    if len(runs) == 1:
+        lines.append(
+            f"The transformer test macro-F1 delta versus the baseline is {test_delta:+.3f} in "
+            "this single seeded run. Model choice must also account for calibration, review "
+            "routing, challenge robustness, latency, and artifact size. Repeat-seed variance "
+            "and error review are required before promoting either model."
+        )
+    else:
+        lines.append(
+            f"Across {len(runs)} seeded runs, the transformer's mean test macro-F1 delta versus "
+            f"the baseline is {test_delta:+.3f}. The selected artifact is the run with the "
+            "highest validation macro F1; test and challenge results did not select it. Model "
+            "choice must also account for calibration, review routing, challenge robustness, "
+            "latency, artifact size, and manual failure analysis."
+        )
+    lines.append("")
     return "\n".join(lines)

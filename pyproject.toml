@@ -27,6 +27,8 @@ ocr = ["pytesseract>=0.3.13"]
 [project.scripts]
 rxauth-build-dataset = "rxauth_ai.build_dataset:main"
 rxauth-benchmark-ingestion = "rxauth_ai.benchmark_ingestion:main"
+rxauth-benchmark-extraction = "rxauth_ai.benchmark_extraction:main"
+rxauth-extract = "rxauth_ai.extraction:main"
 rxauth-ingest = "rxauth_ai.ingestion:main"
 rxauth-milestone0 = "rxauth_ai.cli:main"
 rxauth-train-classifier = "rxauth_ai.train_classifier:main"
