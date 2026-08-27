@@ -11,13 +11,20 @@ synthetic documents and runs
 so the criterion results are produced by the components the project actually
 ships, and every value in the report traces back to a span in a file on disk.
 
-Two things stay fixtures on purpose, because they belong to later phases:
+README section 10 and section 11 then removed the last fixture on the policy
+side. The flow now reads:
 
-- the policy, which README section 10 replaces with retrieval over real public
-  payer documents;
-- `pa_required`, which README section 3 requires to come from a synthetic
-  trigger or explicit user input and never from policy text. It is read from
-  the case manifest as declared input, not inferred from anything.
+    ingest -> classify -> extract -> resolve -> retrieve policy
+        -> extract criteria -> Case -> match -> groundedness
+
+The policy is no longer handed to the pipeline. It is retrieved from the
+corpus by the case's own payer, medication, indication, and request date, and
+its requirements are read out of its prose.
+
+One thing stays declared input on purpose: `pa_required`. README section 3
+requires it to come from a synthetic benefit trigger or explicit user input
+and never from policy text, because a public policy cannot establish a live
+member's benefit status. It is read from the case manifest, not inferred.
 """
 
 from __future__ import annotations
@@ -31,6 +38,11 @@ from typing import Protocol
 
 from pydantic import BaseModel, Field
 
+from .criteria_extraction import (
+    DEFAULT_CRITERIA_CONFIDENCE_THRESHOLD,
+    CriteriaExtractionResult,
+    build_policy,
+)
 from .extraction import (
     DEFAULT_CONFIDENCE_THRESHOLD,
     EXTRACTOR_VERSION,
@@ -39,9 +51,23 @@ from .extraction import (
     extract_evidence,
 )
 from .ingestion import ingest_document
-from .models import Case, CaseReadinessReport, Document, Evidence, EvidenceLink, Policy
+from .models import (
+    Case,
+    CaseReadinessReport,
+    Document,
+    DocumentType,
+    Evidence,
+    EvidenceLink,
+    Policy,
+)
 from .pipeline import run_pipeline
-from .synthetic_case import build_policy
+from .policy_corpus import DEFAULT_POLICY_DIR, PolicyDocument
+from .policy_retrieval import (
+    PolicyIndex,
+    RetrievalResult,
+    build_index,
+    resolve_policy_document,
+)
 
 DEFAULT_CLASSIFIER_PATH = Path("artifacts/classifier_baseline.pkl")
 MANIFEST_FILENAME = "case.json"
@@ -62,7 +88,21 @@ class CaseManifest(BaseModel):
             "inferred from policy text — a public policy cannot establish a live benefit."
         )
     )
-    policy_id: str
+    policy_id: str | None = Field(
+        default=None,
+        description=(
+            "Optional assertion, not a lookup key. Retrieval (README section 10) selects the "
+            "policy from the case metadata; when a packet names one, a disagreement is raised "
+            "rather than resolved silently in either direction."
+        ),
+    )
+    request_date: str | None = Field(
+        default=None,
+        description=(
+            "ISO date the policy version must be in force on. Left unset, it is read from the "
+            "PA request's own extracted date, so the version window is driven by a cited fact."
+        ),
+    )
     plan: str | None = None
     note: str | None = None
 
@@ -160,9 +200,7 @@ def link_cross_document_evidence(evidence: list[Evidence]) -> list[EvidenceLink]
     links: list[EvidenceLink] = []
     for group in grouped.values():
         document_ids = {
-            item.provenance.document_id
-            for item in group
-            if item.provenance.document_id is not None
+            item.provenance.document_id for item in group if item.provenance.document_id is not None
         }
         if len(document_ids) < 2:
             continue
@@ -236,20 +274,97 @@ def assemble_case(
     )
 
 
-def resolve_policy(policy_id: str) -> Policy:
-    """Look up the policy a case packet names.
+@dataclass
+class ResolvedPolicy:
+    """The policy retrieval selected, and the requirements read out of it."""
 
-    Until README section 10 lands, there is exactly one policy fixture. Raising
-    on an unknown ID keeps a packet from silently being evaluated against the
-    wrong requirements.
+    policy: Policy
+    document: PolicyDocument
+    retrieval: RetrievalResult
+    extraction: CriteriaExtractionResult
+    request_date: str | None
+    request_date_source: str
+
+
+def request_date_for(assembled: AssembledCase) -> tuple[str | None, str]:
+    """Decide which date the policy version window is evaluated against.
+
+    A payer policy is only the applicable policy for requests inside its
+    version window, so this date is part of the lookup, not a formality. It is
+    resolved in the order a reviewer would defend:
+
+    1. the manifest, when the packet declares it explicitly;
+    2. the date extracted from the PA request itself — a cited span in a real
+       document, which is what makes the version choice auditable;
+    3. nothing, in which case retrieval considers every version and refuses to
+       choose if more than one is in force. An undated question must not
+       silently resolve to the newest file.
     """
-    policy = build_policy()
-    if policy.id != policy_id:
+    if assembled.manifest.request_date:
+        return assembled.manifest.request_date, "case manifest"
+
+    request_ids = {
+        document.id
+        for document in assembled.case.documents
+        if document.document_type is DocumentType.PA_REQUEST
+    }
+    dates = [
+        item
+        for item in assembled.case.evidence
+        if item.evidence_type == "document_date"
+        and item.text_value
+        and item.provenance.document_id in request_ids
+    ]
+    if not dates:
+        return None, "undeclared"
+    best = max(dates, key=lambda item: (item.confidence, item.text_value or ""))
+    return best.text_value, f"extracted from {best.provenance.filename} ({best.id})"
+
+
+def resolve_policy(
+    assembled: AssembledCase,
+    *,
+    index: PolicyIndex,
+    criteria_confidence_threshold: float = DEFAULT_CRITERIA_CONFIDENCE_THRESHOLD,
+) -> ResolvedPolicy:
+    """Retrieve the applicable policy version and structure its requirements.
+
+    This is where README section 10 and section 11 replace the Milestone 0
+    fixture. Nothing about the requirements is supplied by the case packet: the
+    payer, drug, indication, and request date select a policy *version* from
+    the corpus, and the criteria come out of that version's prose.
+
+    A packet may still name a `policy_id`. That is treated as an assertion to
+    check, never as the lookup key — if the packet and retrieval disagree, one
+    of them is wrong about the case, and silently trusting either would hide it.
+    """
+    manifest = assembled.manifest
+    request_date, source = request_date_for(assembled)
+    document, retrieval = resolve_policy_document(
+        index,
+        payer=manifest.payer,
+        medication=manifest.medication,
+        indication=manifest.indication,
+        as_of_date=request_date,
+    )
+
+    if manifest.policy_id is not None and manifest.policy_id != document.policy_id:
         raise ValueError(
-            f"Unknown policy_id {policy_id!r}. The only policy available before payer-policy "
-            f"retrieval (README section 10) is {policy.id!r}."
+            f"Case packet asserts policy {manifest.policy_id!r} but retrieval selected "
+            f"{document.policy_id!r} (v{document.version}) for {manifest.payer} / "
+            f"{manifest.medication} / {manifest.indication} as of {request_date or 'any date'}. "
+            "Resolve the disagreement rather than evaluating the case against either."
         )
-    return policy
+
+    policy, extraction = build_policy(document, confidence_threshold=criteria_confidence_threshold)
+    return ResolvedPolicy(
+        policy=policy,
+        document=document,
+        retrieval=retrieval,
+        extraction=extraction,
+        request_date=request_date,
+        request_date_source=source,
+    )
 
 
 def run_case(
@@ -257,25 +372,47 @@ def run_case(
     *,
     classifier: DocumentClassifierLike,
     confidence_threshold: float = DEFAULT_CONFIDENCE_THRESHOLD,
-) -> tuple[CaseReadinessReport, AssembledCase]:
+    index: PolicyIndex | None = None,
+    policy_dir: Path = DEFAULT_POLICY_DIR,
+) -> tuple[CaseReadinessReport, AssembledCase, ResolvedPolicy]:
     assembled = assemble_case(
         case_dir, classifier=classifier, confidence_threshold=confidence_threshold
     )
-    policy = resolve_policy(assembled.manifest.policy_id)
+    resolved = resolve_policy(assembled, index=index or build_index(policy_dir))
     report = run_pipeline(
         assembled.case,
-        policy,
+        resolved.policy,
         evidence_requiring_review=assembled.evidence_requiring_review,
         documents_requiring_classification_review=len(assembled.documents_requiring_review),
     )
-    return report, assembled
+    return report, assembled, resolved
 
 
 def build_output(
-    report: CaseReadinessReport, assembled: AssembledCase, case_dir: Path
+    report: CaseReadinessReport,
+    assembled: AssembledCase,
+    resolved: ResolvedPolicy,
+    case_dir: Path,
 ) -> dict[str, object]:
     return {
         "readiness": report.model_dump(mode="json"),
+        "policy": {
+            "selected": resolved.document.key,
+            "request_date": resolved.request_date,
+            "request_date_source": resolved.request_date_source,
+            "retrieval": resolved.retrieval.as_dict(),
+            "criteria_extractor_version": resolved.extraction.extractor_version,
+            "criteria_connective": resolved.extraction.connective,
+            "criteria": [
+                criterion.model_dump(mode="json") for criterion in resolved.policy.criteria
+            ],
+            "exclusions_not_evaluated": [
+                exclusion.model_dump(mode="json") for exclusion in resolved.policy.exclusions
+            ],
+            "criteria_issues": [
+                issue.model_dump(mode="json") for issue in resolved.extraction.issues
+            ],
+        },
         "assembly": {
             "case_directory": Path(case_dir).as_posix(),
             "extractor_version": EXTRACTOR_VERSION,
@@ -297,6 +434,44 @@ def build_output(
     }
 
 
+def print_policy_summary(resolved: ResolvedPolicy) -> None:
+    line = "-" * 56
+    document = resolved.document
+    print("Policy retrieval")
+    print(line)
+    print(f"Selected:        {document.policy_id} v{document.version} ({document.filename})")
+    print(f"Effective:       {document.effective_date} -> {document.superseded_date or 'current'}")
+    print(
+        f"Request date:    {resolved.request_date or 'undeclared'} [{resolved.request_date_source}]"
+    )
+    print(f"Metadata filter: {resolved.retrieval.query.describe_filter()}")
+    print(f"Embedding model: {resolved.retrieval.embedding_model}")
+    print(f"Candidates kept: {', '.join(resolved.retrieval.candidate_policies)}")
+    print(f"Criteria:        {len(resolved.policy.criteria)} ({resolved.extraction.connective})")
+    print()
+
+    print("Top-ranked policy passages")
+    print(line)
+    for retrieved in resolved.retrieval.chunks:
+        print(f"[{retrieved.rank}] {retrieved.score:.3f} {retrieved.chunk.citation}")
+        print(f'      "{retrieved.chunk.text}"')
+    print()
+
+    if resolved.policy.exclusions:
+        print("Policy exclusions parsed but NOT evaluated")
+        print(line)
+        for exclusion in resolved.policy.exclusions:
+            print(f'{exclusion.id:4} "{exclusion.description}"')
+        print()
+
+    if resolved.extraction.issues:
+        print("Policy requirements routed to human review")
+        print(line)
+        for issue in resolved.extraction.issues:
+            print(f"{issue.criterion_id:4} {issue.kind.value:26} {issue.reason}")
+        print()
+
+
 def print_extraction_summary(assembled: AssembledCase) -> None:
     line = "-" * 56
     print("Extracted evidence")
@@ -316,7 +491,8 @@ def print_extraction_summary(assembled: AssembledCase) -> None:
         print(f"{item.id:14} {item.evidence_type:22} conf {item.confidence:.2f}  {detail}")
         for provenance in item.sources:
             print(
-                f'               ↳ {provenance.filename} p.{provenance.page} "{provenance.source_text}"'
+                f"               -> {provenance.filename} p.{provenance.page} "
+                f'"{provenance.source_text}"'
             )
     print()
 
@@ -351,6 +527,7 @@ def main() -> None:
     )
     parser.add_argument("case_dir", type=Path, help="Directory holding case.json and documents.")
     parser.add_argument("--classifier-path", type=Path, default=DEFAULT_CLASSIFIER_PATH)
+    parser.add_argument("--policy-dir", type=Path, default=DEFAULT_POLICY_DIR)
     parser.add_argument("--output-dir", type=Path, default=Path("reports"))
     parser.add_argument("--confidence-threshold", type=float, default=DEFAULT_CONFIDENCE_THRESHOLD)
     parser.add_argument("--json-only", action="store_true", help="Print only the JSON output.")
@@ -360,12 +537,13 @@ def main() -> None:
         parser.error("--confidence-threshold must be between 0 and 1.")
 
     classifier = load_classifier(args.classifier_path)
-    report, assembled = run_case(
+    report, assembled, resolved = run_case(
         args.case_dir,
         classifier=classifier,
         confidence_threshold=args.confidence_threshold,
+        policy_dir=args.policy_dir,
     )
-    output = build_output(report, assembled, args.case_dir)
+    output = build_output(report, assembled, resolved, args.case_dir)
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     out_path = args.output_dir / f"case_{report.case_id}.json"
@@ -378,6 +556,7 @@ def main() -> None:
     from .cli import print_report
 
     print_report(report, report.evaluations)
+    print_policy_summary(resolved)
     print_extraction_summary(assembled)
     print(f"Structured output written to: {out_path}")
 

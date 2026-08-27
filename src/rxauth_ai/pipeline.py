@@ -49,6 +49,18 @@ def run_pipeline(
         fields = ", ".join(mismatches)
         raise ValueError(f"Case and policy do not match on: {fields}.")
 
+    # The matcher computes a conjunction of the criteria. A policy that joins
+    # its requirements with ANY means something else entirely, and evaluating
+    # it as an AND would report a case as failing requirements the payer never
+    # asked it to meet all of. Refuse by name rather than approximate.
+    if policy.criteria_connective != "all":
+        raise ValueError(
+            f"Policy {policy.id} v{policy.version} joins its coverage criteria with "
+            f"'{policy.criteria_connective}'. The deterministic matcher evaluates a conjunction, "
+            "so this policy cannot be scored automatically; it needs a reviewer or a matcher "
+            "that represents disjunction."
+        )
+
     # 1. Evaluate every policy criterion against the case evidence.
     evaluations = evaluate_case(case, policy.criteria)
 
@@ -71,6 +83,8 @@ def run_pipeline(
     return CaseReadinessReport(
         case_id=case.id,
         policy_id=policy.id,
+        policy_version=policy.version,
+        policy_effective_date=policy.effective_date,
         payer=policy.payer,
         medication=policy.medication,
         indication=policy.indication,
@@ -85,6 +99,10 @@ def run_pipeline(
         criteria_not_satisfied=counts[CriterionResult.NOT_SATISFIED],
         criteria_missing=counts[CriterionResult.MISSING],
         criteria_needs_review=needs_review,
+        criteria_unstructured=sum(
+            1 for criterion in policy.criteria if criterion.criterion_type == "unstructured"
+        ),
+        policy_exclusions_not_evaluated=len(policy.exclusions),
         groundedness_gate=gate.status,
         evaluations=evaluations,
     )

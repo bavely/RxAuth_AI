@@ -1,0 +1,49 @@
+EXAMPLE HEALTH PLAN
+Medical Policy - Prior Authorization
+
+Policy ID: PA-104
+Policy title: Drug A for Example Condition
+Payer: Example Health Plan
+Medication: Drug A
+Indication: Example Condition
+Version: 2026-01
+Effective date: 2026-01-01
+Superseded date: none
+Source: https://example.invalid/policies/PA-104-2026-01.pdf
+Synthetic notice: fabricated policy text for an offline prototype. No real payer, drug, member, or clinical guidance. See README section 3.
+
+--- page 2 ---
+
+SECTION 1. PURPOSE
+This policy states the prior-authorization requirements that apply to Drug A when it is requested for Example Condition. It applies to commercial pharmacy benefit plans administered by Example Health Plan.
+
+SECTION 2. DEFINITIONS
+Documented diagnosis means a diagnosis recorded in the medical record by the treating prescriber.
+Therapy course means a continuous period of treatment with a single agent, measured from the first documented fill.
+Inadequate response means a documented failure to reach the treatment target after a completed therapy course.
+
+--- page 3 ---
+
+SECTION 3. COVERAGE CRITERIA
+Drug A is considered medically necessary when ALL of the following criteria are met:
+
+1. The patient has a documented diagnosis of Example Condition.
+2. The patient has completed at least 12 weeks of therapy with Drug A.
+3. The patient had an inadequate response to therapy with Drug A after at least 12 weeks.
+4. The most recent A1c is below 8.0 percent.
+5. Required screening documentation is on file.
+6. The duration of the most recent therapy course is documented and is at least 8 weeks.
+
+--- page 4 ---
+
+SECTION 4. EXCLUSIONS
+Drug A is not covered when ANY of the following applies:
+
+1. The patient has a documented allergy to Drug A.
+2. The request is for an indication that is not listed in Section 1.
+
+SECTION 5. AUTHORIZATION PERIOD
+Initial authorization is granted for 12 months. Reauthorization requires documentation that the patient continues to meet the criteria in Section 3.
+
+SECTION 6. REFERENCES
+Internal synthetic reference set. This document is not derived from any real payer publication.

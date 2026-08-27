@@ -33,6 +33,7 @@ def build_policy() -> Policy:
             policy_id=POLICY_ID,
             description="Documented diagnosis of the covered indication.",
             criterion_type="diagnosis",
+            operator="exists",
             provenance=Provenance(page=3, source_text="Patient must have a documented diagnosis."),
         ),
         Criterion(
@@ -73,6 +74,7 @@ def build_policy() -> Policy:
             policy_id=POLICY_ID,
             description="Required screening documentation on file.",
             criterion_type="screening_doc",
+            operator="exists",
             provenance=Provenance(page=6, source_text="Screening documentation required."),
         ),
         Criterion(

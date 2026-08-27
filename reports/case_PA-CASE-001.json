@@ -2,6 +2,8 @@
   "readiness": {
     "case_id": "PA-CASE-001",
     "policy_id": "PA-104",
+    "policy_version": "2026-01",
+    "policy_effective_date": "2026-01-01",
     "payer": "Example Health Plan",
     "medication": "Drug A",
     "indication": "Example Condition",
@@ -16,6 +18,8 @@
     "criteria_not_satisfied": 0,
     "criteria_missing": 1,
     "criteria_needs_review": 1,
+    "criteria_unstructured": 0,
+    "policy_exclusions_not_evaluated": 2,
     "groundedness_gate": "PASS",
     "evaluations": [
       {
@@ -28,14 +32,14 @@
         "confidence": 0.95,
         "evaluation_method": "deterministic",
         "explanation": "Required documentation is present in the case.",
-        "criterion_description": "Documented diagnosis of the covered indication.",
+        "criterion_description": "The patient has a documented diagnosis of Example Condition.",
         "policy_source": {
-          "document_id": null,
-          "filename": null,
+          "document_id": "PA-104",
+          "filename": "PA-104_2026-01.txt",
           "page": 3,
-          "start_char": null,
-          "end_char": null,
-          "source_text": "Patient must have a documented diagnosis."
+          "start_char": 116,
+          "end_char": 179,
+          "source_text": "1. The patient has a documented diagnosis of Example Condition."
         },
         "patient_evidence_source": {
           "document_id": "D1",
@@ -66,14 +70,14 @@
         "confidence": 0.85,
         "evaluation_method": "deterministic",
         "explanation": "16.0 >= 12.0 -> true.",
-        "criterion_description": "Prior Drug A therapy for at least 12 weeks.",
+        "criterion_description": "The patient has completed at least 12 weeks of therapy with Drug A.",
         "policy_source": {
-          "document_id": null,
-          "filename": null,
-          "page": 4,
-          "start_char": null,
-          "end_char": null,
-          "source_text": "At least 12 weeks of Drug A."
+          "document_id": "PA-104",
+          "filename": "PA-104_2026-01.txt",
+          "page": 3,
+          "start_char": 180,
+          "end_char": 250,
+          "source_text": "2. The patient has completed at least 12 weeks of therapy with Drug A."
         },
         "patient_evidence_source": {
           "document_id": "D4",
@@ -112,14 +116,14 @@
         "confidence": 0.85,
         "evaluation_method": "deterministic",
         "explanation": "16.0 >= 12.0 -> true; required outcome 'inadequate_response' met (evidence: 'inadequate_response').",
-        "criterion_description": "Inadequate response to prior Drug A therapy.",
+        "criterion_description": "The patient had an inadequate response to therapy with Drug A after at least 12 weeks.",
         "policy_source": {
-          "document_id": null,
-          "filename": null,
-          "page": 4,
-          "start_char": null,
-          "end_char": null,
-          "source_text": "...with inadequate response."
+          "document_id": "PA-104",
+          "filename": "PA-104_2026-01.txt",
+          "page": 3,
+          "start_char": 251,
+          "end_char": 340,
+          "source_text": "3. The patient had an inadequate response to therapy with Drug A after at least 12 weeks."
         },
         "patient_evidence_source": {
           "document_id": "D4",
@@ -158,14 +162,14 @@
         "confidence": 0.95,
         "evaluation_method": "deterministic",
         "explanation": "7.4 < 8.0 -> true.",
-        "criterion_description": "Recent A1c below 8.0.",
+        "criterion_description": "The most recent A1c is below 8.0 percent.",
         "policy_source": {
-          "document_id": null,
-          "filename": null,
-          "page": 5,
-          "start_char": null,
-          "end_char": null,
-          "source_text": "A1c must be below 8.0."
+          "document_id": "PA-104",
+          "filename": "PA-104_2026-01.txt",
+          "page": 3,
+          "start_char": 341,
+          "end_char": 385,
+          "source_text": "4. The most recent A1c is below 8.0 percent."
         },
         "patient_evidence_source": {
           "document_id": "D5",
@@ -194,14 +198,14 @@
         "confidence": 0.99,
         "evaluation_method": "deterministic",
         "explanation": "No evidence of type 'screening_doc' found in the case.",
-        "criterion_description": "Required screening documentation on file.",
+        "criterion_description": "Required screening documentation is on file.",
         "policy_source": {
-          "document_id": null,
-          "filename": null,
-          "page": 6,
-          "start_char": null,
-          "end_char": null,
-          "source_text": "Screening documentation required."
+          "document_id": "PA-104",
+          "filename": "PA-104_2026-01.txt",
+          "page": 3,
+          "start_char": 386,
+          "end_char": 433,
+          "source_text": "5. Required screening documentation is on file."
         },
         "patient_evidence_source": null,
         "patient_evidence_sources": []
@@ -216,14 +220,14 @@
         "confidence": 0.5,
         "evaluation_method": "model_assisted",
         "explanation": "Criterion requires a numeric comparison but the evidence value is not explicit enough for a deterministic check. In a later phase a model would attempt interpretation; here it is routed to human review.",
-        "criterion_description": "Duration of most recent therapy course documented.",
+        "criterion_description": "The duration of the most recent therapy course is documented and is at least 8 weeks.",
         "policy_source": {
-          "document_id": null,
-          "filename": null,
-          "page": 6,
-          "start_char": null,
-          "end_char": null,
-          "source_text": "Therapy duration must be documented."
+          "document_id": "PA-104",
+          "filename": "PA-104_2026-01.txt",
+          "page": 3,
+          "start_char": 434,
+          "end_char": 522,
+          "source_text": "6. The duration of the most recent therapy course is documented and is at least 8 weeks."
         },
         "patient_evidence_source": {
           "document_id": "D3",
@@ -245,6 +249,308 @@
         ]
       }
     ]
+  },
+  "policy": {
+    "selected": "PA-104:2026-01",
+    "request_date": "2026-01-14",
+    "request_date_source": "extracted from 01_pa_request.txt (D1-EV5)",
+    "retrieval": {
+      "query": {
+        "text": "Drug A Example Condition coverage criteria prior authorization",
+        "filter": "payer='Example Health Plan', medication='Drug A', indication='Example Condition', as_of_date='2026-01-14'",
+        "mode": "metadata+similarity",
+        "top_k": 5
+      },
+      "embedding_model": "tfidf-v1",
+      "corpus_version": "policy-corpus-v1",
+      "chunk_strategy": "section+enumerated-item",
+      "candidate_policies": [
+        "PA-104:2026-01"
+      ],
+      "selected_policy": "PA-104:2026-01",
+      "rejection_reason": null,
+      "chunks": [
+        {
+          "rank": 1,
+          "score": 0.2566,
+          "chunk_id": "PA-104:2026-01:p3:c4",
+          "policy_id": "PA-104",
+          "policy_version": "2026-01",
+          "payer": "Example Health Plan",
+          "citation": "PA-104 v2026-01 (Example Health Plan) p.3 \u2014 SECTION 3. COVERAGE CRITERIA",
+          "page": 3,
+          "section": "SECTION 3. COVERAGE CRITERIA",
+          "section_kind": "criteria",
+          "item_number": 1,
+          "start_char": 116,
+          "end_char": 179,
+          "text": "1. The patient has a documented diagnosis of Example Condition."
+        },
+        {
+          "rank": 2,
+          "score": 0.2249,
+          "chunk_id": "PA-104:2026-01:p2:c1",
+          "policy_id": "PA-104",
+          "policy_version": "2026-01",
+          "payer": "Example Health Plan",
+          "citation": "PA-104 v2026-01 (Example Health Plan) p.2 \u2014 SECTION 1. PURPOSE",
+          "page": 2,
+          "section": "SECTION 1. PURPOSE",
+          "section_kind": "purpose",
+          "item_number": null,
+          "start_char": 20,
+          "end_char": 225,
+          "text": "This policy states the prior-authorization requirements that apply to Drug A when it is requested for Example Condition. It applies to commercial pharmacy benefit plans administered by Example Health Plan."
+        },
+        {
+          "rank": 3,
+          "score": 0.1933,
+          "chunk_id": "PA-104:2026-01:p3:c5",
+          "policy_id": "PA-104",
+          "policy_version": "2026-01",
+          "payer": "Example Health Plan",
+          "citation": "PA-104 v2026-01 (Example Health Plan) p.3 \u2014 SECTION 3. COVERAGE CRITERIA",
+          "page": 3,
+          "section": "SECTION 3. COVERAGE CRITERIA",
+          "section_kind": "criteria",
+          "item_number": 2,
+          "start_char": 180,
+          "end_char": 250,
+          "text": "2. The patient has completed at least 12 weeks of therapy with Drug A."
+        },
+        {
+          "rank": 4,
+          "score": 0.1862,
+          "chunk_id": "PA-104:2026-01:p3:c3",
+          "policy_id": "PA-104",
+          "policy_version": "2026-01",
+          "payer": "Example Health Plan",
+          "citation": "PA-104 v2026-01 (Example Health Plan) p.3 \u2014 SECTION 3. COVERAGE CRITERIA",
+          "page": 3,
+          "section": "SECTION 3. COVERAGE CRITERIA",
+          "section_kind": "criteria",
+          "item_number": null,
+          "start_char": 30,
+          "end_char": 114,
+          "text": "Drug A is considered medically necessary when ALL of the following criteria are met:"
+        },
+        {
+          "rank": 5,
+          "score": 0.1831,
+          "chunk_id": "PA-104:2026-01:p3:c7",
+          "policy_id": "PA-104",
+          "policy_version": "2026-01",
+          "payer": "Example Health Plan",
+          "citation": "PA-104 v2026-01 (Example Health Plan) p.3 \u2014 SECTION 3. COVERAGE CRITERIA",
+          "page": 3,
+          "section": "SECTION 3. COVERAGE CRITERIA",
+          "section_kind": "criteria",
+          "item_number": 4,
+          "start_char": 341,
+          "end_char": 385,
+          "text": "4. The most recent A1c is below 8.0 percent."
+        }
+      ]
+    },
+    "criteria_extractor_version": "policy-rules-v1",
+    "criteria_connective": "all",
+    "criteria": [
+      {
+        "id": "C1",
+        "policy_id": "PA-104",
+        "description": "The patient has a documented diagnosis of Example Condition.",
+        "criterion_type": "diagnosis",
+        "medication": null,
+        "operator": "exists",
+        "expected_value": null,
+        "unit": null,
+        "required_outcome": null,
+        "polarity": "inclusion",
+        "source_section": "SECTION 3. COVERAGE CRITERIA",
+        "confidence": 0.95,
+        "extraction_rule": "documented_diagnosis",
+        "extractor_version": "policy-rules-v1",
+        "provenance": {
+          "document_id": "PA-104",
+          "filename": "PA-104_2026-01.txt",
+          "page": 3,
+          "start_char": 116,
+          "end_char": 179,
+          "source_text": "1. The patient has a documented diagnosis of Example Condition."
+        }
+      },
+      {
+        "id": "C2",
+        "policy_id": "PA-104",
+        "description": "The patient has completed at least 12 weeks of therapy with Drug A.",
+        "criterion_type": "previous_therapy",
+        "medication": "Drug A",
+        "operator": ">=",
+        "expected_value": 12.0,
+        "unit": "weeks",
+        "required_outcome": null,
+        "polarity": "inclusion",
+        "source_section": "SECTION 3. COVERAGE CRITERIA",
+        "confidence": 0.95,
+        "extraction_rule": "prior_therapy_duration",
+        "extractor_version": "policy-rules-v1",
+        "provenance": {
+          "document_id": "PA-104",
+          "filename": "PA-104_2026-01.txt",
+          "page": 3,
+          "start_char": 180,
+          "end_char": 250,
+          "source_text": "2. The patient has completed at least 12 weeks of therapy with Drug A."
+        }
+      },
+      {
+        "id": "C3",
+        "policy_id": "PA-104",
+        "description": "The patient had an inadequate response to therapy with Drug A after at least 12 weeks.",
+        "criterion_type": "previous_therapy",
+        "medication": "Drug A",
+        "operator": ">=",
+        "expected_value": 12.0,
+        "unit": "weeks",
+        "required_outcome": "inadequate_response",
+        "polarity": "inclusion",
+        "source_section": "SECTION 3. COVERAGE CRITERIA",
+        "confidence": 0.95,
+        "extraction_rule": "prior_therapy_response",
+        "extractor_version": "policy-rules-v1",
+        "provenance": {
+          "document_id": "PA-104",
+          "filename": "PA-104_2026-01.txt",
+          "page": 3,
+          "start_char": 251,
+          "end_char": 340,
+          "source_text": "3. The patient had an inadequate response to therapy with Drug A after at least 12 weeks."
+        }
+      },
+      {
+        "id": "C4",
+        "policy_id": "PA-104",
+        "description": "The most recent A1c is below 8.0 percent.",
+        "criterion_type": "lab_a1c",
+        "medication": null,
+        "operator": "<",
+        "expected_value": 8.0,
+        "unit": "percent",
+        "required_outcome": null,
+        "polarity": "inclusion",
+        "source_section": "SECTION 3. COVERAGE CRITERIA",
+        "confidence": 0.95,
+        "extraction_rule": "lab_threshold",
+        "extractor_version": "policy-rules-v1",
+        "provenance": {
+          "document_id": "PA-104",
+          "filename": "PA-104_2026-01.txt",
+          "page": 3,
+          "start_char": 341,
+          "end_char": 385,
+          "source_text": "4. The most recent A1c is below 8.0 percent."
+        }
+      },
+      {
+        "id": "C5",
+        "policy_id": "PA-104",
+        "description": "Required screening documentation is on file.",
+        "criterion_type": "screening_doc",
+        "medication": null,
+        "operator": "exists",
+        "expected_value": null,
+        "unit": null,
+        "required_outcome": null,
+        "polarity": "inclusion",
+        "source_section": "SECTION 3. COVERAGE CRITERIA",
+        "confidence": 0.92,
+        "extraction_rule": "screening_documentation",
+        "extractor_version": "policy-rules-v1",
+        "provenance": {
+          "document_id": "PA-104",
+          "filename": "PA-104_2026-01.txt",
+          "page": 3,
+          "start_char": 386,
+          "end_char": 433,
+          "source_text": "5. Required screening documentation is on file."
+        }
+      },
+      {
+        "id": "C6",
+        "policy_id": "PA-104",
+        "description": "The duration of the most recent therapy course is documented and is at least 8 weeks.",
+        "criterion_type": "therapy_duration",
+        "medication": null,
+        "operator": ">=",
+        "expected_value": 8.0,
+        "unit": "weeks",
+        "required_outcome": null,
+        "polarity": "inclusion",
+        "source_section": "SECTION 3. COVERAGE CRITERIA",
+        "confidence": 0.92,
+        "extraction_rule": "therapy_duration_documented",
+        "extractor_version": "policy-rules-v1",
+        "provenance": {
+          "document_id": "PA-104",
+          "filename": "PA-104_2026-01.txt",
+          "page": 3,
+          "start_char": 434,
+          "end_char": 522,
+          "source_text": "6. The duration of the most recent therapy course is documented and is at least 8 weeks."
+        }
+      }
+    ],
+    "exclusions_not_evaluated": [
+      {
+        "id": "X1",
+        "policy_id": "PA-104",
+        "description": "The patient has a documented allergy to Drug A.",
+        "criterion_type": "unstructured",
+        "medication": null,
+        "operator": null,
+        "expected_value": null,
+        "unit": null,
+        "required_outcome": null,
+        "polarity": "exclusion",
+        "source_section": "SECTION 4. EXCLUSIONS",
+        "confidence": 0.3,
+        "extraction_rule": null,
+        "extractor_version": "policy-rules-v1",
+        "provenance": {
+          "document_id": "PA-104",
+          "filename": "PA-104_2026-01.txt",
+          "page": 4,
+          "start_char": 81,
+          "end_char": 131,
+          "source_text": "1. The patient has a documented allergy to Drug A."
+        }
+      },
+      {
+        "id": "X2",
+        "policy_id": "PA-104",
+        "description": "The request is for an indication that is not listed in Section 1.",
+        "criterion_type": "unstructured",
+        "medication": null,
+        "operator": null,
+        "expected_value": null,
+        "unit": null,
+        "required_outcome": null,
+        "polarity": "exclusion",
+        "source_section": "SECTION 4. EXCLUSIONS",
+        "confidence": 0.3,
+        "extraction_rule": null,
+        "extractor_version": "policy-rules-v1",
+        "provenance": {
+          "document_id": "PA-104",
+          "filename": "PA-104_2026-01.txt",
+          "page": 4,
+          "start_char": 132,
+          "end_char": 200,
+          "source_text": "2. The request is for an indication that is not listed in Section 1."
+        }
+      }
+    ],
+    "criteria_issues": []
   },
   "assembly": {
     "case_directory": "data/cases/PA-CASE-001",

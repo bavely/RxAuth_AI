@@ -64,6 +64,24 @@ def evaluate_criterion(criterion: Criterion, case: Case) -> CriterionEvaluation:
         policy_source=criterion.provenance,
     )
 
+    # 0. The policy states a requirement that criteria extraction could not turn
+    #    into a comparison. There is nothing to check it against, and "no
+    #    evidence found" would be a false statement about the case rather than
+    #    about the rule set — so it is named for what it is and sent to a human.
+    if criterion.criterion_type == "unstructured":
+        return CriterionEvaluation(
+            result=CriterionResult.HUMAN_REVIEW_REQUIRED,
+            supporting_evidence_ids=[],
+            confidence=criterion.confidence,
+            evaluation_method=EvaluationMethod.NONE,
+            explanation=(
+                "This policy requirement was cited but could not be converted into a "
+                "deterministic check, so the case was not evaluated against it. A reviewer "
+                "must read the policy text and decide."
+            ),
+            **base,
+        )
+
     # 1. No evidence at all -> MISSING (deterministic, high confidence).
     if evidence is None:
         return CriterionEvaluation(
@@ -189,4 +207,16 @@ def evaluate_criterion(criterion: Criterion, case: Case) -> CriterionEvaluation:
 
 
 def evaluate_case(case: Case, criteria: list[Criterion]) -> list[CriterionEvaluation]:
-    return [evaluate_criterion(c, case) for c in criteria]
+    """Evaluate every *inclusion* criterion against the case.
+
+    Exclusions are deliberately not evaluated here. The five-state result
+    vocabulary describes whether a requirement is met; an exclusion is met when
+    coverage should be *denied*, and reporting that as SATISFIED would invert
+    the reviewer's reading. `Policy.exclusions` is carried and counted instead,
+    so what is not checked stays visible.
+    """
+    return [
+        evaluate_criterion(criterion, case)
+        for criterion in criteria
+        if criterion.polarity == "inclusion"
+    ]

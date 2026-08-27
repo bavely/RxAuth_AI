@@ -1,0 +1,32 @@
+EXAMPLE HEALTH PLAN
+Medical Policy - Prior Authorization
+
+Policy ID: PA-104
+Policy title: Drug A for Example Condition
+Payer: Example Health Plan
+Medication: Drug A
+Indication: Example Condition
+Version: 2024-06
+Effective date: 2024-06-01
+Superseded date: 2025-12-31
+Source: https://example.invalid/policies/PA-104-2024-06.pdf
+Synthetic notice: fabricated policy text for an offline prototype. Retained so retrieval must choose between two versions of the same policy. See README section 3.
+
+--- page 2 ---
+
+SECTION 1. PURPOSE
+This policy states the prior-authorization requirements that apply to Drug A when it is requested for Example Condition. This version was replaced by version 2026-01 and applies only to requests dated on or before 2025-12-31.
+
+--- page 3 ---
+
+SECTION 3. COVERAGE CRITERIA
+Drug A is considered medically necessary when ALL of the following criteria are met:
+
+1. The patient has a documented diagnosis of Example Condition.
+2. The patient has completed at least 8 weeks of therapy with Drug A.
+3. The most recent A1c is below 9.0 percent.
+
+--- page 4 ---
+
+SECTION 5. AUTHORIZATION PERIOD
+Initial authorization is granted for 6 months.

@@ -1,6 +1,8 @@
 {
   "case_id": "PA-DEMO-001",
   "policy_id": "PA-104",
+  "policy_version": "v1",
+  "policy_effective_date": "2026-01-01",
   "payer": "Example Health Plan",
   "medication": "Drug A",
   "indication": "Example Condition",
@@ -15,6 +17,8 @@
   "criteria_not_satisfied": 0,
   "criteria_missing": 1,
   "criteria_needs_review": 1,
+  "criteria_unstructured": 0,
+  "policy_exclusions_not_evaluated": 0,
   "groundedness_gate": "PASS",
   "evaluations": [
     {

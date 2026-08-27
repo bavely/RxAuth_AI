@@ -1,0 +1,34 @@
+EXAMPLE HEALTH PLAN
+Medical Policy - Prior Authorization
+
+Policy ID: PA-233
+Policy title: Adalimumab for Example Inflammatory Condition
+Payer: Example Health Plan
+Medication: adalimumab
+Indication: Example Inflammatory Condition
+Version: 2025-07
+Effective date: 2025-07-01
+Superseded date: none
+Source: https://example.invalid/policies/PA-233-2025-07.pdf
+Synthetic notice: fabricated policy text for an offline prototype. The medication is named by both its generic and brand form so retrieval must normalize an alias rather than match a string. See README section 3.
+
+--- page 2 ---
+
+SECTION 1. PURPOSE
+This policy states the prior-authorization requirements that apply to adalimumab (Humira) when it is requested for Example Inflammatory Condition.
+
+--- page 3 ---
+
+SECTION 3. COVERAGE CRITERIA
+Adalimumab is considered medically necessary when ALL of the following criteria are met:
+
+1. The patient has a documented diagnosis of Example Inflammatory Condition.
+2. The patient has completed at least 12 weeks of therapy with methotrexate.
+3. The patient had an inadequate response to therapy with methotrexate after at least 12 weeks.
+4. The most recent CRP is above 5.0.
+5. Required screening documentation is on file.
+
+--- page 4 ---
+
+SECTION 5. AUTHORIZATION PERIOD
+Initial authorization is granted for 12 months.

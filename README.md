@@ -1,7 +1,7 @@
 # RxAuth AI
 ## Specialty Pharmacy Prior Authorization Intelligence Copilot
 
-> **Status:** Phase 3 complete. Information extraction now normalizes named medications, resolves multi-span and cross-document evidence, measures OCR-aware confidence, and retains the deterministic baseline after a learned-model comparison; payer-policy retrieval is next.
+> **Status:** Phase 4 complete. The policy is no longer a fixture: retrieval selects the applicable payer-policy *version* by metadata before it ranks anything, criteria extraction reads that version's requirements out of its prose, and the end-to-end run reproduces the Milestone 0 criterion profile from a document on disk. Criteria-to-evidence matching (§12) is next.
 > **Goal:** One flagship AI-engineering project that begins as IBM AI Engineering coursework, grows into a portfolio system, and has a credible path to a commercial pilot — built incrementally so the commit history traces the progression from classical ML through deep learning to RAG and agentic systems.
 
 **Author:** Bavely S. Tawfik — [pavli-tawfik.com](https://pavli-tawfik.com) · [linkedin.com/in/bavelytawfik](https://www.linkedin.com/in/bavelytawfik) · [github.com/bavely](https://github.com/bavely)
@@ -22,13 +22,17 @@ uv run rxauth-extract data/documents/clinical_note/doc_0002.txt --document-id SY
 uv run rxauth-benchmark-extraction
 uv run rxauth-calibrate-extraction
 uv run rxauth-compare-extractors
+uv run rxauth-search-policy "What A1c threshold applies?" --payer "Example Health Plan" --medication "Drug A" --indication "Example Condition" --as-of-date 2026-01-14
+uv run rxauth-extract-criteria PA-104:2026-01
+uv run rxauth-benchmark-retrieval
+uv run rxauth-benchmark-criteria
 uv run rxauth-run-case data/cases/PA-CASE-001
 uv run pytest
 ```
 
 `rxauth-run-case` is the one that runs the whole spine on real files — ingest, classify, extract,
-resolve, match, groundedness gate — so it needs the classifier artifact that `rxauth-train-classifier`
-writes.
+resolve, retrieve the policy, structure its criteria, match, groundedness gate — so it needs the
+classifier artifact that `rxauth-train-classifier` writes.
 
 Run the optional deep-learning comparison separately:
 
@@ -37,7 +41,7 @@ uv sync --extra deep --group dev
 uv run rxauth-train-deep-classifier --seeds 7 42 73
 ```
 
-The synthetic classifier and rendered ingestion corpora are checked in for reproducibility. See [the Milestone 0 guide](docs/milestone-0.md) for the pipeline spine, [the Phase 1.5 guide](docs/phase-1.5.md) for ingestion and benchmark details, [the Phase 2 guide](docs/phase-2.md) for the transformer protocol, results, and model decision, [the Phase 3 guide](docs/phase-3-extraction.md) for extraction and its resolution stages, and [the case-assembly guide](docs/case-assembly.md) for the end-to-end run on real documents.
+The synthetic classifier and rendered ingestion corpora are checked in for reproducibility. See [the Milestone 0 guide](docs/milestone-0.md) for the pipeline spine, [the Phase 1.5 guide](docs/phase-1.5.md) for ingestion and benchmark details, [the Phase 2 guide](docs/phase-2.md) for the transformer protocol, results, and model decision, [the Phase 3 guide](docs/phase-3-extraction.md) for extraction and its resolution stages, [the Phase 4 guide](docs/phase-4-policy-rag.md) for policy retrieval and criteria extraction, and [the case-assembly guide](docs/case-assembly.md) for the end-to-end run on real documents.
 
 ### Phase 1.5 outcomes
 
@@ -78,14 +82,32 @@ The synthetic classifier and rendered ingestion corpora are checked in for repro
 - Exact normalized facts repeated across documents are linked as corroboration without merging their document-scoped evidence or using partial facts to manufacture a complete statement.
 - Externally authored clinical/OCR evaluation remains necessary before any generalization claim; it belongs to evaluation hardening (§15), not the completed §9 prototype deliverable.
 
+### Payer-policy retrieval and criteria extraction
+
+- The policy is no longer a fixture. `rxauth-run-case` retrieves the applicable payer-policy *version* from `data/policies/` and reads its requirements out of the document's prose.
+- Retrieval filters on metadata **before** it ranks. Payer, normalized medication, indication, and the version window are matched exactly; similarity then orders passages *inside* the selected policy so the citations a reviewer sees are the relevant ones.
+- When the filter excludes everything, retrieval returns nothing. There is no fallback to unfiltered search — "some policy" is not a safe answer to "which policy applies."
+- The synthetic corpus is built to punish the alternative: `PA-207` covers the same drug and indication as `PA-104` under a different payer in near-identical wording, and `PA-104` ships in two versions whose prior-therapy thresholds differ (12 weeks vs 8).
+- Measured ablation over 16 gold queries, both arms given the same query text and the same embedding: metadata+similarity scores a **1.000** correct-policy rate against **0.625** for similarity alone. The vector-only arm answers all three queries that should have been declined, and reaches for the superseded version of the right policy.
+- The two embeddings (`tfidf-v1`, `tfidf-lsa-v1`) score identically on this corpus, so the simpler one stays the default. Both are lexical at heart and neither is presented as a pretrained semantic model; `EmbeddingBackend` is the three-method seam where a dense model or pgvector drops in.
+- The policy version is chosen by the request date, and that date is itself an extracted, cited fact — `"Date of request: 2026-01-14"` read off the PA request. Undated, retrieval considers every version and refuses if more than one is in force rather than defaulting to the newest file.
+- Chunking is `section+enumerated-item`: an enumerated requirement is its own chunk, so a question about A1c returns the A1c line and its citation, not the section around it. Every chunk carries policy, version, payer, section, page, and a character span that still indexes the page it was cut from.
+- Criteria extraction turns prose into the structured rule the matcher evaluates — `"at least 12 weeks of Drug A"` becomes `operator: >=, expected_value: 12, unit: weeks` — with comparator words mapped through one auditable table, so "no greater than" is never read as the "greater than" it contains.
+- A requirement no rule can structure is **kept and flagged**, never dropped, and routes to `HUMAN_REVIEW_REQUIRED` rather than `MISSING`. Dropping it would hold criterion F1 at 1.000 while shrinking the policy the case is judged against, and the case would read as readier than it is.
+- Exclusions are parsed from their own section, marked `polarity="exclusion"`, kept out of the conjunctive criteria list, and counted in the readiness report. The deterministic matcher has no NOT semantics, and reporting a reason to deny coverage as a satisfied requirement would invert the answer.
+- A policy that joins its criteria with ANY is refused by name rather than scored as a conjunction that would fail a case the policy actually covers.
+- `rxauth-benchmark-criteria` scores 32 gold criteria across all eight policy versions at **1.000** F1, provenance-span accuracy, connective accuracy, and unstructured-requirement recall. A criterion counts as correct only when its type, medication, operator, threshold, unit, required outcome, and quoted source text all agree.
+- The criteria read out of `PA-104 v2026-01` are structurally identical to the Milestone 0 fixture. That equivalence is the acceptance test for this phase, not a demo.
+- The policy corpus is synthetic public-style text authored locally in the forms the rules expect. These scores validate the declared contract — normalization, provenance, version selection, connective detection, and the routing of what could not be structured — not generalization to real payer publications.
+
 ### End-to-end on real documents
 
-- `rxauth-run-case data/cases/PA-CASE-001` runs a document packet through ingest → classify → extract → resolve → match → groundedness gate, replacing Milestone 0's hand-supplied evidence with the components the project actually ships.
+- `rxauth-run-case data/cases/PA-CASE-001` runs a document packet through ingest → classify → extract → resolve → retrieve policy → extract criteria → match → groundedness gate, replacing every one of Milestone 0's hand-supplied inputs with the components the project actually ships.
 - The assembled run reproduces the Milestone 0 criterion profile exactly (4 supported, 1 missing, 1 ambiguous). That equivalence is an acceptance test, not a demo.
 - Two of those criteria are only satisfiable because the therapy duration and its outcome were linked across two lines — and the evaluation cites both spans, not just the anchor.
-- The readiness report now also counts what a reviewer still has to look at: document classifications below threshold, and extracted fields that produced an issue. A case can be "4 of 6 supported" and still need a human underneath.
+- The readiness report now also counts what a reviewer still has to look at: document classifications below threshold, extracted fields that produced an issue, policy requirements that could not be structured, and exclusion rules the system does not evaluate. A case can be "4 of 6 supported" and still need a human underneath.
 - Classification is injectable behind a one-method protocol, so the trained baseline, a served model, or a test stub all drop in without touching assembly.
-- The policy and the `pa_required` trigger stay declared inputs: §10 replaces the policy fixture with retrieval, and §3 forbids inferring a live benefit from policy text. See [the case-assembly guide](docs/case-assembly.md).
+- `pa_required` stays declared input: §3 forbids inferring a live benefit from policy text, because a public policy cannot establish a member's benefit status. It is the only remaining supplied value in the flow. See [the case-assembly guide](docs/case-assembly.md).
 
 ### Repository layout
 
@@ -93,7 +115,7 @@ The synthetic classifier and rendered ingestion corpora are checked in for repro
 .
 ├── src/rxauth_ai/    # installable application package and CLI entry points
 ├── tests/            # automated tests
-├── data/             # synthetic corpus, manifest, gold sets, and case packets
+├── data/             # synthetic document corpus, policy corpus, gold sets, case packets
 ├── reports/          # reproducible evaluation artifacts
 ├── docs/             # milestone and architecture documentation
 ├── pyproject.toml    # package, dependency, test, and lint configuration
@@ -201,10 +223,10 @@ Synthetic case + documents
 *Courses: CV/NLP, model optimization.* Convert unstructured documents into normalized evidence, attaching to every field: source document, page, source span, and extraction confidence. Never store a normalized value without provenance. Low-confidence fields route to human review. **Deliverable:** extraction service + confidence-calibration note.
 
 ## 10. Component — Payer-policy RAG
-*Courses: LLM apps, RAG, vector DBs.* Ingest **public** payer PA policies (parse → clean → section-detect → chunk → attach metadata → embed → pgvector). Retrieval prefers **metadata filtering + semantic similarity**, not vector search alone. **Deliverable:** retrieval service with citations surfaced in the UI.
+*Courses: LLM apps, RAG, vector DBs.* Ingest **public** payer PA policies (parse → clean → section-detect → chunk → attach metadata → embed → pgvector). Retrieval prefers **metadata filtering + semantic similarity**, not vector search alone. **Deliverable:** retrieval service with citations surfaced in the UI, plus `reports/policy_retrieval.md` measuring that preference against vector-only search rather than asserting it.
 
 ## 11. Component — Criteria extraction
-*Course: LLM apps.* Turn policy prose into structured requirements, retaining original text, payer, policy version, effective date, page, and extraction model/prompt version. **Deliverable:** criteria extractor + structured criteria store.
+*Course: LLM apps.* Turn policy prose into structured requirements, retaining original text, payer, policy version, effective date, page, and extraction model/prompt version. A requirement the extractor cannot structure is retained and routed to a reviewer, never dropped — a policy evaluated against fewer criteria than it states reads as readier than it is. **Deliverable:** criteria extractor + structured criteria store + `reports/criteria_extraction.md`.
 
 ## 12. Component — Criteria-to-evidence matching (core intelligence)
 For each criterion: retrieve relevant evidence → normalize → deterministic check where possible → model-assisted interpretation where necessary → assign a result from `SATISFIED / NOT_SATISFIED / MISSING / AMBIGUOUS / HUMAN_REVIEW_REQUIRED`. Ambiguity is a first-class outcome ("used for several months" → AMBIGUOUS, duration not explicit enough for a deterministic check). **Deliverable:** matching engine + evaluation report.
@@ -289,8 +311,8 @@ Before building broad product functionality, resolve these through small experim
 2. What synthetic dataset is sufficient for a meaningful baseline classifier?
 3. What preprocessing materially improves classification/extraction?
 4. Which policy structure is easiest to normalize?
-5. What chunking strategy retrieves exact PA criteria most reliably?
-6. Which metadata fields should be mandatory before vector search?
+5. What chunking strategy retrieves exact PA criteria most reliably? *(§10: one chunk per enumerated requirement — see `docs/phase-4-policy-rag.md`.)*
+6. Which metadata fields should be mandatory before vector search? *(§10: payer, normalized medication, indication, and the effective/superseded version window; a policy missing any of them is rejected at parse time.)*
 7. Can payer criteria be reliably converted to structured JSON?
 8. Which criteria can be evaluated deterministically?
 9. How should ambiguous evidence be represented?
@@ -314,8 +336,8 @@ That principle governs the architecture, interface, evaluation strategy, and com
 - [x] Deep-learning classifier + comparison (§8, Phase 2) — baseline retained after three-seed comparison
 - [x] Information extraction with confidence (§9) — medication normalization, multi-page/OCR challenge coverage, multi-span and cross-document provenance, calibrated review routing, and deterministic-vs-learned comparison
 - [x] Real-document case assembly — the Milestone 0 spine now runs on ingested, classified, and extracted documents instead of fixtures
-- [ ] Payer-policy RAG (§10) + criteria extraction (§11) — next
-- [ ] Criteria-to-evidence matching (§12)
+- [x] Payer-policy RAG (§10) + criteria extraction (§11) — metadata-filtered retrieval with a measured ablation against vector-only search, policy-version selection driven by an extracted request date, and prose-to-structured criteria that retain, flag, and route what they cannot check
+- [ ] Criteria-to-evidence matching (§12) — next
 - [ ] LangGraph workflow (§13)
 - [ ] Draft generation + groundedness gate (§14)
 - [ ] Evaluation suite (§15)

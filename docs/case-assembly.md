@@ -13,8 +13,12 @@ uv run rxauth-run-case data/cases/PA-CASE-001
 `rxauth_ai.case_assembly` walks a directory of documents and runs:
 
 ```text
-ingest -> classify -> extract -> resolve -> Case -> match -> groundedness -> readiness report
+ingest -> classify -> extract -> resolve -> retrieve policy -> extract criteria
+   -> Case -> match -> groundedness -> readiness report
 ```
+
+Phase 4 (README §10–§11, [the Phase 4 guide](phase-4-policy-rag.md)) added the two policy-side
+stages. Nothing in the flow is a fixture any more.
 
 Every criterion result is now produced by components the project actually ships, and every value in
 the report traces back to a character span in a file on disk.
@@ -39,16 +43,26 @@ C3 is the interesting one. The packet states the duration on one line and the ou
 so it is only satisfiable because Phase 3.5 links the two spans into one fact — and the evaluation
 cites both spans, not just the anchor.
 
-## What stays a fixture, and why
+## Where the policy comes from
 
-Two things are still supplied rather than derived, because they belong to later phases:
+The policy is no longer supplied by the packet. `resolve_policy` asks the retrieval index which
+policy version governs this payer, drug, indication, and request date, and criteria extraction
+reads the requirements out of that version's prose ([Phase 4](phase-4-policy-rag.md)).
 
-- **The policy.** README §10 replaces the `PA-104` fixture with retrieval over real public payer
-  documents. `resolve_policy` raises on an unknown `policy_id` rather than silently evaluating a
-  packet against the wrong requirements.
-- **`pa_required`.** README §3 requires the PA trigger to come from a synthetic benefit trigger or
-  explicit user input, never from policy text — a public policy cannot establish a live member's
-  benefit status. It is read from the case manifest as declared input.
+The request date driving the version choice is itself an extracted, cited fact: `request_date_for`
+prefers the manifest when a packet declares one, and otherwise reads the `document_date` the
+extractor found in the PA request (`"Date of request: 2026-01-14"`). Undated, retrieval considers
+every version and refuses if more than one is in force rather than defaulting to the newest.
+
+A packet may still name a `policy_id`. That is treated as an assertion to check, never as the
+lookup key — if the packet and retrieval disagree, one of them is wrong about the case, and
+trusting either silently would hide it.
+
+## What stays declared input, and why
+
+**`pa_required`.** README §3 requires the PA trigger to come from a synthetic benefit trigger or
+explicit user input, never from policy text — a public policy cannot establish a live member's
+benefit status. It is read from the case manifest as declared input.
 
 ## Case packet format
 
@@ -67,6 +81,9 @@ A packet is a directory containing `case.json` plus any number of ingestable doc
   "policy_id": "PA-104"
 }
 ```
+
+`policy_id` and `request_date` are both optional. `policy_id` asserts which policy the packet
+expects retrieval to select; `request_date` overrides the date read off the PA request.
 
 Documents are assigned IDs `D1…Dn` in filename order, and extraction scopes evidence IDs to their
 document, so every evidence ID in an assembled case is unique and stable across runs.
@@ -97,16 +114,23 @@ tallies:
 
 - `documents_requiring_classification_review` — documents the classifier was not confident about;
 - `evidence_total` and `evidence_requiring_review` — extracted fields, and how many produced an
-  `ExtractionIssue`.
+  `ExtractionIssue`;
+- `criteria_unstructured` — policy requirements that were cited but could not be turned into a
+  check;
+- `policy_exclusions_not_evaluated` — exclusion rules the policy states that this system does not
+  evaluate, disclosed so a reviewer is not told a case is ready against only half of the policy;
+- `policy_version` and `policy_effective_date` — which version of the policy produced the answer.
 
 A case can be "4 of 6 criteria supported" and still need a human on the fields underneath. Reporting
 only the criterion tally would hide that.
 
 The JSON artifact (`reports/case_<case_id>.json`) is self-describing: the readiness report, the
-classified documents, every evidence record with all of its cited spans, the review issues with
-their kinds, spans suppressed during overlap resolution, and cross-document evidence links.
+retrieved policy with its ranked citations and structured criteria, the classified documents, every
+evidence record with all of its cited spans, the review issues with their kinds, spans suppressed
+during overlap resolution, and cross-document evidence links.
 
 ## Next
 
-This closes the last integration item in README §9. §10 replaces `resolve_policy` with payer-policy
-retrieval, at which point the policy stops being a fixture too.
+README §12 replaces the typed evidence lookup in `matching._find_evidence` with retrieval over the
+patient evidence store, and adds model-assisted interpretation for the `AMBIGUOUS` results the
+pipeline currently routes to a human.

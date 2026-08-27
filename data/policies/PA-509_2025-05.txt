@@ -1,0 +1,33 @@
+CASCADE BENEFIT PLAN
+Medical Policy - Prior Authorization
+
+Policy ID: PA-509
+Policy title: Secukinumab for Example Inflammatory Condition
+Payer: Cascade Benefit Plan
+Medication: secukinumab
+Indication: Example Inflammatory Condition
+Version: 2025-05
+Effective date: 2025-05-01
+Superseded date: none
+Source: https://example.invalid/policies/PA-509-2025-05.pdf
+Synthetic notice: fabricated policy text for an offline prototype. See README section 3.
+
+--- page 2 ---
+
+SECTION 1. PURPOSE
+This policy states the prior-authorization requirements that apply to secukinumab (Cosentyx) when it is requested for Example Inflammatory Condition.
+
+--- page 3 ---
+
+SECTION 3. COVERAGE CRITERIA
+Secukinumab is considered medically necessary when ALL of the following criteria are met:
+
+1. The patient has a documented diagnosis of Example Inflammatory Condition.
+2. The patient has completed at least 12 weeks of therapy with adalimumab.
+3. The patient had an inadequate response to therapy with adalimumab after at least 12 weeks.
+4. Required screening documentation is on file.
+
+--- page 4 ---
+
+SECTION 5. AUTHORIZATION PERIOD
+Initial authorization is granted for 12 months.

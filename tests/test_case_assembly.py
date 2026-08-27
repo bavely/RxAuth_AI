@@ -19,12 +19,22 @@ from rxauth_ai.case_assembly import (
     link_cross_document_evidence,
     load_classifier,
     load_manifest,
+    request_date_for,
     resolve_policy,
     run_case,
 )
 from rxauth_ai.models import CriterionResult, Document, DocumentType, Evidence, Provenance
+from rxauth_ai.policy_retrieval import PolicyNotFoundError, build_index
 
-_CASE_DIR = Path(__file__).resolve().parents[1] / "data" / "cases" / "PA-CASE-001"
+_ROOT = Path(__file__).resolve().parents[1]
+_CASE_DIR = _ROOT / "data" / "cases" / "PA-CASE-001"
+_POLICY_DIR = _ROOT / "data" / "policies"
+
+
+@pytest.fixture(scope="module")
+def policy_index():
+    """One index for the module: parsing and embedding the corpus is pure setup."""
+    return build_index(_POLICY_DIR)
 
 
 class _FilenameClassifier:
@@ -133,10 +143,10 @@ def test_cross_document_linking_does_not_complete_two_partial_therapy_facts():
     assert link_cross_document_evidence([duration, outcome]) == []
 
 
-def test_real_extraction_reproduces_the_milestone_zero_criterion_profile():
+def test_real_extraction_reproduces_the_milestone_zero_criterion_profile(policy_index):
     """The whole point of the phase: swapping fixtures for real components must
     not change what the reviewer is told about the case."""
-    report, _ = run_case(_CASE_DIR, classifier=_FilenameClassifier())
+    report, _, _ = run_case(_CASE_DIR, classifier=_FilenameClassifier(), index=policy_index)
     results = {evaluation.criterion_id: evaluation.result for evaluation in report.evaluations}
 
     assert results == {
@@ -150,10 +160,10 @@ def test_real_extraction_reproduces_the_milestone_zero_criterion_profile():
     assert report.groundedness_gate == "PASS"
 
 
-def test_a_linked_fact_cites_both_of_its_spans_in_the_criterion_evaluation():
+def test_a_linked_fact_cites_both_of_its_spans_in_the_criterion_evaluation(policy_index):
     """C2 and C3 are only satisfiable because the duration and the outcome were
     linked across two lines — so the evaluation must cite both."""
-    report, _ = run_case(_CASE_DIR, classifier=_FilenameClassifier())
+    report, _, _ = run_case(_CASE_DIR, classifier=_FilenameClassifier(), index=policy_index)
     evaluation = next(e for e in report.evaluations if e.criterion_id == "C3")
 
     assert evaluation.result is CriterionResult.SATISFIED
@@ -166,8 +176,8 @@ def test_a_linked_fact_cites_both_of_its_spans_in_the_criterion_evaluation():
     assert evaluation.patient_evidence_source == evaluation.patient_evidence_sources[0]
 
 
-def test_the_report_counts_what_a_reviewer_still_has_to_look_at():
-    report, assembled = run_case(_CASE_DIR, classifier=_FilenameClassifier())
+def test_the_report_counts_what_a_reviewer_still_has_to_look_at(policy_index):
+    report, assembled, _ = run_case(_CASE_DIR, classifier=_FilenameClassifier(), index=policy_index)
 
     assert report.evidence_total == len(assembled.case.evidence)
     assert report.evidence_requiring_review == len(assembled.extraction_issues)
@@ -175,8 +185,10 @@ def test_the_report_counts_what_a_reviewer_still_has_to_look_at():
     assert report.documents_requiring_classification_review == 0
 
 
-def test_low_confidence_classification_is_reported_not_swallowed():
-    report, assembled = run_case(_CASE_DIR, classifier=_FilenameClassifier(confidence=0.4))
+def test_low_confidence_classification_is_reported_not_swallowed(policy_index):
+    report, assembled, _ = run_case(
+        _CASE_DIR, classifier=_FilenameClassifier(confidence=0.4), index=policy_index
+    )
 
     assert len(assembled.documents_requiring_review) == len(assembled.case.documents)
     assert report.documents_requiring_classification_review == len(assembled.case.documents)
@@ -209,11 +221,95 @@ def test_packet_with_no_ingestable_documents_is_rejected(tmp_path):
         assemble_case(tmp_path, classifier=_FilenameClassifier())
 
 
-def test_unknown_policy_id_is_rejected_rather_than_silently_substituted():
-    with pytest.raises(ValueError, match="Unknown policy_id"):
-        resolve_policy("PA-999")
+def test_packet_asserting_the_wrong_policy_is_rejected(policy_index):
+    """A packet may name a policy, but retrieval decides. When the two disagree
+    one of them is wrong about the case, and neither may be trusted silently."""
+    assembled = assemble_case(_CASE_DIR, classifier=_FilenameClassifier())
+    assembled.manifest.policy_id = "PA-207"
+
+    with pytest.raises(ValueError, match="asserts policy 'PA-207'"):
+        resolve_policy(assembled, index=policy_index)
+
+
+def test_a_case_the_corpus_does_not_cover_is_refused_not_approximated(policy_index):
+    assembled = assemble_case(_CASE_DIR, classifier=_FilenameClassifier())
+    assembled.manifest.medication = "Drug Z"
+    assembled.manifest.policy_id = None
+
+    with pytest.raises(PolicyNotFoundError, match="No payer policy found"):
+        resolve_policy(assembled, index=policy_index)
 
 
 def test_missing_classifier_artifact_names_the_commands_that_build_it(tmp_path):
     with pytest.raises(FileNotFoundError, match="rxauth-train-classifier"):
         load_classifier(tmp_path / "absent.pkl")
+
+
+def test_the_policy_is_retrieved_from_the_corpus_not_supplied_by_the_packet(policy_index):
+    """README section 10: the last fixture on the policy side is gone. The packet
+    names a payer, a drug, and an indication; the requirements come from a
+    document in `data/policies/` that retrieval selected."""
+    _, _, resolved = run_case(_CASE_DIR, classifier=_FilenameClassifier(), index=policy_index)
+
+    assert resolved.document.policy_id == "PA-104"
+    assert resolved.document.filename == "PA-104_2026-01.txt"
+    assert resolved.policy.criteria, "the policy's requirements are read out of its prose"
+    for criterion in resolved.policy.criteria:
+        assert criterion.provenance.document_id == "PA-104"
+        assert criterion.provenance.source_text
+        assert criterion.provenance.start_char is not None
+        assert criterion.extractor_version == "policy-rules-v1"
+
+
+def test_retrieved_criteria_match_the_milestone_zero_fixture_exactly(policy_index):
+    """The equivalence is the acceptance test for this phase, the same way real
+    extraction had to reproduce the hand-authored evidence: reading the
+    requirements out of policy prose must not change what the policy requires."""
+    from rxauth_ai.synthetic_case import build_policy as fixture_policy
+
+    _, _, resolved = run_case(_CASE_DIR, classifier=_FilenameClassifier(), index=policy_index)
+
+    def structure(criterion):
+        return (
+            criterion.criterion_type,
+            criterion.medication,
+            criterion.operator,
+            criterion.expected_value,
+            criterion.unit,
+            criterion.required_outcome,
+        )
+
+    assert [structure(c) for c in resolved.policy.criteria] == [
+        structure(c) for c in fixture_policy().criteria
+    ]
+
+
+def test_the_policy_version_is_chosen_by_the_request_date_read_off_the_request(policy_index):
+    """The version window is not decoration: PA-104 v2024-06 requires 8 weeks
+    where v2026-01 requires 12, so picking the wrong version silently changes
+    the answer. The date driving that choice is an extracted, cited fact."""
+    assembled = assemble_case(_CASE_DIR, classifier=_FilenameClassifier())
+    date, source = request_date_for(assembled)
+
+    assert date == "2026-01-14"
+    assert "01_pa_request.txt" in source
+
+    resolved = resolve_policy(assembled, index=policy_index)
+    assert resolved.document.version == "2026-01"
+
+    assembled.manifest.request_date = "2025-06-01"
+    earlier = resolve_policy(assembled, index=policy_index)
+    assert earlier.document.version == "2024-06"
+    assert earlier.request_date_source == "case manifest"
+
+
+def test_exclusions_are_counted_but_never_evaluated_as_criteria(policy_index):
+    """PA-104 states two exclusions. Scoring them as criteria would report a
+    reason to deny coverage as a requirement the case satisfies."""
+    report, _, resolved = run_case(_CASE_DIR, classifier=_FilenameClassifier(), index=policy_index)
+
+    assert len(resolved.policy.exclusions) == 2
+    assert report.policy_exclusions_not_evaluated == 2
+    assert report.criteria_total == len(resolved.policy.criteria)
+    evaluated = {evaluation.criterion_id for evaluation in report.evaluations}
+    assert evaluated.isdisjoint({exclusion.id for exclusion in resolved.policy.exclusions})

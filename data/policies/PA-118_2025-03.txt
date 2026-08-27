@@ -1,0 +1,38 @@
+EXAMPLE HEALTH PLAN
+Medical Policy - Prior Authorization
+
+Policy ID: PA-118
+Policy title: Drug B for Example Condition
+Payer: Example Health Plan
+Medication: Drug B
+Indication: Example Condition
+Version: 2025-03
+Effective date: 2025-03-01
+Superseded date: none
+Source: https://example.invalid/policies/PA-118-2025-03.pdf
+Synthetic notice: fabricated policy text for an offline prototype. Same payer and indication as PA-104 but a different drug, so a payer-only filter is not sufficient. See README section 3.
+
+--- page 2 ---
+
+SECTION 1. PURPOSE
+This policy states the prior-authorization requirements that apply to Drug B when it is requested for Example Condition.
+
+--- page 3 ---
+
+SECTION 3. COVERAGE CRITERIA
+Drug B is considered medically necessary when ALL of the following criteria are met:
+
+1. The patient has a documented diagnosis of Example Condition.
+2. The patient has completed at least 16 weeks of therapy with Drug A.
+3. The patient had an inadequate response to therapy with Drug A after at least 16 weeks.
+4. The most recent ALT is no greater than 60.
+
+--- page 4 ---
+
+SECTION 4. EXCLUSIONS
+Drug B is not covered when ANY of the following applies:
+
+1. The patient is receiving Drug A concurrently.
+
+SECTION 5. AUTHORIZATION PERIOD
+Initial authorization is granted for 12 months.

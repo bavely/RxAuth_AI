@@ -1,0 +1,37 @@
+NORTHWIND HEALTH
+Medical Policy - Prior Authorization
+
+Policy ID: PA-207
+Policy title: Drug A for Example Condition
+Payer: Northwind Health
+Medication: Drug A
+Indication: Example Condition
+Version: 2025-09
+Effective date: 2025-09-01
+Superseded date: none
+Source: https://example.invalid/policies/PA-207-2025-09.pdf
+Synthetic notice: fabricated policy text for an offline prototype. This document deliberately covers the same drug and indication as PA-104 under a different payer, so retrieval cannot rely on text similarity alone. See README section 3.
+
+--- page 2 ---
+
+SECTION 1. PURPOSE
+This policy states the prior-authorization requirements that apply to Drug A when it is requested for Example Condition under a Northwind Health pharmacy benefit.
+
+SECTION 2. DEFINITIONS
+Documented diagnosis means a diagnosis recorded in the medical record by the treating prescriber.
+Therapy course means a continuous period of treatment with a single agent.
+
+--- page 3 ---
+
+SECTION 3. COVERAGE CRITERIA
+Drug A is considered medically necessary when ALL of the following criteria are met:
+
+1. The patient has a documented diagnosis of Example Condition.
+2. The patient has completed at least 24 weeks of therapy with Drug A.
+3. The most recent A1c is below 7.5 percent.
+4. The most recent eGFR is at least 45.
+
+--- page 4 ---
+
+SECTION 5. AUTHORIZATION PERIOD
+Initial authorization is granted for 6 months.

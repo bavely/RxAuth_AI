@@ -151,7 +151,19 @@ class EvidenceLink(BaseModel):
 
 
 class Criterion(BaseModel):
-    """A structured payer requirement extracted from policy prose."""
+    """A structured payer requirement extracted from policy prose.
+
+    `polarity` separates the two kinds of sentence a policy contains. An
+    inclusion criterion must hold for coverage; an exclusion revokes it. They
+    are worded almost identically, and evaluating one as the other inverts the
+    answer, so the distinction is carried on the type rather than inferred from
+    which list a criterion happens to be in.
+
+    `criterion_type == "unstructured"` marks a requirement that was read and
+    cited but that no deterministic rule could turn into a comparison. It is
+    retained rather than dropped: a policy evaluated against fewer criteria
+    than it states reads as readier than it is.
+    """
 
     id: str
     policy_id: str
@@ -164,18 +176,49 @@ class Criterion(BaseModel):
     expected_value: Optional[float] = None
     unit: Optional[str] = None
     required_outcome: Optional[str] = None
+    polarity: Literal["inclusion", "exclusion"] = "inclusion"
+    source_section: Optional[str] = None
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+    extraction_rule: Optional[str] = Field(
+        default=None, description="Name of the rule that structured this requirement."
+    )
+    extractor_version: Optional[str] = None
     provenance: Provenance
 
 
 class Policy(BaseModel):
+    """One *version* of a payer policy and the requirements read out of it.
+
+    Version identity matters: `effective_date`/`superseded_date` bound the
+    window in which these criteria applied, and evaluating a case against the
+    wrong window is a wrong answer that looks like a right one.
+    """
+
     id: str
     payer: str
     medication: str
     indication: str
     effective_date: str
+    superseded_date: Optional[str] = None
     source_url: Optional[str] = None
+    filename: Optional[str] = None
     version: str = "v1"
+    criteria_connective: Literal["all", "any", "unknown"] = Field(
+        default="all",
+        description=(
+            "How the policy joins its coverage criteria. The deterministic matcher evaluates a "
+            "conjunction, so anything other than 'all' is refused rather than approximated."
+        ),
+    )
+    extractor_version: Optional[str] = None
     criteria: list[Criterion] = Field(default_factory=list)
+    exclusions: list[Criterion] = Field(
+        default_factory=list,
+        description=(
+            "Parsed and cited, but not evaluated — the matcher has no NOT semantics. Counted in "
+            "the readiness report so a reviewer knows they were not checked."
+        ),
+    )
 
 
 class Case(BaseModel):
@@ -220,6 +263,8 @@ class CaseReadinessReport(BaseModel):
 
     case_id: str
     policy_id: str
+    policy_version: str = "v1"
+    policy_effective_date: Optional[str] = None
     payer: str
     medication: str
     indication: str
@@ -234,6 +279,20 @@ class CaseReadinessReport(BaseModel):
     criteria_not_satisfied: int
     criteria_missing: int
     criteria_needs_review: int
+    criteria_unstructured: int = Field(
+        default=0,
+        description=(
+            "Policy requirements that were cited but could not be structured into a check. They "
+            "count as needing review; naming them separately keeps the reason visible."
+        ),
+    )
+    policy_exclusions_not_evaluated: int = Field(
+        default=0,
+        description=(
+            "Exclusion rules the policy states that this system does not evaluate. Disclosed so "
+            "a reviewer is not told a case is ready against only half of the policy."
+        ),
+    )
     groundedness_gate: str
     evaluations: list[CriterionEvaluation] = Field(default_factory=list)
 

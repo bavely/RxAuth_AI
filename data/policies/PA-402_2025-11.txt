@@ -1,0 +1,39 @@
+CASCADE BENEFIT PLAN
+Medical Policy - Prior Authorization
+
+Policy ID: PA-402
+Policy title: Drug C for Example Condition B
+Payer: Cascade Benefit Plan
+Medication: Drug C
+Indication: Example Condition B
+Version: 2025-11
+Effective date: 2025-11-01
+Superseded date: none
+Source: https://example.invalid/policies/PA-402-2025-11.pdf
+Synthetic notice: fabricated policy text for an offline prototype. One criterion is deliberately written in a form no deterministic rule can structure, so the unparsed path is exercised rather than assumed. See README section 3.
+
+--- page 2 ---
+
+SECTION 1. PURPOSE
+This policy states the prior-authorization requirements that apply to Drug C when it is requested for Example Condition B.
+
+--- page 3 ---
+
+SECTION 3. COVERAGE CRITERIA
+Drug C is considered medically necessary when ALL of the following criteria are met:
+
+1. The patient has a documented diagnosis of Example Condition B.
+2. The patient has completed at least 6 weeks of therapy with Drug B.
+3. The prescriber has submitted a written statement explaining why every formulary alternative is expected to be clinically inappropriate for this patient.
+4. The most recent LDL cholesterol is below 100.
+
+--- page 4 ---
+
+SECTION 4. EXCLUSIONS
+Drug C is not covered when ANY of the following applies:
+
+1. The patient has completed at least 52 weeks of therapy with Drug C.
+2. The most recent ALT is above 120.
+
+SECTION 5. AUTHORIZATION PERIOD
+Initial authorization is granted for 6 months.
