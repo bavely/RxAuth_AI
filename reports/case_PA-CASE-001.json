@@ -1,0 +1,640 @@
+{
+  "readiness": {
+    "case_id": "PA-CASE-001",
+    "policy_id": "PA-104",
+    "payer": "Example Health Plan",
+    "medication": "Drug A",
+    "indication": "Example Condition",
+    "pa_required": true,
+    "documents_detected": 5,
+    "mean_classification_confidence": 0.928,
+    "documents_requiring_classification_review": 0,
+    "evidence_total": 12,
+    "evidence_requiring_review": 1,
+    "criteria_total": 6,
+    "criteria_satisfied": 4,
+    "criteria_not_satisfied": 0,
+    "criteria_missing": 1,
+    "criteria_needs_review": 1,
+    "groundedness_gate": "PASS",
+    "evaluations": [
+      {
+        "criterion_id": "C1",
+        "case_id": "PA-CASE-001",
+        "result": "SATISFIED",
+        "supporting_evidence_ids": [
+          "D1-EV2"
+        ],
+        "confidence": 0.95,
+        "evaluation_method": "deterministic",
+        "explanation": "Required documentation is present in the case.",
+        "criterion_description": "Documented diagnosis of the covered indication.",
+        "policy_source": {
+          "document_id": null,
+          "filename": null,
+          "page": 3,
+          "start_char": null,
+          "end_char": null,
+          "source_text": "Patient must have a documented diagnosis."
+        },
+        "patient_evidence_source": {
+          "document_id": "D1",
+          "filename": "01_pa_request.txt",
+          "page": 1,
+          "start_char": 149,
+          "end_char": 177,
+          "source_text": "Diagnosis: Example Condition"
+        },
+        "patient_evidence_sources": [
+          {
+            "document_id": "D1",
+            "filename": "01_pa_request.txt",
+            "page": 1,
+            "start_char": 149,
+            "end_char": 177,
+            "source_text": "Diagnosis: Example Condition"
+          }
+        ]
+      },
+      {
+        "criterion_id": "C2",
+        "case_id": "PA-CASE-001",
+        "result": "SATISFIED",
+        "supporting_evidence_ids": [
+          "D4-EV1"
+        ],
+        "confidence": 0.85,
+        "evaluation_method": "deterministic",
+        "explanation": "16.0 >= 12.0 -> true.",
+        "criterion_description": "Prior Drug A therapy for at least 12 weeks.",
+        "policy_source": {
+          "document_id": null,
+          "filename": null,
+          "page": 4,
+          "start_char": null,
+          "end_char": null,
+          "source_text": "At least 12 weeks of Drug A."
+        },
+        "patient_evidence_source": {
+          "document_id": "D4",
+          "filename": "04_medication_history.txt",
+          "page": 1,
+          "start_char": 54,
+          "end_char": 93,
+          "source_text": "Drug A \u2014 16 weeks of therapy documented"
+        },
+        "patient_evidence_sources": [
+          {
+            "document_id": "D4",
+            "filename": "04_medication_history.txt",
+            "page": 1,
+            "start_char": 54,
+            "end_char": 93,
+            "source_text": "Drug A \u2014 16 weeks of therapy documented"
+          },
+          {
+            "document_id": "D4",
+            "filename": "04_medication_history.txt",
+            "page": 1,
+            "start_char": 95,
+            "end_char": 163,
+            "source_text": "Drug A \u2014 started 2025-06-05, discontinued due to inadequate response"
+          }
+        ]
+      },
+      {
+        "criterion_id": "C3",
+        "case_id": "PA-CASE-001",
+        "result": "SATISFIED",
+        "supporting_evidence_ids": [
+          "D4-EV1"
+        ],
+        "confidence": 0.85,
+        "evaluation_method": "deterministic",
+        "explanation": "16.0 >= 12.0 -> true; required outcome 'inadequate_response' met (evidence: 'inadequate_response').",
+        "criterion_description": "Inadequate response to prior Drug A therapy.",
+        "policy_source": {
+          "document_id": null,
+          "filename": null,
+          "page": 4,
+          "start_char": null,
+          "end_char": null,
+          "source_text": "...with inadequate response."
+        },
+        "patient_evidence_source": {
+          "document_id": "D4",
+          "filename": "04_medication_history.txt",
+          "page": 1,
+          "start_char": 54,
+          "end_char": 93,
+          "source_text": "Drug A \u2014 16 weeks of therapy documented"
+        },
+        "patient_evidence_sources": [
+          {
+            "document_id": "D4",
+            "filename": "04_medication_history.txt",
+            "page": 1,
+            "start_char": 54,
+            "end_char": 93,
+            "source_text": "Drug A \u2014 16 weeks of therapy documented"
+          },
+          {
+            "document_id": "D4",
+            "filename": "04_medication_history.txt",
+            "page": 1,
+            "start_char": 95,
+            "end_char": 163,
+            "source_text": "Drug A \u2014 started 2025-06-05, discontinued due to inadequate response"
+          }
+        ]
+      },
+      {
+        "criterion_id": "C4",
+        "case_id": "PA-CASE-001",
+        "result": "SATISFIED",
+        "supporting_evidence_ids": [
+          "D5-EV1"
+        ],
+        "confidence": 0.95,
+        "evaluation_method": "deterministic",
+        "explanation": "7.4 < 8.0 -> true.",
+        "criterion_description": "Recent A1c below 8.0.",
+        "policy_source": {
+          "document_id": null,
+          "filename": null,
+          "page": 5,
+          "start_char": null,
+          "end_char": null,
+          "source_text": "A1c must be below 8.0."
+        },
+        "patient_evidence_source": {
+          "document_id": "D5",
+          "filename": "05_lab_report.txt",
+          "page": 1,
+          "start_char": 52,
+          "end_char": 61,
+          "source_text": "A1c: 7.4%"
+        },
+        "patient_evidence_sources": [
+          {
+            "document_id": "D5",
+            "filename": "05_lab_report.txt",
+            "page": 1,
+            "start_char": 52,
+            "end_char": 61,
+            "source_text": "A1c: 7.4%"
+          }
+        ]
+      },
+      {
+        "criterion_id": "C5",
+        "case_id": "PA-CASE-001",
+        "result": "MISSING",
+        "supporting_evidence_ids": [],
+        "confidence": 0.99,
+        "evaluation_method": "deterministic",
+        "explanation": "No evidence of type 'screening_doc' found in the case.",
+        "criterion_description": "Required screening documentation on file.",
+        "policy_source": {
+          "document_id": null,
+          "filename": null,
+          "page": 6,
+          "start_char": null,
+          "end_char": null,
+          "source_text": "Screening documentation required."
+        },
+        "patient_evidence_source": null,
+        "patient_evidence_sources": []
+      },
+      {
+        "criterion_id": "C6",
+        "case_id": "PA-CASE-001",
+        "result": "AMBIGUOUS",
+        "supporting_evidence_ids": [
+          "D3-EV2"
+        ],
+        "confidence": 0.5,
+        "evaluation_method": "model_assisted",
+        "explanation": "Criterion requires a numeric comparison but the evidence value is not explicit enough for a deterministic check. In a later phase a model would attempt interpretation; here it is routed to human review.",
+        "criterion_description": "Duration of most recent therapy course documented.",
+        "policy_source": {
+          "document_id": null,
+          "filename": null,
+          "page": 6,
+          "start_char": null,
+          "end_char": null,
+          "source_text": "Therapy duration must be documented."
+        },
+        "patient_evidence_source": {
+          "document_id": "D3",
+          "filename": "03_clinical_note.txt",
+          "page": 1,
+          "start_char": 172,
+          "end_char": 201,
+          "source_text": "on therapy for several months"
+        },
+        "patient_evidence_sources": [
+          {
+            "document_id": "D3",
+            "filename": "03_clinical_note.txt",
+            "page": 1,
+            "start_char": 172,
+            "end_char": 201,
+            "source_text": "on therapy for several months"
+          }
+        ]
+      }
+    ]
+  },
+  "assembly": {
+    "case_directory": "data/cases/PA-CASE-001",
+    "extractor_version": "regex-v3",
+    "documents": [
+      {
+        "id": "D1",
+        "filename": "01_pa_request.txt",
+        "document_type": "pa_request",
+        "classification_confidence": 0.8816332997149876,
+        "page_count": 1
+      },
+      {
+        "id": "D2",
+        "filename": "02_insurance_card.txt",
+        "document_type": "insurance_card",
+        "classification_confidence": 0.9470701371217021,
+        "page_count": 1
+      },
+      {
+        "id": "D3",
+        "filename": "03_clinical_note.txt",
+        "document_type": "clinical_note",
+        "classification_confidence": 0.9186167483149048,
+        "page_count": 1
+      },
+      {
+        "id": "D4",
+        "filename": "04_medication_history.txt",
+        "document_type": "medication_history",
+        "classification_confidence": 0.93430625740694,
+        "page_count": 1
+      },
+      {
+        "id": "D5",
+        "filename": "05_lab_report.txt",
+        "document_type": "lab_report",
+        "classification_confidence": 0.9588931785353155,
+        "page_count": 1
+      }
+    ],
+    "documents_requiring_classification_review": [],
+    "evidence": [
+      {
+        "id": "D1-EV1",
+        "evidence_type": "patient_id",
+        "medication": null,
+        "text_value": "SYNTH-0001",
+        "value": null,
+        "unit": null,
+        "outcome": null,
+        "confidence": 0.98,
+        "provenance": {
+          "document_id": "D1",
+          "filename": "01_pa_request.txt",
+          "page": 1,
+          "start_char": 68,
+          "end_char": 90,
+          "source_text": "Patient ID: SYNTH-0001"
+        },
+        "supporting_provenance": [],
+        "source_confidence": 1.0,
+        "extraction_rule": "patient_id",
+        "extraction_method": "regex-v3"
+      },
+      {
+        "id": "D1-EV2",
+        "evidence_type": "diagnosis",
+        "medication": null,
+        "text_value": "Example Condition",
+        "value": null,
+        "unit": null,
+        "outcome": "documented",
+        "confidence": 0.95,
+        "provenance": {
+          "document_id": "D1",
+          "filename": "01_pa_request.txt",
+          "page": 1,
+          "start_char": 149,
+          "end_char": 177,
+          "source_text": "Diagnosis: Example Condition"
+        },
+        "supporting_provenance": [],
+        "source_confidence": 1.0,
+        "extraction_rule": "diagnosis",
+        "extraction_method": "regex-v3"
+      },
+      {
+        "id": "D1-EV3",
+        "evidence_type": "payer",
+        "medication": null,
+        "text_value": "Example Health Plan",
+        "value": null,
+        "unit": null,
+        "outcome": null,
+        "confidence": 0.95,
+        "provenance": {
+          "document_id": "D1",
+          "filename": "01_pa_request.txt",
+          "page": 1,
+          "start_char": 179,
+          "end_char": 211,
+          "source_text": "Health plan: Example Health Plan"
+        },
+        "supporting_provenance": [],
+        "source_confidence": 1.0,
+        "extraction_rule": "payer_labeled",
+        "extraction_method": "regex-v3"
+      },
+      {
+        "id": "D1-EV4",
+        "evidence_type": "days_supply",
+        "medication": null,
+        "text_value": null,
+        "value": 30.0,
+        "unit": "days",
+        "outcome": null,
+        "confidence": 0.95,
+        "provenance": {
+          "document_id": "D1",
+          "filename": "01_pa_request.txt",
+          "page": 1,
+          "start_char": 285,
+          "end_char": 318,
+          "source_text": "Quantity requested: 30-day supply"
+        },
+        "supporting_provenance": [],
+        "source_confidence": 1.0,
+        "extraction_rule": "days_supply",
+        "extraction_method": "regex-v3"
+      },
+      {
+        "id": "D1-EV5",
+        "evidence_type": "document_date",
+        "medication": null,
+        "text_value": "2026-01-14",
+        "value": null,
+        "unit": null,
+        "outcome": null,
+        "confidence": 0.98,
+        "provenance": {
+          "document_id": "D1",
+          "filename": "01_pa_request.txt",
+          "page": 1,
+          "start_char": 320,
+          "end_char": 347,
+          "source_text": "Date of request: 2026-01-14"
+        },
+        "supporting_provenance": [],
+        "source_confidence": 1.0,
+        "extraction_rule": "document_date",
+        "extraction_method": "regex-v3"
+      },
+      {
+        "id": "D2-EV1",
+        "evidence_type": "payer",
+        "medication": null,
+        "text_value": "Example Health Plan",
+        "value": null,
+        "unit": null,
+        "outcome": null,
+        "confidence": 0.95,
+        "provenance": {
+          "document_id": "D2",
+          "filename": "02_insurance_card.txt",
+          "page": 1,
+          "start_char": 22,
+          "end_char": 68,
+          "source_text": "Example Health Plan Member Identification Card"
+        },
+        "supporting_provenance": [],
+        "source_confidence": 1.0,
+        "extraction_rule": "payer_card_heading",
+        "extraction_method": "regex-v3"
+      },
+      {
+        "id": "D2-EV2",
+        "evidence_type": "member_id",
+        "medication": null,
+        "text_value": "SYNTH-0001",
+        "value": null,
+        "unit": null,
+        "outcome": null,
+        "confidence": 0.98,
+        "provenance": {
+          "document_id": "D2",
+          "filename": "02_insurance_card.txt",
+          "page": 1,
+          "start_char": 70,
+          "end_char": 91,
+          "source_text": "Member ID: SYNTH-0001"
+        },
+        "supporting_provenance": [],
+        "source_confidence": 1.0,
+        "extraction_rule": "member_id",
+        "extraction_method": "regex-v3"
+      },
+      {
+        "id": "D3-EV1",
+        "evidence_type": "diagnosis",
+        "medication": null,
+        "text_value": "Example Condition",
+        "value": null,
+        "unit": null,
+        "outcome": "documented",
+        "confidence": 0.95,
+        "provenance": {
+          "document_id": "D3",
+          "filename": "03_clinical_note.txt",
+          "page": 1,
+          "start_char": 74,
+          "end_char": 103,
+          "source_text": "Assessment: Example Condition"
+        },
+        "supporting_provenance": [],
+        "source_confidence": 1.0,
+        "extraction_rule": "diagnosis",
+        "extraction_method": "regex-v3"
+      },
+      {
+        "id": "D3-EV2",
+        "evidence_type": "therapy_duration",
+        "medication": null,
+        "text_value": null,
+        "value": null,
+        "unit": null,
+        "outcome": "several months",
+        "confidence": 0.6,
+        "provenance": {
+          "document_id": "D3",
+          "filename": "03_clinical_note.txt",
+          "page": 1,
+          "start_char": 172,
+          "end_char": 201,
+          "source_text": "on therapy for several months"
+        },
+        "supporting_provenance": [],
+        "source_confidence": 1.0,
+        "extraction_rule": "therapy_duration_vague",
+        "extraction_method": "regex-v3"
+      },
+      {
+        "id": "D3-EV3",
+        "evidence_type": "document_date",
+        "medication": null,
+        "text_value": "2026-01-09",
+        "value": null,
+        "unit": null,
+        "outcome": null,
+        "confidence": 0.98,
+        "provenance": {
+          "document_id": "D3",
+          "filename": "03_clinical_note.txt",
+          "page": 1,
+          "start_char": 348,
+          "end_char": 370,
+          "source_text": "Visit date: 2026-01-09"
+        },
+        "supporting_provenance": [],
+        "source_confidence": 1.0,
+        "extraction_rule": "document_date",
+        "extraction_method": "regex-v3"
+      },
+      {
+        "id": "D4-EV1",
+        "evidence_type": "previous_therapy",
+        "medication": "Drug A",
+        "text_value": null,
+        "value": 16.0,
+        "unit": "weeks",
+        "outcome": "inadequate_response",
+        "confidence": 0.85,
+        "provenance": {
+          "document_id": "D4",
+          "filename": "04_medication_history.txt",
+          "page": 1,
+          "start_char": 54,
+          "end_char": 93,
+          "source_text": "Drug A \u2014 16 weeks of therapy documented"
+        },
+        "supporting_provenance": [
+          {
+            "document_id": "D4",
+            "filename": "04_medication_history.txt",
+            "page": 1,
+            "start_char": 95,
+            "end_char": 163,
+            "source_text": "Drug A \u2014 started 2025-06-05, discontinued due to inadequate response"
+          }
+        ],
+        "source_confidence": 1.0,
+        "extraction_rule": "previous_therapy_documented",
+        "extraction_method": "regex-v3"
+      },
+      {
+        "id": "D5-EV1",
+        "evidence_type": "lab_a1c",
+        "medication": null,
+        "text_value": null,
+        "value": 7.4,
+        "unit": "percent",
+        "outcome": null,
+        "confidence": 0.95,
+        "provenance": {
+          "document_id": "D5",
+          "filename": "05_lab_report.txt",
+          "page": 1,
+          "start_char": 52,
+          "end_char": 61,
+          "source_text": "A1c: 7.4%"
+        },
+        "supporting_provenance": [],
+        "source_confidence": 1.0,
+        "extraction_rule": "lab_a1c",
+        "extraction_method": "regex-v3"
+      }
+    ],
+    "extraction_issues": [
+      {
+        "evidence_id": "D3-EV2",
+        "evidence_type": "therapy_duration",
+        "confidence": 0.6,
+        "reason": "Duration is described in words, not as a number; the value is retained with its source but is not explicit enough for a deterministic check.",
+        "kind": "incomplete_value"
+      }
+    ],
+    "suppressed_spans": [],
+    "cross_document_evidence_links": [
+      {
+        "id": "XLINK-1",
+        "evidence_type": "diagnosis",
+        "canonical_evidence_id": "D1-EV2",
+        "evidence_ids": [
+          "D1-EV2",
+          "D3-EV1"
+        ],
+        "document_ids": [
+          "D1",
+          "D3"
+        ],
+        "provenance": [
+          {
+            "document_id": "D1",
+            "filename": "01_pa_request.txt",
+            "page": 1,
+            "start_char": 149,
+            "end_char": 177,
+            "source_text": "Diagnosis: Example Condition"
+          },
+          {
+            "document_id": "D3",
+            "filename": "03_clinical_note.txt",
+            "page": 1,
+            "start_char": 74,
+            "end_char": 103,
+            "source_text": "Assessment: Example Condition"
+          }
+        ]
+      },
+      {
+        "id": "XLINK-2",
+        "evidence_type": "payer",
+        "canonical_evidence_id": "D1-EV3",
+        "evidence_ids": [
+          "D1-EV3",
+          "D2-EV1"
+        ],
+        "document_ids": [
+          "D1",
+          "D2"
+        ],
+        "provenance": [
+          {
+            "document_id": "D1",
+            "filename": "01_pa_request.txt",
+            "page": 1,
+            "start_char": 179,
+            "end_char": 211,
+            "source_text": "Health plan: Example Health Plan"
+          },
+          {
+            "document_id": "D2",
+            "filename": "02_insurance_card.txt",
+            "page": 1,
+            "start_char": 22,
+            "end_char": 68,
+            "source_text": "Example Health Plan Member Identification Card"
+          }
+        ]
+      }
+    ]
+  }
+}

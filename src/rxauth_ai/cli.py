@@ -37,6 +37,9 @@ def print_report(report, evaluations) -> None:
     print(f"PA required (trigger):   {report.pa_required}")
     print(f"Documents detected:      {report.documents_detected}")
     print(f"Mean doc confidence:     {report.mean_classification_confidence:.0%}")
+    print(f"Doc classifications to review: {report.documents_requiring_classification_review}")
+    print(f"Evidence extracted:      {report.evidence_total}")
+    print(f"Evidence fields to review:     {report.evidence_requiring_review}")
     print(f"Criteria retrieved:      {report.criteria_total}")
     print(f"Supported:               {report.criteria_satisfied}")
     print(f"Not satisfied:           {report.criteria_not_satisfied}")
@@ -56,9 +59,14 @@ def print_report(report, evaluations) -> None:
             f"({ev.evaluation_method.value}, conf {ev.confidence:.2f})"
         )
         print(f"       reason:     {ev.explanation}")
-        if ev.patient_evidence_source and ev.patient_evidence_source.filename:
-            p = ev.patient_evidence_source
-            print(f'       evidence:   {p.filename} p.{p.page} — "{p.source_text}"')
+        # A fact assembled from several spans cites all of them, so the trace
+        # shows every one — an evaluation is only as auditable as its weakest citation.
+        cited = ev.patient_evidence_sources or (
+            [ev.patient_evidence_source] if ev.patient_evidence_source else []
+        )
+        for index, p in enumerate(source for source in cited if source and source.filename):
+            label = "evidence:  " if index == 0 else "  also:   "
+            print(f'       {label} {p.filename} p.{p.page} — "{p.source_text}"')
         if ev.policy_source:
             p = ev.policy_source
             print(f"       policy src: {report.policy_id} p.{p.page}")

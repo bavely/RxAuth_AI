@@ -26,7 +26,20 @@ from .models import (
 )
 
 
-def run_pipeline(case: Case, policy: Policy) -> CaseReadinessReport:
+def run_pipeline(
+    case: Case,
+    policy: Policy,
+    *,
+    evidence_requiring_review: int = 0,
+    documents_requiring_classification_review: int = 0,
+) -> CaseReadinessReport:
+    """Evaluate one case against one policy and report how ready it is.
+
+    The two review counters are supplied by whatever produced the case. A
+    fixture case has none; a case assembled from real documents reports how
+    many extracted fields and how many document classifications a reviewer
+    must look at before the criterion results mean anything.
+    """
     mismatches = [
         field
         for field in ("payer", "medication", "indication")
@@ -64,6 +77,9 @@ def run_pipeline(case: Case, policy: Policy) -> CaseReadinessReport:
         pa_required=case.pa_required,
         documents_detected=len(case.documents),
         mean_classification_confidence=round(mean_conf, 3),
+        documents_requiring_classification_review=documents_requiring_classification_review,
+        evidence_total=len(case.evidence),
+        evidence_requiring_review=evidence_requiring_review,
         criteria_total=len(evaluations),
         criteria_satisfied=counts[CriterionResult.SATISFIED],
         criteria_not_satisfied=counts[CriterionResult.NOT_SATISFIED],

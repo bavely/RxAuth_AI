@@ -4,9 +4,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from rxauth_ai.extraction import DEFAULT_CONFIDENCE_THRESHOLD, extract_evidence
+from rxauth_ai.extraction import (
+    DEFAULT_CONFIDENCE_THRESHOLD,
+    IssueKind,
+    combine_confidence,
+    extract_evidence,
+)
 from rxauth_ai.ingestion import IngestedDocument, IngestedPage, ingest_document
 from rxauth_ai.matching import evaluate_case
+from rxauth_ai.medications import normalize_medication
 from rxauth_ai.models import Case, CriterionResult
 from rxauth_ai.synthetic_case import build_policy
 
@@ -55,6 +61,24 @@ def test_extracts_prescription_from_rx_form():
     item = result.evidence[0]
     assert item.evidence_type == "prescription"
     assert item.medication == "Drug A"
+
+
+def test_normalizes_brand_and_generic_medication_names_to_one_canonical_value():
+    brand = extract_evidence(_document("Prescription: Humira."), document_id="D1")
+    generic = extract_evidence(_document("Medication ordered: adalimumab."), document_id="D2")
+
+    assert brand.evidence[0].medication == "adalimumab"
+    assert generic.evidence[0].medication == "adalimumab"
+    assert normalize_medication("HUMIRA") == "adalimumab"
+
+
+def test_extracts_named_medication_therapy_without_changing_provenance_text():
+    text = "Enbrel used for 12 weeks; no response."
+    result = extract_evidence(_document(text), document_id="D1")
+
+    assert len(result.evidence) == 1
+    assert result.evidence[0].medication == "etanercept"
+    assert result.evidence[0].provenance.source_text == "Enbrel used for 12 weeks; no response"
 
 
 def test_extracts_previous_therapy_with_duration_and_outcome():
@@ -199,10 +223,24 @@ def test_negated_diagnosis_does_not_create_supported_evidence():
     assert result.evidence == []
 
 
-def test_confidence_threshold_is_configurable():
+def test_confidence_threshold_is_configurable_for_a_complete_field():
+    document = _document("A1c: 7.4 — collected 2025-12-22")
+    lenient = extract_evidence(document, document_id="D1", confidence_threshold=0.0)
+    strict = extract_evidence(document, document_id="D1", confidence_threshold=0.8)
+
+    assert lenient.issues == []
+    assert [issue.kind for issue in strict.issues] == [IssueKind.LOW_CONFIDENCE]
+
+
+def test_an_incomplete_value_is_not_silenced_by_a_lenient_threshold():
+    """An incomplete value is not a confidence problem, so the confidence knob
+    must not clear it — the span was read correctly and still says too little
+    for a deterministic check."""
     document = _document("Drug D — started 2025-11-05, discontinued due to inadequate response.")
     lenient = extract_evidence(document, document_id="D1", confidence_threshold=0.0)
-    assert lenient.issues == []
+
+    assert [issue.kind for issue in lenient.issues] == [IssueKind.INCOMPLETE_VALUE]
+    assert lenient.requires_human_review is True
 
 
 def test_provenance_captures_page_and_character_span():
@@ -299,3 +337,139 @@ def test_extracts_evidence_from_the_documented_cli_example_file():
     result = extract_evidence(document, document_id="SYN-EXAMPLE")
 
     assert result.evidence, "the documented CLI example should extract at least one field"
+
+
+# --- Phase 3.5: span resolution, multi-span facts, and OCR-aware confidence ---
+
+
+def test_links_a_therapy_duration_and_its_outcome_into_one_fact_citing_both_spans():
+    document = _document(
+        "Drug A — 16 weeks of therapy documented. "
+        "Drug A — started 2025-06-05, discontinued due to inadequate response."
+    )
+    result = extract_evidence(document, document_id="D1")
+
+    assert len(result.evidence) == 1
+    item = result.evidence[0]
+    assert (item.medication, item.value, item.unit, item.outcome) == (
+        "Drug A",
+        16.0,
+        "weeks",
+        "inadequate_response",
+    )
+    # The linked fact is complete, so the missing-duration penalty is gone.
+    assert item.confidence >= DEFAULT_CONFIDENCE_THRESHOLD
+    assert result.issues == []
+
+    # Both spans stay citable, and the duration span anchors the record.
+    assert len(item.sources) == 2
+    assert item.provenance.source_text.endswith("of therapy documented")
+    assert "inadequate response" in item.supporting_provenance[0].source_text
+    for provenance in item.sources:
+        assert provenance.document_id == "D1"
+
+
+def test_refuses_to_link_when_several_pairings_are_equally_plausible():
+    document = _document(
+        "Drug B — 12 weeks of therapy documented. "
+        "Drug B — 20 weeks of therapy documented. "
+        "Drug B — started 2025-03-05, discontinued due to inadequate response."
+    )
+    result = extract_evidence(document, document_id="D1")
+
+    assert len(result.evidence) == 3
+    assert {item.value for item in result.evidence} == {12.0, 20.0, None}
+    assert [issue.kind for issue in result.issues] == [IssueKind.AMBIGUOUS_LINKAGE]
+    assert "equally plausible" in result.issues[0].reason
+
+
+def test_does_not_link_a_duration_and_an_outcome_for_different_medications():
+    document = _document(
+        "Drug A — 18 weeks of therapy documented. "
+        "Drug C — started 2025-02-14, discontinued due to inadequate response."
+    )
+    result = extract_evidence(document, document_id="D1")
+
+    assert len(result.evidence) == 2
+    by_medication = {item.medication: item for item in result.evidence}
+    assert by_medication["Drug A"].outcome is None
+    assert by_medication["Drug C"].value is None
+    assert [issue.kind for issue in result.issues] == [IssueKind.INCOMPLETE_VALUE]
+
+
+def test_merges_a_repeated_mention_into_one_fact_with_several_citations():
+    document = _document(
+        "Example Health Plan Member Identification Card. Health plan: Example Health Plan."
+    )
+    result = extract_evidence(document, document_id="D1")
+
+    assert len(result.evidence) == 1
+    item = result.evidence[0]
+    assert item.text_value == "Example Health Plan"
+    assert len(item.sources) == 2
+    assert [provenance.start_char for provenance in item.sources] == sorted(
+        provenance.start_char for provenance in item.sources
+    )
+
+
+def test_does_not_merge_facts_that_differ_in_any_normalized_field():
+    document = _document("Health plan: Example Health Plan. Health plan: Sample Care Network.")
+    values = {item.text_value for item in extract_evidence(document, document_id="D1").evidence}
+
+    assert values == {"Example Health Plan", "Sample Care Network"}
+
+
+def test_overlapping_same_type_spans_resolve_to_one_and_record_the_suppression():
+    document = _document("Health plan: Example Health Plan Member Identification Card")
+    result = extract_evidence(document, document_id="D1")
+
+    assert len(result.evidence) == 1
+    assert result.evidence[0].extraction_rule == "payer_labeled"
+    assert len(result.suppressed) == 1
+    suppressed = result.suppressed[0]
+    assert suppressed.rule == "payer_card_heading"
+    assert suppressed.superseded_by == "payer_labeled"
+    assert suppressed.reason == "contained in a longer span"
+
+
+def test_a_date_inside_a_therapy_line_stays_a_separate_fact():
+    """Overlap resolution is per evidence type — different types may share text."""
+    document = _document("Drug A used for 16 weeks; inadequate response. Visit date: 2026-01-09.")
+    types = {item.evidence_type for item in extract_evidence(document, document_id="D1").evidence}
+
+    assert types == {"previous_therapy", "document_date"}
+
+
+def _ocr_document(text: str, confidence: float) -> IngestedDocument:
+    return IngestedDocument(
+        filename="scan.png",
+        media_type="image",
+        pages=[
+            IngestedPage(page_number=1, text=text, extraction_method="ocr", confidence=confidence)
+        ],
+    )
+
+
+def test_ocr_page_confidence_is_folded_into_extraction_confidence():
+    clean = extract_evidence(_document("Diagnosis: Example Condition."), document_id="D1")
+    scanned = extract_evidence(
+        _ocr_document("Diagnosis: Example Condition.", 0.7), document_id="D2"
+    )
+
+    assert clean.evidence[0].confidence == 0.95
+    assert clean.evidence[0].source_confidence == 1.0
+    assert scanned.evidence[0].confidence == combine_confidence(0.95, 0.7)
+    assert scanned.evidence[0].source_confidence == 0.7
+    assert scanned.evidence[0].confidence < clean.evidence[0].confidence
+
+
+def test_a_poor_scan_routes_an_otherwise_confident_field_to_review():
+    result = extract_evidence(_ocr_document("Diagnosis: Example Condition.", 0.5), document_id="D1")
+
+    assert [issue.kind for issue in result.issues] == [IssueKind.LOW_CONFIDENCE]
+    assert "page ingestion confidence" in result.issues[0].reason
+    assert result.requires_human_review is True
+
+
+def test_combine_confidence_leaves_digital_text_untouched():
+    assert combine_confidence(0.85, 1.0) == 0.85

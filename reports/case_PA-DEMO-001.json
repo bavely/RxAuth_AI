@@ -7,6 +7,9 @@
   "pa_required": true,
   "documents_detected": 5,
   "mean_classification_confidence": 0.96,
+  "documents_requiring_classification_review": 0,
+  "evidence_total": 4,
+  "evidence_requiring_review": 0,
   "criteria_total": 6,
   "criteria_satisfied": 4,
   "criteria_not_satisfied": 0,
@@ -29,14 +32,28 @@
         "document_id": null,
         "filename": null,
         "page": 3,
+        "start_char": null,
+        "end_char": null,
         "source_text": "Patient must have a documented diagnosis."
       },
       "patient_evidence_source": {
         "document_id": "D3",
         "filename": "clinical_note.pdf",
         "page": 1,
+        "start_char": null,
+        "end_char": null,
         "source_text": "Diagnosis: Example Condition."
-      }
+      },
+      "patient_evidence_sources": [
+        {
+          "document_id": "D3",
+          "filename": "clinical_note.pdf",
+          "page": 1,
+          "start_char": null,
+          "end_char": null,
+          "source_text": "Diagnosis: Example Condition."
+        }
+      ]
     },
     {
       "criterion_id": "C2",
@@ -53,14 +70,28 @@
         "document_id": null,
         "filename": null,
         "page": 4,
+        "start_char": null,
+        "end_char": null,
         "source_text": "At least 12 weeks of Drug A."
       },
       "patient_evidence_source": {
         "document_id": "D4",
         "filename": "medication_history.pdf",
         "page": 2,
+        "start_char": null,
+        "end_char": null,
         "source_text": "Drug A used for 16 weeks; inadequate response."
-      }
+      },
+      "patient_evidence_sources": [
+        {
+          "document_id": "D4",
+          "filename": "medication_history.pdf",
+          "page": 2,
+          "start_char": null,
+          "end_char": null,
+          "source_text": "Drug A used for 16 weeks; inadequate response."
+        }
+      ]
     },
     {
       "criterion_id": "C3",
@@ -77,14 +108,28 @@
         "document_id": null,
         "filename": null,
         "page": 4,
+        "start_char": null,
+        "end_char": null,
         "source_text": "...with inadequate response."
       },
       "patient_evidence_source": {
         "document_id": "D4",
         "filename": "medication_history.pdf",
         "page": 2,
+        "start_char": null,
+        "end_char": null,
         "source_text": "Drug A used for 16 weeks; inadequate response."
-      }
+      },
+      "patient_evidence_sources": [
+        {
+          "document_id": "D4",
+          "filename": "medication_history.pdf",
+          "page": 2,
+          "start_char": null,
+          "end_char": null,
+          "source_text": "Drug A used for 16 weeks; inadequate response."
+        }
+      ]
     },
     {
       "criterion_id": "C4",
@@ -101,14 +146,28 @@
         "document_id": null,
         "filename": null,
         "page": 5,
+        "start_char": null,
+        "end_char": null,
         "source_text": "A1c must be below 8.0."
       },
       "patient_evidence_source": {
         "document_id": "D5",
         "filename": "lab_report.pdf",
         "page": 1,
+        "start_char": null,
+        "end_char": null,
         "source_text": "A1c: 7.4%"
-      }
+      },
+      "patient_evidence_sources": [
+        {
+          "document_id": "D5",
+          "filename": "lab_report.pdf",
+          "page": 1,
+          "start_char": null,
+          "end_char": null,
+          "source_text": "A1c: 7.4%"
+        }
+      ]
     },
     {
       "criterion_id": "C5",
@@ -123,9 +182,12 @@
         "document_id": null,
         "filename": null,
         "page": 6,
+        "start_char": null,
+        "end_char": null,
         "source_text": "Screening documentation required."
       },
-      "patient_evidence_source": null
+      "patient_evidence_source": null,
+      "patient_evidence_sources": []
     },
     {
       "criterion_id": "C6",
@@ -142,14 +204,28 @@
         "document_id": null,
         "filename": null,
         "page": 6,
+        "start_char": null,
+        "end_char": null,
         "source_text": "Therapy duration must be documented."
       },
       "patient_evidence_source": {
         "document_id": "D3",
         "filename": "clinical_note.pdf",
         "page": 3,
+        "start_char": null,
+        "end_char": null,
         "source_text": "Patient on therapy for several months."
-      }
+      },
+      "patient_evidence_sources": [
+        {
+          "document_id": "D3",
+          "filename": "clinical_note.pdf",
+          "page": 3,
+          "start_char": null,
+          "end_char": null,
+          "source_text": "Patient on therapy for several months."
+        }
+      ]
     }
   ]
 }

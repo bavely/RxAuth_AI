@@ -1,0 +1,9 @@
+PRIOR AUTHORIZATION REQUEST
+Prior Authorization Request for Drug A.
+Patient ID: SYNTH-0001. Requested medication: Drug A.
+Prescriber: Dr. A. Rivera. Diagnosis: Example Condition.
+Health plan: Example Health Plan. Please review the attached clinical documentation and approve coverage.
+Quantity requested: 30-day supply. Date of request: 2026-01-14.
+This request is submitted in accordance with the plan's step-therapy and prior-authorization policy.
+Attached: chart notes, lab results, and medication history supporting this request.
+End of intake record

@@ -161,3 +161,42 @@ def test_gold_loader_rejects_duplicate_ids_and_ambiguous_spans(tmp_path: Path):
     )
     with pytest.raises(ValueError, match="exactly once"):
         load_gold(ambiguous_path)
+
+
+def test_benchmark_supports_typed_multi_page_challenge_records(tmp_path: Path):
+    gold_path = tmp_path / "gold.jsonl"
+    _write_jsonl(
+        gold_path,
+        [
+            _record("V1", "validation", "No result.", []),
+            _record("T1", "test", "No result.", []),
+            {
+                "document_id": "C1",
+                "split": "challenge",
+                "filename": "note.pdf",
+                "pages": [
+                    {"page_number": 1, "text": "Cover page.", "extraction_method": "pypdf"},
+                    {
+                        "page_number": 2,
+                        "text": "Diagnosis: Example Condition.",
+                        "extraction_method": "ocr",
+                        "confidence": 0.8,
+                    },
+                ],
+                "expected": [
+                    {
+                        "evidence_type": "diagnosis",
+                        "text_value": "Example Condition",
+                        "outcome": "documented",
+                        "source_text": "Diagnosis: Example Condition",
+                        "page": 2,
+                    }
+                ],
+            },
+        ],
+    )
+
+    evaluation = benchmark_extraction(gold_path)["evaluations"]["challenge"]
+
+    assert evaluation["field_f1"] == 1.0
+    assert evaluation["provenance_span_accuracy"] == 1.0

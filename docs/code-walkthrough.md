@@ -2,8 +2,9 @@
 
 A line-by-line-level reference for every module in the package: every import, every
 class, every function. Companion to [milestone-0.md](milestone-0.md),
-[phase-1.5.md](phase-1.5.md), [phase-2.md](phase-2.md), and
-[phase-3-extraction.md](phase-3-extraction.md), which explain *why* the system is
+[phase-1.5.md](phase-1.5.md), [phase-2.md](phase-2.md),
+[phase-3-extraction.md](phase-3-extraction.md), and
+[case-assembly.md](case-assembly.md), which explain *why* the system is
 built this way — this document explains *what each line does*.
 
 ## Module map
@@ -12,12 +13,16 @@ built this way — this document explains *what each line does*.
 |---|---|
 | [`models.py`](#modelspy) | Typed data model (Pydantic) shared by every other module. |
 | [`ingestion.py`](#ingestionpy) | Extracts text from `.txt`/`.md`, PDF, and image files. |
-| [`extraction.py`](#extractionpy) | Converts ingested text into confidence-scored evidence with exact provenance. |
+| [`extraction.py`](#extractionpy) | Converts ingested text into confidence-scored evidence with exact provenance, then resolves overlaps, repeated mentions, and multi-span facts. |
+| `medications.py` | Auditable brand/generic alias lexicon and canonical medication normalization. |
+| [`calibration.py`](#calibrationpy) | Measures the extractor's confidence values against the gold validation split. |
+| `compare_extractors.py` | Trains and evaluates the small token-classifier candidate against the selected rules. |
 | [`matching.py`](#matchingpy) | Evaluates one policy criterion against case evidence. |
 | [`groundedness.py`](#groundednesspy) | Citation gate — refuses ungrounded claims. |
 | [`pipeline.py`](#pipelinepy) | Wires matching + groundedness into one case report. |
 | [`synthetic_case.py`](#synthetic_casepy) | Fabricated case/policy fixture for Milestone 0. |
 | [`cli.py`](#clipy) | `rxauth-milestone0` — runs the fixture end to end. |
+| [`case_assembly.py`](#case_assemblypy) | `rxauth-run-case` — runs the same spine on a real document packet. |
 | [`rendering.py`](#renderingpy) | Renders text to deterministic PDF/PNG files. |
 | [`build_dataset.py`](#build_datasetpy) | Generates the synthetic classification + ingestion corpus. |
 | [`classifier.py`](#classifierpy) | TF-IDF + Logistic Regression document classifier. |
@@ -38,8 +43,11 @@ Console scripts (from `pyproject.toml`), left to right in rough pipeline order:
 | `rxauth-train-classifier` | `train_classifier:main` |
 | `rxauth-train-deep-classifier` | `train_deep_classifier:main` |
 | `rxauth-benchmark-extraction` | `benchmark_extraction:main` |
+| `rxauth-calibrate-extraction` | `calibration:main` |
+| `rxauth-compare-extractors` | `compare_extractors:main` |
 | `rxauth-benchmark-ingestion` | `benchmark_ingestion:main` |
 | `rxauth-milestone0` | `cli:main` |
+| `rxauth-run-case` | `case_assembly:main` |
 
 Dependency direction (who imports whom): `models` is imported by almost everything;
 `ingestion` is imported by both classifiers, `extraction`, and `benchmark_ingestion`; `matching` and
@@ -49,7 +57,10 @@ imports `classifier`; `deep_classifier` reuses the classical classifier's datase
 prediction, and calibration contracts; `train_deep_classifier` orchestrates both
 classifiers so the generated comparison comes from the same loaded splits;
 `benchmark_extraction` imports the extractor plus ingestion/evidence contracts and evaluates
-hand-authored JSONL without changing the extractor.
+hand-authored JSONL without changing the extractor; `calibration` reuses
+`benchmark_extraction`'s gold loader so both read one dataset definition;
+`case_assembly` is the one module that imports the classifier, the extractor, and the
+pipeline together, and it is the only place fixtures are replaced by real files.
 
 Every CLI-capable module ends with the same guard:
 
@@ -110,7 +121,15 @@ value ever exists without a trace back to where it came from.
   (free-form string matched against `Criterion.criterion_type`), optional
   `medication`/`text_value`/numeric `value`/`unit`/`outcome`, `confidence` (`[0,1]`), a required
   `provenance`, and `extraction_method` (default `"synthetic"` since Milestone 0
-  fabricates evidence rather than extracting it).
+  fabricates evidence rather than extracting it). Phase 3.5 adds
+  `supporting_provenance` (additional spans combined into the *same* fact — the
+  anchor stays in `provenance`), `source_confidence` (the ingestion confidence of the
+  weakest cited page, so an OCR score is visible next to the value it produced), and
+  `extraction_rule` (which rule produced the anchor span).
+  - **`sources` (property)** — `[provenance, *supporting_provenance]`: the complete
+    citation list. A fact assembled from several spans is only as auditable as its
+    weakest citation, so consumers that display or check evidence read `sources`,
+    not `provenance` alone.
 - **`Criterion`** — one structured payer requirement: `id`, `policy_id`,
   `description`, `criterion_type`, optional `medication`, an optional `operator`
   restricted by `Literal[">=", "<=", ">", "<", "==", "exists"]`, optional
@@ -127,12 +146,16 @@ value ever exists without a trace back to where it came from.
 - **`CriterionEvaluation`** — the result of checking one criterion: `criterion_id`,
   `case_id`, `result`, `supporting_evidence_ids` (list, default empty),
   `confidence`, `evaluation_method`, `explanation` (human-readable reason), plus
-  denormalized `criterion_description`, and the two provenance pointers
+  denormalized `criterion_description`, and the provenance pointers
   `policy_source` / `patient_evidence_source` that the groundedness gate checks.
+  `patient_evidence_sources` carries *every* span the supporting evidence cites;
+  `patient_evidence_source` remains the anchor and the one-line answer.
 - **`CaseReadinessReport`** — the full Milestone-0 output for one case: identity
   fields (`case_id`, `policy_id`, `payer`, `medication`, `indication`,
-  `pa_required`), `documents_detected`, `mean_classification_confidence`, the four
-  criteria tallies (`criteria_total`/`_satisfied`/`_not_satisfied`/`_missing`/
+  `pa_required`), `documents_detected`, `mean_classification_confidence`,
+  `documents_requiring_classification_review`, `evidence_total`,
+  `evidence_requiring_review` (all three defaulting to `0`, since a fixture case has
+  nothing to review), the four criteria tallies (`criteria_total`/`_satisfied`/`_not_satisfied`/`_missing`/
   `_needs_review`), `groundedness_gate` (`"PASS"`/`"FAIL"` string), and the full
   `evaluations` list for audit.
   - **`summary_line(self) -> str`** — formats
@@ -266,7 +289,10 @@ learned NLP model is ever introduced.
 | Import | Why |
 |---|---|
 | `argparse`, `json` | Parse the `rxauth-extract` command and print its result as indented JSON. |
-| `re` | Compile and run the sixteen deterministic extraction patterns. |
+| `re` | Compile and run the deterministic extraction patterns. |
+| `defaultdict` | Groups candidate spans by page/type, by normalized signature, and by medication during the three resolution stages. |
+| `replace` | Rewrites a frozen `_ExtractedFields` when linking supplies a missing part. |
+| `Enum` | Backs `IssueKind`, so a review reason is a closed set rather than a free-form string. |
 | `dataclass` | Defines the internal `_ExtractedFields`/`_ExtractionRule` records and the `ExtractionResult` return type. |
 | `Path` | Types the CLI's input path. |
 | `Callable`, `Optional` | Type each rule's field-builder function and its optional output fields. |
@@ -276,22 +302,45 @@ learned NLP model is ever introduced.
 
 ### Module constants
 
-- **`EXTRACTOR_VERSION = "regex-v1"`** — recorded on every `Evidence.extraction_method`
+- **`EXTRACTOR_VERSION = "regex-v3"`** — recorded on every `Evidence.extraction_method`
   it produces, so a later learned extractor can be versioned and compared instead of
-  silently replacing this baseline.
+  silently replacing this baseline. It was bumped after medication normalization and the
+  harder challenge forms changed what the extractor emits: README §18 requires every AI result to record
+  which version produced it, so behaviour cannot change under a fixed version string.
 - **`DEFAULT_CONFIDENCE_THRESHOLD = 0.65`** — the same review-routing default already
   used by `DocumentClassifier`/`DeepDocumentClassifier`.
+
+### `IssueKind(str, Enum)`
+
+Why one retained field needs a human. The three reasons are genuinely different, and
+one confidence number could not carry all of them:
+
+| Member | Meaning | Moves with the threshold? |
+|---|---|---|
+| `LOW_CONFIDENCE` | The span may have been misread. | Yes. |
+| `INCOMPLETE_VALUE` | The span was read correctly and says too little for a deterministic check. | No. |
+| `AMBIGUOUS_LINKAGE` | Several equally plausible readings exist; no pairing was chosen. | No. |
+
+The distinction is what the calibration measurement surfaced: the lowest-confidence
+fields are *correct*, and still need a reviewer.
 
 ### `ExtractionIssue(BaseModel)`
 
 One flag on a retained-but-uncertain `Evidence` item: `evidence_id`, `evidence_type`,
-bounded `confidence`, and a human-readable `reason`. Raising an issue never causes the
-evidence itself to be dropped — it's an additional signal alongside it.
+bounded `confidence`, a human-readable `reason`, and its `kind`. Raising an issue never
+causes the evidence itself to be dropped — it's an additional signal alongside it.
+
+### `SuppressedSpan(BaseModel)`
+
+One raw match that lost to another during overlap resolution: its type, rule, page,
+character span, source text, the `reason` it lost, and the rule that `superseded_by` it.
+Kept because a suppressed match and a rule that never fired are otherwise
+indistinguishable from the outside.
 
 ### `ExtractionResult` (`@dataclass`)
 
-The return value of `extract_evidence`: `evidence: list[Evidence]` and
-`issues: list[ExtractionIssue]`.
+The return value of `extract_evidence`: `evidence: list[Evidence]`,
+`issues: list[ExtractionIssue]`, and `suppressed: list[SuppressedSpan]`.
 
 - **`requires_human_review` (property)** — `bool(self.issues)`. This is the flag the
   CLI surfaces at the top level of its JSON output.
@@ -345,54 +394,133 @@ below `DEFAULT_CONFIDENCE_THRESHOLD` (`0.65`), so `extract_evidence` still raise
 `ExtractionIssue` for it. This module's issue list and `matching.py`'s five-state
 result end up agreeing the value needs a human, for consistent reasons.
 
+Two further fields make the depressed confidence honest:
+
+- **`incomplete_reason`** - set when the span was read cleanly but does not state
+  enough for a deterministic check. It drives `INCOMPLETE_VALUE` routing, which the
+  confidence threshold cannot silence.
+- **`linked_confidence`** - the confidence to use once another cited span supplies the
+  missing part. The `0.60` penalty is about the *missing duration*, not about how well
+  the phrase was read, so it must not survive into a linked record. The outcome-only
+  rule sets `0.88`.
+
 ### `_ExtractionRule` (`@dataclass(frozen=True)`) and `_RULES`
 
-`_ExtractionRule` pairs one compiled, case-insensitive `re.Pattern` with its builder
-function. `_RULES` is the ordered list of all sixteen: patient/member IDs; two payer
-forms; days supply; prescription quantity; document dates; added labs; screening
-documentation; diagnosis; prescription; three previous-therapy forms; A1c; and vague duration.
-Order determines the sequence (not the correctness) of the returned evidence list; one
-page can and does match more than one rule.
+`_ExtractionRule` pairs a `name`, one compiled case-insensitive `re.Pattern`, and its
+builder function. `_RULES` covers patient/member IDs; payer forms; days supply;
+prescription quantity; document dates; added labs; screening documentation; diagnosis;
+prescription; previous-therapy forms; A1c; and vague duration.
+
+Declaration order is now **precedence** order, not just sequence: when two rules claim
+overlapping text for the same evidence type, the longer span wins and the earlier-declared
+rule breaks a tie. More specific rules are therefore declared before the general ones
+they refine. One page can and does match more than one rule.
+
+### `_Candidate` (`@dataclass(eq=False)`)
+
+One fact in flight between matching and `Evidence`: the rule that produced it, its index
+(precedence), page, page confidence, character span, source text, filename, the built
+`_ExtractedFields`, any `supporting` spans accumulated so far, and an optional
+`forced_issue` that overrides threshold-based routing. `eq=False` makes identity
+comparison meaningful, so the linking stage can pick specific candidates out of a group
+without two equal-valued candidates aliasing each other.
+
+### `combine_confidence(rule_confidence, source_confidence) -> float`
+
+Multiplies the rule's confidence by the ingesting page's. Digital text and text PDFs
+ingest at `1.0`, so this is a no-op for them; a field read off a poor scan is no longer
+presented as confidently as the same field read off clean text. The independence
+assumption behind the product is an explicit engineering prior — the gold set is digital
+text only, so there is nothing yet to fit it against.
+
+### `resolve_overlaps(candidates) -> (kept, suppressed)`
+
+Groups candidates by `(page, evidence_type)`, ranks each group by
+`(-span_length, rule_index, start)`, and greedily keeps a candidate unless it overlaps
+one already kept. Losers become `SuppressedSpan`s labelled `"contained in a longer span"`
+or `"overlapping span"`. Overlaps *between* evidence types are untouched — a date inside
+a therapy line is genuinely two facts about the same words.
+
+### `merge_repeated_mentions(candidates) -> list[_Candidate]`
+
+Groups by the full normalized signature (type, medication, text, value, unit, outcome).
+A group of one passes through. A larger group collapses: the strongest span (then the
+earliest) anchors the record, the rest become `supporting` provenance, and the page
+confidence drops to the weakest cited page. Facts differing in *any* normalized field
+never merge, so two therapy durations for the same drug stay two facts.
+
+### `link_previous_therapy(candidates) -> list[_Candidate]`
+
+Groups `previous_therapy` candidates by casefolded medication, then splits each group
+into duration-only and outcome-only spans.
+
+- **Exactly one of each** -> `_link_pair` merges them: the duration span anchors (it
+  carries the number), the outcome span becomes supporting provenance, confidence
+  becomes `min(duration, outcome.linked_confidence)`, and `incomplete_reason` clears.
+- **Any other shape** (two durations, two outcomes, different medications) -> nothing is
+  linked, and every outcome span in a group that *had* a duration gets a
+  `forced_issue` of `AMBIGUOUS_LINKAGE`. The extractor will not choose a pairing on the
+  reviewer's behalf.
+
+### `_issue_for(candidate, confidence, threshold)`
+
+Returns the single most specific reason a field needs a human, in priority order:
+`forced_issue` -> `incomplete_reason` -> below threshold. One issue per record keeps the
+contract (and the benchmark's review keys) unambiguous. The low-confidence reason names
+the page ingestion confidence when it is below `1.0`, so "why is this flagged" is
+answerable from the message alone.
 
 ### `extract_evidence(document, *, document_id, confidence_threshold=DEFAULT_CONFIDENCE_THRESHOLD) -> ExtractionResult`
 
-1. Walks `document.pages` in order; for each page, runs every rule's pattern via
-   `.finditer(page.text)` so multiple matches of the same rule on one page are all
-   captured.
-2. For each match, calls the rule's builder to get `_ExtractedFields`, then builds a
-   full `Evidence`: a deterministic ID (`f"{document_id}-EV{n}"`, `n` counting up
-   across the whole document, not per-page or per-rule), the builder's fields, and a
-   `Provenance` carrying `document_id`, `filename`, `page.page_number`,
-   `match.start()`/`match.end()` (inclusive/exclusive, matching Python slicing and
-   `Provenance`'s own validator), and `match.group(0)` as `source_text`.
-3. Appends the `Evidence` to the result unconditionally — nothing is ever dropped for
-   low confidence.
-4. If `fields.confidence < confidence_threshold`, additionally appends an
-   `ExtractionIssue` referencing that evidence's ID.
-5. Returns `ExtractionResult(evidence, issues)`.
+1. Walks `document.pages` in order; for each page, `_match_page` runs every rule's
+   pattern via `.finditer(page.text)` so multiple matches of the same rule on one page
+   are all captured as `_Candidate`s.
+2. Runs the three resolution stages in order: `resolve_overlaps` (per page),
+   `merge_repeated_mentions` (per document), then `link_previous_therapy` (per
+   document). Merging runs before linking on purpose — two identical mentions of the
+   same duration are one fact, and collapsing them first can turn an ambiguous pairing
+   into an unambiguous one, which is the correct reading.
+3. For each surviving candidate, in `(page, start, rule_index)` order, builds a full
+   `Evidence`: a deterministic ID (`f"{document_id}-EV{n}"`), the fields, the anchor
+   `Provenance` (`document_id`, `filename`, page number, `match.start()`/`match.end()`
+   inclusive/exclusive per `Provenance`'s own validator, and `match.group(0)` as
+   `source_text`), every supporting span stamped with the same document ID,
+   `source_confidence`, `extraction_rule`, and `extraction_method`. Confidence is
+   `combine_confidence(fields.confidence, page_confidence)`.
+4. Appends the `Evidence` unconditionally — nothing is ever dropped for low confidence.
+5. Appends an `ExtractionIssue` when `_issue_for` returns one.
+6. Returns `ExtractionResult(evidence, issues, suppressed)`.
 
 A page with no matching text simply contributes no evidence for that type — an absent
 requirement stays `MISSING` when `matching.py` later evaluates it, rather than being
 invented.
+
+### `replace_document_id(provenance, document_id) -> Provenance`
+
+Stamps the document ID onto a supporting span captured during resolution, when the ID
+was not yet in scope. `model_copy(update=...)` rather than mutation, so the original
+candidate span is never rewritten in place.
 
 ### `main()`
 
 The `rxauth-extract` CLI: one positional `path`, a required `--document-id`, and
 `--confidence-threshold` (default `DEFAULT_CONFIDENCE_THRESHOLD`, validated into
 `[0, 1]` via `parser.error(...)`). Calls `ingest_document(path)`, then
-`extract_evidence`, then prints indented JSON with three top-level keys: `evidence`
-(each item's `.model_dump()`), `issues` (same), and `requires_human_review` (the
-`ExtractionResult` property) — exactly the shape
-[phase-3-extraction.md](phase-3-extraction.md) documents.
+`extract_evidence`, then prints indented JSON with five top-level keys:
+`extractor_version`, `evidence` (each item's `.model_dump()`), `issues` (same),
+`suppressed_spans`, and `requires_human_review` (the `ExtractionResult` property) —
+exactly the shape [phase-3-extraction.md](phase-3-extraction.md) documents.
 
-The current rules are an engineering baseline, not measured probabilities. The Phase 3
-gold JSONL benchmark now protects this contract. Broader medication names, multi-span
-provenance, overlap/deduplication, and calibrated confidence are still required before
-connecting extraction to the case pipeline.
+The rules' confidence values remain documented engineering priors, not measured
+probabilities — [`calibration.py`](#calibrationpy) reports how far off they are and
+explains why refitting them on this corpus would be a mistake. The Phase 3 gold JSONL
+benchmark protects the contract. Broader medication names, independently authored gold,
+OCR/multi-page challenge coverage, and a learned-model comparison now have reproducible results;
+external independent validation remains evaluation hardening rather than a production claim.
 
 ### Phase 3 tests
 
-`tests/test_extraction.py` (20 tests) covers every rule plus integration checks
+`tests/test_extraction.py` covers every rule plus integration checks
 that exercise the module against real inputs, not just crafted strings:
 
 - one test per recognized form (`Diagnosis:`, the real corpus's `Assessment:` form,
@@ -404,8 +532,10 @@ that exercise the module against real inputs, not just crafted strings:
 - the two intentionally-low-confidence forms (outcome-only previous-therapy, vague
   duration) assert `confidence < DEFAULT_CONFIDENCE_THRESHOLD` *and* that exactly one
   `ExtractionIssue` is raised;
-- `test_confidence_threshold_is_configurable` passes `confidence_threshold=0.0` and
-  checks no issue is raised even for an otherwise-flagged match;
+- `test_confidence_threshold_is_configurable_for_a_complete_field` sweeps the knob on a
+  field whose only problem could be misreading, and
+  `test_an_incomplete_value_is_not_silenced_by_a_lenient_threshold` proves the knob
+  cannot clear an `INCOMPLETE_VALUE` — the threshold is not what is wrong with it;
 - provenance tests confirm `text[start:end] == source_text` (the offset contract
   actually round-trips) and that a multi-page document assigns each match to its own
   page number;
@@ -421,6 +551,112 @@ that exercise the module against real inputs, not just crafted strings:
   against the exact corpus file (`data/documents/clinical_note/doc_0002.txt`) that
   this file's and the README's `rxauth-extract` usage example references, so the
   documented command is guaranteed to actually produce evidence.
+
+The Phase 3.5 resolution stages add a second group, each written against a real corpus
+phrasing rather than a synthetic string:
+
+- linking asserts one complete fact citing *both* spans, with the duration span as
+  anchor and the missing-duration penalty gone;
+- two negative tests prove the extractor refuses to link when several pairings are
+  plausible (`AMBIGUOUS_LINKAGE`) and when the medications differ;
+- merging asserts one payer fact with two citations, and a companion test proves facts
+  differing in any normalized field never merge;
+- overlap resolution asserts the longer span wins, the loser is reported as a
+  `SuppressedSpan` naming its superseder, and a cross-type overlap (a date inside a
+  therapy line) stays two facts;
+- OCR tests assert the page confidence is folded in, that a 0.5-confidence scan routes
+  an otherwise-confident field to review with the reason naming the ingestion score, and
+  that digital text is untouched.
+
+---
+
+## `calibration.py`
+
+Measures the extractor's confidence values against the gold **validation** split
+(README §9 item 5). The confidences started life as engineering priors — numbers chosen
+because one pattern looked more explicit than another — and README §3 forbids publishing
+a number that has not been measured. This module supplies the measurement, and
+deliberately stops there.
+
+Two guardrails shape it:
+
+- **Validation only.** `CALIBRATION_SPLIT = "validation"` is a module constant, not a
+  CLI flag. The test split never tunes a threshold or a confidence value; reading it
+  here would spend that exactly once.
+- **Measure before adjusting.** It reports the gap between claimed and observed
+  correctness. It does not fit a mapping and write it back into the rules, because with
+  a handful of in-distribution fields per bucket a fitted mapping would restate the
+  sample rather than calibrate the extractor.
+
+### Imports
+
+| Import | Why |
+|---|---|
+| `Counter`, `defaultdict` | Tallies suppression reasons and groups observations by confidence and by rule. |
+| `GoldDocument`, `load_gold` | Reuses `benchmark_extraction`'s loader so the gold dataset has exactly one definition and one set of integrity checks. |
+| `extract_evidence`, `EXTRACTOR_VERSION`, `DEFAULT_CONFIDENCE_THRESHOLD` | Runs and versions the extractor under measurement. |
+| `IngestedDocument`, `IngestedPage` | Wraps each gold record's text as a confidence-1.0 page, the same way the benchmark does. |
+
+### Module constants
+
+- **`CALIBRATION_SPLIT = "validation"`**.
+- **`THRESHOLD_SWEEP`** — `0.50` to `0.95` in `0.05` steps.
+
+### `collect_observations(records) -> dict`
+
+Runs the extractor over every record with `confidence_threshold=0.0`, so routing
+decisions come from the sweep rather than being inherited from this call. For each
+prediction it records the rule, evidence type, confidence, and whether it was
+**correct**: a gold field with the same evidence type and the same cited source text
+exists *and* every normalized value agrees. A prediction with no gold counterpart is a
+confident claim about something that is not there, so it counts as incorrect rather than
+being skipped.
+
+It also collects what the sweep needs (`routed_regardless` marks fields whose issue kind
+is not `low_confidence`, because the threshold cannot move those), how many facts cite
+more than one span, how many gold fields were missed entirely, and every suppressed span.
+
+### `_reliability(observations)`
+
+Groups by the *exact* confidence value the rules assign rather than by fixed-width bins:
+the rules emit a handful of discrete values chosen to mean different things, and binning
+would blur them together. Each row reports count, correct, observed accuracy, the
+`gap` (accuracy minus claimed confidence), and which rules contributed.
+
+### `_by_rule`, `_expected_calibration_error`, `_brier_score`
+
+Per-rule accuracy; ECE as the count-weighted mean absolute gap across reliability rows;
+Brier as the mean squared error between confidence and correctness.
+
+### `_threshold_sweep(review_candidates, review_expected)`
+
+For each threshold, routes a field if it is `routed_regardless` **or** its confidence is
+below the threshold, then scores that routing against the gold `requires_review`
+annotations. Because routing is no longer a pure threshold decision, the sweep measures
+how far the threshold can move before it starts disagreeing with gold — the useful
+reading is the *width* of the band, not the best value inside it.
+
+### `calibrate(gold_path, *, review_threshold=DEFAULT_CONFIDENCE_THRESHOLD) -> dict`
+
+Filters to the validation split, runs the collection and every metric, and returns the
+band of thresholds achieving the best review F1 alongside the configured default, so the
+report can state whether the default sits inside the band.
+
+### `render_report(results, gold_path) -> str` and `main()`
+
+Writes `reports/extraction_calibration.md`. `main()` exposes `--gold-path`,
+`--output-dir`, and `--review-threshold` (validated into `[0, 1]`) — but deliberately no
+`--split`.
+
+### Calibration tests
+
+`tests/test_calibration.py` (7 tests) checks that the split really is validation-only,
+that every scored field lands in exactly one reliability row and one rule row, that
+`gap` is what it claims to be, that ECE/Brier stay in range, that the configured
+threshold sits inside the reported band, and that the report discloses both the split
+and the synthetic caveat. One test builds a throwaway gold file where the extractor finds
+a field the annotation does not have, proving an unmatched prediction is scored as
+incorrect rather than quietly dropped.
 
 ---
 
@@ -548,7 +784,7 @@ gate before anything is shown.
 `from .groundedness import check_groundedness`; `from .matching import evaluate_case`;
 and from `.models`: `Case`, `CaseReadinessReport`, `CriterionResult`, `Policy`.
 
-### `run_pipeline(case, policy) -> CaseReadinessReport`
+### `run_pipeline(case, policy, *, evidence_requiring_review=0, documents_requiring_classification_review=0) -> CaseReadinessReport`
 
 1. **Consistency check.** Compares `payer`, `medication`, `indication` on `case` vs.
    `policy` case-insensitively; collects any field names that don't match and raises
@@ -566,6 +802,13 @@ and from `.models`: `Case`, `CaseReadinessReport`, `CriterionResult`, `Policy`.
 7. Returns a `CaseReadinessReport` bundling the case/policy identity fields, document
    count, mean confidence (rounded to 3 decimals), every criteria tally, the
    groundedness gate's `.status` string, and the full `evaluations` list.
+
+The two keyword-only review counters are supplied by whatever produced the case: a
+fixture case has none, while [`case_assembly.py`](#case_assemblypy) reports how many
+extracted fields and document classifications a reviewer must still look at.
+`evidence_total` is derived here from `len(case.evidence)`. A case can be "4 of 6
+criteria supported" and still need a human on the fields underneath; reporting only the
+criterion tally would hide that.
 
 ---
 
@@ -650,8 +893,15 @@ Prints the intake summary block (case ID, payer/policy, medication/indication,
 `pa_required`, document count, mean confidence as a percentage, all four criteria
 tallies, the groundedness gate status, and `report.summary_line()`), then iterates
 `evaluations` printing, per criterion: the icon + ID + description, the result value
-+ evaluation method + confidence, the `explanation` text, and — if present — the
-patient evidence's filename/page/quoted `source_text`, and the policy source's page.
++ evaluation method + confidence, the `explanation` text, then *every* cited patient
+evidence span (filename/page/quoted `source_text`, the first labelled `evidence:` and
+the rest `also:`), and the policy source's page. It reads
+`patient_evidence_sources` and falls back to the single `patient_evidence_source`, so a
+fact assembled from several spans shows all of them — an evaluation is only as auditable
+as its weakest citation.
+
+The summary block also prints the three review counters, so the reader sees what is
+still outstanding underneath the criterion tallies.
 
 ### `main()`
 
@@ -662,6 +912,99 @@ patient evidence's filename/page/quoted `source_text`, and the policy source's p
 4. If `--json-only`, prints the JSON and returns immediately.
 5. Otherwise calls `print_report`, then prints the output path — relative to the
    current working directory when possible (`Path.is_relative_to`), else absolute.
+
+---
+
+## `case_assembly.py`
+
+The `rxauth-run-case` entry point: takes a directory of real documents and runs the
+Milestone 0 spine over them, replacing the hand-authored fixtures with the components
+the project actually ships.
+
+```text
+ingest -> classify -> extract -> resolve -> Case -> match -> groundedness -> readiness report
+```
+
+Two things stay fixtures on purpose because they belong to later phases: the policy
+(README §10 replaces it with retrieval) and `pa_required` (README §3 requires a synthetic
+trigger or explicit user input — a public policy cannot establish a live benefit).
+
+### Module constants
+
+- **`DEFAULT_CLASSIFIER_PATH = Path("artifacts/classifier_baseline.pkl")`** — a build
+  output, deliberately not committed.
+- **`MANIFEST_FILENAME = "case.json"`**.
+- **`_DOCUMENT_SUFFIXES`** — the text, PDF, and image extensions the ingestion layer
+  handles; anything else in the directory is ignored.
+
+### `CaseManifest(BaseModel)`
+
+The declared, non-inferrable facts about a packet: `case_id`, `patient_synthetic_id`,
+`payer`, `medication`, `indication`, `pa_required`, `policy_id`, optional `plan` and
+`note`. `pa_required`'s `description=` restates the §3 guardrail at the point where the
+value enters the system.
+
+### `DocumentClassifierLike(Protocol)`
+
+The single method `assemble_case` depends on:
+`classify_path(path, *, document_id) -> (Document, requires_review)`. Declaring the
+dependency as a protocol rather than the concrete class is what lets a test stub, a
+served model, or the Phase 2 transformer drop in without touching assembly — and it is
+why the test suite runs without a build artifact.
+
+### `AssembledCase` (`@dataclass`)
+
+The `Case` plus what did not fit inside it: `manifest`, `documents_requiring_review`,
+`extraction_issues`, `suppressed_spans`, `evidence_links`, and an
+`evidence_requiring_review` property.
+
+### `load_manifest`, `case_document_paths`, `load_classifier`
+
+Each fails with an instruction rather than a stack trace: a missing manifest names what a
+packet must declare, an empty packet says so, and a missing classifier artifact prints
+the two commands that build it — that is a setup step, not a failure of the packet.
+
+### `assemble_case(case_dir, *, classifier, confidence_threshold=...) -> AssembledCase`
+
+Walks the packet in filename order, assigning `D1…Dn`. For each document it classifies
+the path, records whether the classification needs review, ingests and extracts, and
+accumulates evidence, issues, and suppressed spans. Because extraction scopes evidence
+IDs to their document, every evidence ID in the assembled case is unique and stable
+across runs. `link_cross_document_evidence` then creates a relationship for exact normalized
+facts repeated in distinct documents without merging the original facts or completing partials.
+
+### `resolve_policy(policy_id) -> Policy`
+
+Returns the `PA-104` fixture, raising on any other ID rather than silently evaluating a
+packet against the wrong requirements. This is the seam README §10 replaces.
+
+### `run_case(...)`, `build_output(...)`, `print_extraction_summary(...)`, `main()`
+
+`run_case` assembles, resolves the policy, and calls `run_pipeline` with the two review
+counters. `build_output` produces a self-describing JSON artifact — the readiness report,
+the classified documents, every evidence record with all of its cited spans, the review
+issues with their kinds, suppressed spans, and cross-document links. `print_extraction_summary`
+prints each evidence item with every span underneath it, then routed fields, suppressions, and
+corroboration links.
+`main()` reuses `cli.print_report` for the criterion trace, so the fixture run and the
+real run print the same shape.
+
+### Case-assembly tests
+
+`tests/test_case_assembly.py` uses a filename-based stub classifier so CI needs
+no artifact. The load-bearing one is
+`test_real_extraction_reproduces_the_milestone_zero_criterion_profile`: the assembled run
+must land on the exact Milestone 0 outcomes (`SATISFIED` ×4, `MISSING`, `AMBIGUOUS`) with
+the groundedness gate passing. Swapping fixtures for real components must not change what
+the reviewer is told about the case.
+
+`test_a_linked_fact_cites_both_of_its_spans_in_the_criterion_evaluation` covers the case
+that only works because of Phase 3.5: the packet states the therapy duration on one line
+and the outcome on the next, so C2 and C3 are satisfiable only if the spans link — and the
+evaluation must cite both. The rest check that every extracted value traces to a real file
+in the packet, that evidence IDs are unique case-wide, that the review counters reflect
+what is outstanding, that low classification confidence is reported rather than swallowed,
+and that each failure path explains itself.
 
 ---
 
@@ -1281,9 +1624,12 @@ the rules being evaluated.
 - **`GoldDocument(BaseModel)`** — unique `document_id`, `split` restricted to
   `validation`/`test`, synthetic filename/text, and zero or more expected fields.
 
-The companion [extraction dataset card](extraction-gold.md) documents the 45 records,
+The companion [extraction dataset card](extraction-gold.md) documents the 61 records,
 schema, synthetic-only guardrail, coverage, the disclosed test-to-validation move after
-the initial negated-diagnosis failure, and the frozen-rule first run of eight new test records.
+the initial negated-diagnosis failure, the frozen-rule first run of eight new test
+records, and the four resolution records added to validation for Phase 3.5 — confirmed
+to fail under `regex-v1` before the resolution stages were written, with the test split
+left untouched.
 
 ### `load_gold(path) -> list[GoldDocument]`
 
@@ -1332,8 +1678,8 @@ positives, and false negatives, then calculates:
 ### Public functions and CLI
 
 - **`benchmark_extraction(gold_path, *, confidence_threshold=...)`** — validates the
-  threshold, loads gold once, evaluates validation and test independently, and returns
-  extractor/version/corpus metadata plus both result dictionaries.
+  threshold, loads gold once, evaluates validation, test, and challenge independently, and returns
+  extractor/version/corpus metadata plus the per-split result dictionaries.
 - **`render_report(results, gold_path) -> str`** — writes the contract, a paired metrics
   table, per-split failures, and definitions/limitations. The checked-in report states
   corpus size and synthetic status beside the perfect current score.

@@ -80,6 +80,7 @@ def evaluate_criterion(criterion: Criterion, case: Case) -> CriterionEvaluation:
         )
 
     base["patient_evidence_source"] = evidence.provenance
+    base["patient_evidence_sources"] = evidence.sources
 
     # 2. Low-confidence extraction -> route to a human, do not guess.
     if evidence.confidence < 0.60:

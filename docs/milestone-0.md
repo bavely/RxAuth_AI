@@ -57,18 +57,28 @@ Classifier baseline expected: ~0.98 test accuracy on the synthetic corpus, one o
 
 Per the main README's "what not to build first," Milestone 0 stubs the components that later phases build for real:
 
-| Stubbed now (synthetic fixture) | Becomes real in |
+| Stubbed in Milestone 0 | Status now |
 |---|---|
-| Document classification | ✅ §8 Phase 1 done (TF-IDF + LogReg) — Phase 2 deep model still pending |
-| Field/evidence extraction | §9 — extraction with confidence |
+| Document classification | ✅ §8 real — TF-IDF + LogReg, retained over the Phase 2 transformer after a three-seed comparison |
+| Field/evidence extraction | ✅ §9 real — `regex-v3` with medication normalization, multi-span/cross-document provenance, measured calibration, and a learned baseline comparison |
 | Payer-policy retrieval | §10–11 — pgvector RAG + criteria extraction |
 | Agent orchestration | §13 — LangGraph workflow |
 | Faithfulness scoring | §14 — Ragas on generated text |
 
 The matching engine, five-state contract, provenance model, and groundedness gate built in Milestone 0 are the real thing and carry forward unchanged.
 
-**Scope note on §7:** `rxauth-build-dataset` generates document *text* directly (standing in for what a real OCR/PDF-extraction step would output) rather than rendering actual PDF/image files and running them through deskew/denoise/OpenCV preprocessing. That's a deliberate simplification to unblock the classifier — real PDF/image ingestion is still open if a more realistic (scanned-document) corpus is wanted later.
+**Scope note on §7:** Milestone 0's `rxauth-build-dataset` generated document *text* directly, standing in for what a real OCR/PDF-extraction step would output. Phase 1.5 closed that gap: the builder now also renders deterministic PDFs and scan-like PNGs, and `ingestion.py` handles text, text-PDF, and image inputs behind one page-level contract. See [phase-1.5.md](phase-1.5.md).
+
+## Where the spine stands now
+
+`rxauth-milestone0` still runs the original fixture, and it is still the clearest picture of the flow. But the same spine now runs on real files:
+
+```bash
+uv run rxauth-run-case data/cases/PA-CASE-001
+```
+
+That run ingests, classifies, extracts, resolves, matches, and gates a real document packet — and lands on the exact criterion profile this fixture produces (4 supported, 1 missing, 1 ambiguous). The equivalence is an acceptance test, not a demo: swapping fixtures for real components must not change what the reviewer is told. See [case-assembly.md](case-assembly.md).
 
 ## Next step
 
-The natural follow-on is **§8 Phase 2 — the deep-learning classifier**: train a transformer-based classifier on the same `data/manifest.csv` contract and compare it scientifically against the Phase 1 baseline (`reports/classifier_baseline.md`) — same train/val/test split, plus overfitting behavior, failure cases, latency, and deployment tradeoffs — in `reports/classifier_deep_vs_baseline.md`.
+**§10–11 — payer-policy retrieval and criteria extraction.** The policy is the last fixture in the flow: `resolve_policy` returns the hand-authored `PA-104`, and the criteria it carries were written by hand rather than extracted from policy prose. Replacing it means ingesting public payer PA policies, chunking with metadata, retrieving by metadata filter plus semantic similarity, and converting the retrieved prose into structured requirements that keep their payer, version, effective date, and page.

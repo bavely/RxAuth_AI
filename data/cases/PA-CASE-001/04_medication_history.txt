@@ -1,0 +1,7 @@
+MEDICATION HISTORY
+Medication history for SYNTH-0001.
+Drug A — 16 weeks of therapy documented.
+Drug A — started 2025-06-05, discontinued due to inadequate response.
+Adherence confirmed via pharmacy fill records.
+No known drug allergies reported.
+End of intake record

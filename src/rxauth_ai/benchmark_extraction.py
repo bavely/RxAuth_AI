@@ -8,7 +8,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from .extraction import DEFAULT_CONFIDENCE_THRESHOLD, EXTRACTOR_VERSION, extract_evidence
 from .ingestion import IngestedDocument, IngestedPage
@@ -23,15 +23,59 @@ class GoldEvidence(BaseModel):
     unit: str | None = None
     outcome: str | None = None
     source_text: str
+    page: int = Field(default=1, ge=1)
     requires_review: bool = False
+
+
+class GoldPage(BaseModel):
+    page_number: int = Field(ge=1)
+    text: str
+    extraction_method: Literal["text", "pypdf", "ocr"] = "text"
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
 
 
 class GoldDocument(BaseModel):
     document_id: str
-    split: Literal["validation", "test"]
+    split: Literal["validation", "test", "challenge"]
     filename: str
-    text: str
+    text: str | None = None
+    pages: list[GoldPage] = Field(default_factory=list)
     expected: list[GoldEvidence] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_page_contract(self) -> GoldDocument:
+        if (self.text is None) == (not self.pages):
+            raise ValueError("Provide exactly one of legacy text or pages.")
+        if self.pages:
+            page_numbers = [page.page_number for page in self.pages]
+            if len(page_numbers) != len(set(page_numbers)):
+                raise ValueError("Gold page numbers must be unique within a document.")
+        return self
+
+    def ingested_pages(self) -> list[IngestedPage]:
+        if self.pages:
+            return [
+                IngestedPage(
+                    page_number=page.page_number,
+                    text=page.text,
+                    extraction_method=page.extraction_method,
+                    confidence=page.confidence,
+                )
+                for page in self.pages
+            ]
+        return [
+            IngestedPage(
+                page_number=1,
+                text=self.text or "",
+                extraction_method="text",
+                confidence=1.0,
+            )
+        ]
+
+    def text_for_page(self, page_number: int) -> str:
+        return next(
+            (page.text for page in self.ingested_pages() if page.page_number == page_number), ""
+        )
 
 
 def load_gold(path: Path) -> list[GoldDocument]:
@@ -51,17 +95,18 @@ def load_gold(path: Path) -> list[GoldDocument]:
             raise ValueError(f"Duplicate gold document_id: {record.document_id}")
         seen_ids.add(record.document_id)
         for expected in record.expected:
-            occurrences = record.text.count(expected.source_text)
+            occurrences = record.text_for_page(expected.page).count(expected.source_text)
             if occurrences != 1:
                 raise ValueError(
-                    f"{record.document_id} source_text must occur exactly once; "
+                    f"{record.document_id} source_text must occur exactly once on page "
+                    f"{expected.page}; "
                     f"found {occurrences}: {expected.source_text!r}"
                 )
         records.append(record)
     if not records:
         raise ValueError("Gold extraction dataset is empty.")
     present_splits = {record.split for record in records}
-    if present_splits != {"validation", "test"}:
+    if not {"validation", "test"}.issubset(present_splits):
         raise ValueError("Gold extraction dataset must contain validation and test records.")
     return records
 
@@ -81,7 +126,8 @@ def _exact_signature(item: GoldEvidence | Evidence) -> tuple[Any, ...]:
     source_text = (
         item.source_text if isinstance(item, GoldEvidence) else item.provenance.source_text
     )
-    return (*_normalized_signature(item), source_text)
+    page = item.page if isinstance(item, GoldEvidence) else item.provenance.page
+    return (*_normalized_signature(item), page, source_text)
 
 
 def _safe_divide(numerator: int | float, denominator: int | float) -> float:
@@ -93,7 +139,17 @@ def _f1(precision: float, recall: float) -> float:
 
 
 def _format_signature(signature: tuple[Any, ...]) -> str:
-    names = ("document", "type", "medication", "text", "value", "unit", "outcome", "source")
+    names = (
+        "document",
+        "type",
+        "medication",
+        "text",
+        "value",
+        "unit",
+        "outcome",
+        "page",
+        "source",
+    )
     return ", ".join(
         f"{name}={value!r}"
         for name, value in zip(names, signature, strict=True)
@@ -109,8 +165,8 @@ def _evaluate_records(
     normalized_correct = 0
     aligned_fields = 0
     span_correct = 0
-    expected_review_keys: set[tuple[str, str, str]] = set()
-    predicted_review_keys: set[tuple[str, str, str]] = set()
+    expected_review_keys: set[tuple[str, str, int, str]] = set()
+    predicted_review_keys: set[tuple[str, str, int, str]] = set()
     expected_review_documents: set[str] = set()
     predicted_review_documents: set[str] = set()
     failures: list[dict[str, str]] = []
@@ -119,15 +175,12 @@ def _evaluate_records(
     for record in records:
         ingested = IngestedDocument(
             filename=record.filename,
-            media_type="text",
-            pages=[
-                IngestedPage(
-                    page_number=1,
-                    text=record.text,
-                    extraction_method="text",
-                    confidence=1.0,
-                )
-            ],
+            media_type=(
+                "image"
+                if any(page.extraction_method == "ocr" for page in record.ingested_pages())
+                else "text"
+            ),
+            pages=record.ingested_pages(),
         )
         start = time.perf_counter()
         result = extract_evidence(
@@ -138,11 +191,11 @@ def _evaluate_records(
         extraction_seconds += time.perf_counter() - start
         issue_ids = {issue.evidence_id for issue in result.issues}
 
-        expected_by_alignment: dict[tuple[str, str], GoldEvidence] = {}
+        expected_by_alignment: dict[tuple[str, int, str], GoldEvidence] = {}
         for item in record.expected:
             signature = (record.document_id, *_exact_signature(item))
             expected_counter[signature] += 1
-            alignment_key = (item.evidence_type, item.source_text)
+            alignment_key = (item.evidence_type, item.page, item.source_text)
             expected_by_alignment[alignment_key] = item
             if item.requires_review:
                 expected_review_keys.add((record.document_id, *alignment_key))
@@ -152,7 +205,8 @@ def _evaluate_records(
             signature = (record.document_id, *_exact_signature(item))
             predicted_counter[signature] += 1
             source_text = item.provenance.source_text or ""
-            alignment_key = (item.evidence_type, source_text)
+            page_number = item.provenance.page or 1
+            alignment_key = (item.evidence_type, page_number, source_text)
             if item.id in issue_ids:
                 predicted_review_keys.add((record.document_id, *alignment_key))
                 predicted_review_documents.add(record.document_id)
@@ -162,9 +216,9 @@ def _evaluate_records(
             aligned_fields += 1
             if _normalized_signature(item) == _normalized_signature(expected):
                 normalized_correct += 1
-            expected_start = record.text.index(expected.source_text)
+            expected_start = record.text_for_page(expected.page).index(expected.source_text)
             if (
-                item.provenance.page == 1
+                item.provenance.page == expected.page
                 and item.provenance.start_char == expected_start
                 and item.provenance.end_char == expected_start + len(expected.source_text)
                 and item.provenance.source_text == expected.source_text
@@ -236,7 +290,8 @@ def benchmark_extraction(
                 [record for record in records if record.split == split],
                 confidence_threshold=confidence_threshold,
             )
-            for split in ("validation", "test")
+            for split in ("validation", "test", "challenge")
+            if any(record.split == split for record in records)
         },
     }
 
@@ -253,7 +308,8 @@ def render_report(results: dict[str, Any], gold_path: Path) -> str:
         f"- Extractor: `{results['extractor_version']}`",
         f"- Human-review threshold: {results['confidence_threshold']:.2f}",
         "- Gold source spans are hand-authored strings that must occur exactly once per document.",
-        "- Validation and refreshed test are reported separately; exposed failures move to validation.",
+        "- Validation, refreshed test, and challenge are reported separately; exposed test "
+        "failures move to validation.",
         "- Dataset history and the test-refresh limitation are disclosed in `docs/extraction-gold.md`.",
         "- All documents and identities are synthetic; metrics do not establish production validity.",
         "",
@@ -263,7 +319,7 @@ def render_report(results: dict[str, Any], gold_path: Path) -> str:
         "Latency (ms/doc) |",
         "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
-    for split in ("validation", "test"):
+    for split in results["evaluations"]:
         evaluation = results["evaluations"][split]
         lines.append(
             f"| {split} | {evaluation['documents']} | {evaluation['expected_fields']} | "
@@ -276,7 +332,7 @@ def render_report(results: dict[str, Any], gold_path: Path) -> str:
             f"{evaluation['latency_ms_per_document']:.3f} |"
         )
 
-    for split in ("validation", "test"):
+    for split in results["evaluations"]:
         lines += ["", f"## {split.capitalize()} failures"]
         failures = results["evaluations"][split]["failures"]
         if not failures:
@@ -292,7 +348,8 @@ def render_report(results: dict[str, Any], gold_path: Path) -> str:
         "## Interpretation",
         "Exact field F1 requires the evidence type, normalized values, and cited source text to "
         "all agree. Normalized-value and span accuracy are calculated only for fields aligned "
-        "by evidence type plus source text. Review metrics measure whether low-confidence fields "
+        "by evidence type, page, and source text. Review metrics measure whether low-confidence "
+        "fields "
         "are routed as specified by gold annotations.",
         "",
     ]

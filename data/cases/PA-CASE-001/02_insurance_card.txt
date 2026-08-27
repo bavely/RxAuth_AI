@@ -1,0 +1,8 @@
+MEMBER IDENTIFICATION
+Example Health Plan Member Identification Card.
+Member ID: SYNTH-0001. Group Number: GRP-1042.
+RxBIN: 610014  RxPCN: EXPL  RxGRP: SAMPLE01.
+Customer Service: 1-800-555-0100. Pharmacy Helpdesk: 1-800-555-0199.
+Plan type: PPO. Effective date: 2025-04-22.
+This card does not guarantee coverage. Refer to plan documents for details.
+End of intake record

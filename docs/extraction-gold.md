@@ -9,18 +9,20 @@ evaluation and provenance contracts, not to claim production or clinical general
 Each JSONL row contains:
 
 - `document_id` — unique stable identifier;
-- `split` — `validation` or `test`;
+- `split` — `validation`, `test`, or `challenge`;
 - `filename` — synthetic source filename;
-- `text` — one page of synthetic document text;
+- exactly one of `text` (legacy one-page text) or `pages` (typed page number, text, extraction
+  method, and ingestion confidence);
 - `expected` — zero or more normalized fields.
 
 Each expected field contains `evidence_type`, optional normalized medication/text/numeric
-value/unit/outcome, exact `source_text`, and `requires_review`. Gold character offsets are derived
-by locating that hand-authored source string; loading fails unless it occurs exactly once.
+value/unit/outcome, exact `source_text`, optional `page`, and `requires_review`. Gold character
+offsets are derived by locating that hand-authored source string on its declared page; loading fails
+unless it occurs exactly once there.
 
 ## Coverage
 
-The 45 records include:
+The 61 records include:
 
 - `Diagnosis:` and `Assessment:` forms;
 - prescriptions;
@@ -34,10 +36,20 @@ The 45 records include:
 - vague duration language that must route to review;
 - multiple fields in one document;
 - documents with no extractable evidence;
-- a negated diagnosis and numeric-result distractors.
+- a negated diagnosis and numeric-result distractors;
+- a therapy duration and its outcome stated on separate lines, which must resolve to one fact
+  citing both spans;
+- two shapes that must *not* resolve to one fact: several plausible duration/outcome pairings for
+  the same medication, and a duration and an outcome belonging to different medications;
+- the same payer named twice in one document, which must resolve to one fact with two citations.
+- explicit brand/generic medication aliases and an unknown-product near miss;
+- alternate diagnosis, prescription, payer, quantity, date, and lab forms;
+- a two-page therapy fact whose duration and outcome cite different pages;
+- OCR-confused label characters with page confidence that changes review routing;
+- harder negation and medication-name distractors.
 
-There are 25 validation and 20 test documents. All names, medications, conditions, and records are
-fabricated placeholders; no PHI is present.
+There are 29 validation, 20 test, and 12 challenge documents. All names, medications, conditions,
+and records are fabricated or public medication names; no PHI is present.
 
 ## Development history
 
@@ -54,6 +66,20 @@ test documents (`GOLD-038` through `GOLD-045`) added fresh values, combined-fiel
 near-miss negatives; the 20-document test split passed on its first run without rule changes. These
 records are still authored in-repository and in-distribution, so they strengthen regression coverage
 without becoming an independent external holdout.
+
+The four resolution records (`GOLD-046` through `GOLD-049`) were added to validation and confirmed
+to fail under `regex-v1` before the resolution stages were implemented: `GOLD-046` produced two
+unlinked halves and `GOLD-049` produced a duplicated payer. The two negative records passed
+immediately and are regression guards against over-eager linking. The test split was not touched
+for this slice and still passes unchanged, so it remains the frozen half of the corpus — with the
+caveat, unchanged from above, that it is authored in-repository and is not an independent external
+holdout.
+
+The 12 challenge records (`GOLD-050` through `GOLD-061`) add named-medication normalization,
+multi-page provenance, OCR-confused labels and confidence, alternate surface forms, negation, and
+cross-class distractors. They are reported separately and were not used to fit the learned token
+classifier. They are still locally authored and therefore do not constitute an independently
+authored or clinical holdout.
 
 ## Versioning rules
 

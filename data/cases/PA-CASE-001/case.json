@@ -1,0 +1,11 @@
+{
+  "case_id": "PA-CASE-001",
+  "patient_synthetic_id": "SYNTH-0001",
+  "payer": "Example Health Plan",
+  "plan": "Example PPO",
+  "medication": "Drug A",
+  "indication": "Example Condition",
+  "pa_required": true,
+  "policy_id": "PA-104",
+  "note": "Fully synthetic packet (README section 3). `pa_required` is an explicit synthetic trigger recorded here as case input; it is never inferred from policy text."
+}

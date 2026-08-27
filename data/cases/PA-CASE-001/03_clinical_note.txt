@@ -1,0 +1,8 @@
+PROGRESS NOTE
+Progress note for patient SYNTH-0001 seen by Dr. A. Rivera.
+Assessment: Example Condition, stable on current regimen.
+Subjective: patient reports having been on therapy for several months with partial benefit.
+Objective: vitals stable. A1c reviewed and discussed with patient.
+Plan: continue Drug A, reassess at next follow-up visit.
+Visit date: 2026-01-09. Next follow-up in 8 weeks.
+End of intake record

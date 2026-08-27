@@ -1,0 +1,8 @@
+LABORATORY REPORT
+Laboratory Report for SYNTH-0001.
+A1c: 7.4% — collected 2025-12-22.
+Ordering provider: Dr. A. Rivera.
+Specimen type: venous blood draw.
+Reference range and flag included per laboratory standard reporting.
+Results reviewed and released to ordering provider.
+End of intake record

@@ -1,7 +1,7 @@
 # RxAuth AI
 ## Specialty Pharmacy Prior Authorization Intelligence Copilot
 
-> **Status:** Phase 2 complete; information extraction with confidence is now in progress.
+> **Status:** Phase 3 complete. Information extraction now normalizes named medications, resolves multi-span and cross-document evidence, measures OCR-aware confidence, and retains the deterministic baseline after a learned-model comparison; payer-policy retrieval is next.
 > **Goal:** One flagship AI-engineering project that begins as IBM AI Engineering coursework, grows into a portfolio system, and has a credible path to a commercial pilot — built incrementally so the commit history traces the progression from classical ML through deep learning to RAG and agentic systems.
 
 **Author:** Bavely S. Tawfik — [pavli-tawfik.com](https://pavli-tawfik.com) · [linkedin.com/in/bavelytawfik](https://www.linkedin.com/in/bavelytawfik) · [github.com/bavely](https://github.com/bavely)
@@ -20,8 +20,15 @@ uv run rxauth-benchmark-ingestion
 uv run rxauth-train-classifier
 uv run rxauth-extract data/documents/clinical_note/doc_0002.txt --document-id SYN-EXAMPLE
 uv run rxauth-benchmark-extraction
+uv run rxauth-calibrate-extraction
+uv run rxauth-compare-extractors
+uv run rxauth-run-case data/cases/PA-CASE-001
 uv run pytest
 ```
+
+`rxauth-run-case` is the one that runs the whole spine on real files — ingest, classify, extract,
+resolve, match, groundedness gate — so it needs the classifier artifact that `rxauth-train-classifier`
+writes.
 
 Run the optional deep-learning comparison separately:
 
@@ -30,7 +37,7 @@ uv sync --extra deep --group dev
 uv run rxauth-train-deep-classifier --seeds 7 42 73
 ```
 
-The synthetic classifier and rendered ingestion corpora are checked in for reproducibility. See [the Milestone 0 guide](docs/milestone-0.md) for the pipeline spine, [the Phase 1.5 guide](docs/phase-1.5.md) for ingestion and benchmark details, and [the Phase 2 guide](docs/phase-2.md) for the transformer protocol, results, and model decision.
+The synthetic classifier and rendered ingestion corpora are checked in for reproducibility. See [the Milestone 0 guide](docs/milestone-0.md) for the pipeline spine, [the Phase 1.5 guide](docs/phase-1.5.md) for ingestion and benchmark details, [the Phase 2 guide](docs/phase-2.md) for the transformer protocol, results, and model decision, [the Phase 3 guide](docs/phase-3-extraction.md) for extraction and its resolution stages, and [the case-assembly guide](docs/case-assembly.md) for the end-to-end run on real documents.
 
 ### Phase 1.5 outcomes
 
@@ -55,14 +62,30 @@ The synthetic classifier and rendered ingestion corpora are checked in for repro
 
 ### Information extraction build status
 
-- The deterministic extractor recognizes diagnoses, prior-therapy duration/outcome, prescriptions, patient/member IDs, payer names, days supply, prescription quantities, document dates, A1c/LDL/ALT/eGFR/CRP values, screening-document presence, and ambiguous therapy duration in the synthetic vocabulary.
-- Every extracted field records document, filename, page, exact source text, inclusive/exclusive character offsets, confidence, and extractor version.
-- Low-confidence ambiguous fields route to human review instead of receiving a fabricated normalized value.
-- The extractor reuses the text/PDF/image ingestion contract and exposes `rxauth-extract` for path-level inference.
-- A 45-document hand-authored JSONL gold set separates 25 validation from 20 refreshed test examples and covers positive, absent, ambiguous, multi-field, negated, administrative, quantity/date, added-lab, screening, and distractor cases.
+- The deterministic extractor recognizes diagnoses, prior-therapy duration/outcome, prescriptions, patient/member IDs, payer names, days supply, prescription quantities, document dates, A1c/LDL/ALT/eGFR/CRP values, screening-document presence, and ambiguous therapy duration.
+- Medication extraction uses an explicit, auditable alias lexicon: `Drug A`–`Drug Z` remain stable synthetic placeholders, while supported brand/generic aliases normalize to lower-case generic names. Unknown products are never guessed.
+- Every extracted field records document, filename, page, exact source text, inclusive/exclusive character offsets, confidence, the rule that produced it, and extractor version.
+- Raw matches pass through four deterministic resolution stages before becoming evidence: overlap precedence, repeated-mention merging, therapy duration/outcome linking, and source-aware confidence.
+- One fact may now cite several spans. A duration stated on one line and its outcome on the next become a single complete fact — but only when the document leaves exactly one plausible pairing; anything else stays unlinked and is flagged `ambiguous_linkage`.
+- Review routing distinguishes `low_confidence` (the span may have been misread) from `incomplete_value` and `ambiguous_linkage` (the span was read correctly and still needs a human). Only the first moves with the confidence threshold.
+- Field confidence is multiplied by the ingesting page's confidence, so a field read off a poor scan is not presented as confidently as the same field read off clean text.
+- A 61-document hand-authored JSONL gold set separates 29 development/validation, 20 frozen test, and 12 challenge examples. The challenge contract supports multi-page pages, OCR text and confidence, medication aliases, harder paraphrases, negation, and cross-class distractors.
 - `rxauth-benchmark-extraction` reports exact field precision/recall/F1, normalized-value accuracy, provenance-span accuracy, review routing, latency, and concrete failures.
-- `regex-v1` scores 1.000 on the current validation and refreshed test splits; this small in-distribution result validates the contract, not production generalization.
-- Broader medication-name normalization, multi-span evidence linking, overlap/deduplication, confidence calibration, OCR-aware confidence, and learned-model comparison remain before §9 is complete.
+- `regex-v3` scores 1.000 on validation, test, and challenge. This small, locally authored synthetic result validates the declared contract, not production or clinical generalization.
+- `rxauth-calibrate-extraction` measures the confidence values against the **validation split only** and writes `reports/extraction_calibration.md`: reliability per assigned confidence, accuracy per rule, expected calibration error, Brier score, and a review-threshold sweep.
+- The calibration deliberately stops at reporting. Every bucket is more accurate than it claims, but with a handful of in-distribution fields per bucket, fitting a mapping would encode the sample rather than calibrate the extractor. The values stay documented priors.
+- `rxauth-compare-extractors` trains a token-level logistic-regression span model on 20 development records and selects on nine validation records, leaving test and challenge untouched. It scores 0.084 exact-span F1 on test and 0.000 on challenge versus 1.000 for `regex-v3`, so the complete deterministic extractor remains selected.
+- Exact normalized facts repeated across documents are linked as corroboration without merging their document-scoped evidence or using partial facts to manufacture a complete statement.
+- Externally authored clinical/OCR evaluation remains necessary before any generalization claim; it belongs to evaluation hardening (§15), not the completed §9 prototype deliverable.
+
+### End-to-end on real documents
+
+- `rxauth-run-case data/cases/PA-CASE-001` runs a document packet through ingest → classify → extract → resolve → match → groundedness gate, replacing Milestone 0's hand-supplied evidence with the components the project actually ships.
+- The assembled run reproduces the Milestone 0 criterion profile exactly (4 supported, 1 missing, 1 ambiguous). That equivalence is an acceptance test, not a demo.
+- Two of those criteria are only satisfiable because the therapy duration and its outcome were linked across two lines — and the evaluation cites both spans, not just the anchor.
+- The readiness report now also counts what a reviewer still has to look at: document classifications below threshold, and extracted fields that produced an issue. A case can be "4 of 6 supported" and still need a human underneath.
+- Classification is injectable behind a one-method protocol, so the trained baseline, a served model, or a test stub all drop in without touching assembly.
+- The policy and the `pa_required` trigger stay declared inputs: §10 replaces the policy fixture with retrieval, and §3 forbids inferring a live benefit from policy text. See [the case-assembly guide](docs/case-assembly.md).
 
 ### Repository layout
 
@@ -70,7 +93,7 @@ The synthetic classifier and rendered ingestion corpora are checked in for repro
 .
 ├── src/rxauth_ai/    # installable application package and CLI entry points
 ├── tests/            # automated tests
-├── data/             # synthetic corpus and manifest
+├── data/             # synthetic corpus, manifest, gold sets, and case packets
 ├── reports/          # reproducible evaluation artifacts
 ├── docs/             # milestone and architecture documentation
 ├── pyproject.toml    # package, dependency, test, and lint configuration
@@ -289,8 +312,9 @@ That principle governs the architecture, interface, evaluation strategy, and com
 - [x] Phase 1.5 — ingestion pipeline + hardened synthetic benchmark (§7)
 - [x] Classifier baseline (§8, Phase 1)
 - [x] Deep-learning classifier + comparison (§8, Phase 2) — baseline retained after three-seed comparison
-- [ ] Information extraction with confidence (§9) — administrative/date/quantity/lab/screening coverage added; multi-span, deduplication, and calibration pending
-- [ ] Payer-policy RAG (§10) + criteria extraction (§11)
+- [x] Information extraction with confidence (§9) — medication normalization, multi-page/OCR challenge coverage, multi-span and cross-document provenance, calibrated review routing, and deterministic-vs-learned comparison
+- [x] Real-document case assembly — the Milestone 0 spine now runs on ingested, classified, and extracted documents instead of fixtures
+- [ ] Payer-policy RAG (§10) + criteria extraction (§11) — next
 - [ ] Criteria-to-evidence matching (§12)
 - [ ] LangGraph workflow (§13)
 - [ ] Draft generation + groundedness gate (§14)
