@@ -7,6 +7,117 @@ class, every function. Companion to [milestone-0.md](milestone-0.md),
 [case-assembly.md](case-assembly.md), which explain *why* the system is
 built this way — this document explains *what each line does*.
 
+## Orientation map (start here)
+
+A plain-language map of the whole project, for someone who does not yet know the
+code. The rest of this document is the line-by-line reference; this section is
+the two-minute version.
+
+### What the app does
+
+Give it a folder of synthetic medical documents. It reads them, works out which
+payer policy version applies, turns that policy's prose into machine-checkable
+rules, checks the documents against those rules, and reports how ready the prior
+authorization is — with a file/page/character-span citation behind every claim.
+Offline: no database, no network, no LLM.
+
+### Main flow (`uv run rxauth-run-case data/cases/PA-CASE-001`)
+
+| # | Step | Module |
+|---|---|---|
+| 1 | Read `case.json` — declared payer, drug, indication, `pa_required` | `case_assembly.load_manifest` |
+| 2 | File to page text + confidence (`.txt` direct, `.pdf` pypdf, images OpenCV + Tesseract) | `ingestion.ingest_document` |
+| 3 | Classify each document type; low confidence is flagged for review | `classifier.DocumentClassifier.classify_path` |
+| 4 | Regex rules pull typed `Evidence`, each carrying document, page, span, quoted text | `extraction.extract_evidence` |
+| 5 | Resolve overlaps, merge repeats, link duration+outcome, fold in source confidence | `extraction` (Phase 3.5 stages) |
+| 6 | Link identical facts appearing in two or more documents | `case_assembly.link_cross_document_evidence` |
+| 7 | Decide the request date (manifest, else the PA request's own extracted date) | `case_assembly.request_date_for` |
+| 8 | Metadata filter (payer/drug/indication/version window) **then** similarity ranking | `policy_retrieval.resolve_policy_document` |
+| 9 | Policy prose to typed `Criterion` (operator, value, unit, outcome); exclusions split out | `criteria_extraction.build_policy` |
+| 10 | Retrieve evidence per criterion, normalize units, compare, aggregate | `matching.evaluate_case` |
+| 11 | Groundedness gate — nothing is "satisfied" without a patient span and a policy span | `groundedness.check_groundedness` |
+| 12 | Print the report, write `reports/case_<id>.json` | `pipeline.run_pipeline` + `cli.print_report` |
+
+Five possible criterion results: `SATISFIED`, `NOT_SATISFIED`, `MISSING`,
+`AMBIGUOUS`, `HUMAN_REVIEW_REQUIRED`. The design exists to make the last three
+real answers rather than failures — the system never guesses to avoid saying it
+does not know.
+
+### The ten files to understand first
+
+1. `models.py` — every shape in the system; everything else moves these objects around.
+2. `case_assembly.py` — the real end-to-end runner; read `run_case()`.
+3. `pipeline.py` — ~100 lines; Case + Policy to report.
+4. `matching.py` — the core intelligence: where a rule meets a fact.
+5. `extraction.py` — largest module; regex rules plus four resolution stages.
+6. `ingestion.py` — files in, page text out.
+7. `criteria_extraction.py` — policy English to typed rules.
+8. `policy_retrieval.py` — picking the right policy *version*.
+9. `policy_corpus.py` — chopping a policy into citable chunks.
+10. `classifier.py` — the trained document-type model.
+
+`groundedness.py` (58 lines) is also worth one sitting — it is the project's conscience.
+
+### What each important file controls, and its blast radius
+
+**Spine**
+
+| File | Controls | Connects to | If you change it |
+|---|---|---|---|
+| `models.py` | All data shapes | Imported by everything | Highest risk in the repo. Optional fields are safe; renames or new required fields break every module, every test, and invalidate `reports/*.json` |
+| `pipeline.py` | Report assembly, tallies, ALL-vs-ANY refusal | from cli/case_assembly; to matching, groundedness | Changes every number in every report and `test_pipeline.py` |
+| `case_assembly.py` | End-to-end run, `case.json` schema, cross-doc links, `rxauth-run-case` | to ingestion, classifier, extraction, policy_*, pipeline | Breaks the flagship command and `test_case_assembly.py` |
+| `matching.py` | Retrieval, unit conversion, comparison, five-state results | from pipeline; to medications, models | Changes criterion outcomes, therefore the readiness report |
+| `groundedness.py` | PASS/FAIL citation gate | from pipeline | Loosening it lets uncited claims through — the one guarantee the project sells |
+
+**Reading layer**
+
+| File | Controls | Connects to | If you change it |
+|---|---|---|---|
+| `ingestion.py` | Text/PDF/image to pages plus confidence | to classifier, extraction, benchmarks | Confidence flows downstream; OCR changes can flip a criterion result |
+| `extraction.py` | Regex rules, provenance, confidence, resolution | to medications, models | A new rule can overlap an existing one. Re-run `rxauth-benchmark-extraction` and `rxauth-calibrate-extraction` |
+| `medications.py` | Brand/generic alias lexicon (50 lines) | to extraction, matching, policy_corpus | Small file, wide reach — affects what is extracted, matched, and retrieved |
+| `classifier.py` | TF-IDF model, training, `classify_path` | from case_assembly (protocol), train_classifier | Retraining changes `artifacts/classifier_baseline.pkl` and review-flag counts |
+
+**Policy layer**
+
+| File | Controls | Connects to | If you change it |
+|---|---|---|---|
+| `policy_corpus.py` | Metadata, pages, sections, enumerated items to chunks | to medications; from policy_retrieval, criteria_extraction | Chunking changes what retrieval returns *and* what criteria extraction sees; both gold benchmarks shift |
+| `policy_retrieval.py` | Metadata filter plus TF-IDF ranking, version windows | to policy_corpus; from case_assembly | Weakening the filter risks returning another payer's policy — the failure `benchmark_retrieval` exists to catch |
+| `criteria_extraction.py` | Prose to typed `Criterion`, exclusions, ALL/ANY | to policy_corpus, models | A dropped requirement makes a case look readier than it is; unmatched items must stay `unstructured` |
+
+**Data you would realistically edit**
+
+| Path | What it is | If you change it |
+|---|---|---|
+| `data/policies/` | 8 synthetic policies; strict format (metadata header, `--- page N ---`, `SECTION N.`, numbered items) | Format deviations break parsing. `PA-207` is a deliberate near-miss trap for retrieval — do not "fix" it |
+| `data/cases/PA-CASE-001/` | Demo packet: `case.json` plus 5 documents | Editing documents changes extraction, the report, and `test_case_assembly.py` expectations |
+| `data/*_gold.jsonl` | Hand-labelled answer keys (extraction, retrieval, criteria) | Editing gold to make a benchmark pass defeats its purpose |
+| `data/manifest.csv` | Train/val/test split assignments | Regenerated by `rxauth-build-dataset`; hand-editing risks split leakage |
+
+**Supporting cast** — `cli.py` (report printer, reused by case_assembly), `synthetic_case.py`
+(fixture for `rxauth-milestone0`), `build_dataset.py` / `rendering.py` (corpus and fake scans),
+`deep_classifier.py` (optional DistilBERT, needs `uv sync --extra deep`), `calibration.py` and
+`compare_extractors.py` (are the confidences honest / would ML beat the regexes), the five
+`benchmark_*.py` modules, and `tests/` (15 files; `test_case_assembly.py` and `test_extraction.py`
+catch the most real regressions).
+
+**Ignore entirely** — `.venv/`, `.ruff_cache/`, `.pytest_cache/`, `__pycache__/`, `dist/`,
+`uv.lock`, `artifacts/` (gitignored build outputs), `data/documents/**` and `data/rendered/**`
+(~500 generated files), `docs/*.pptx`, `docs/*.pdf`, `docs/build_*.ps1`.
+
+### Two things to know before changing anything
+
+- **Dependencies run one way.** `models.py` feeds everything; nothing imports `case_assembly`
+  or `cli`. Changes get safer the further down the flow you go.
+- **Work in progress (as of 2026-08-30):** `matching.py` has a large uncommitted rewrite
+  (`typed-match-v1` to `evidence-match-v2`), plus untracked `benchmark_matching.py` and
+  `tests/test_matching.py`. `benchmark_matching.py` expects `data/matching_gold.jsonl`,
+  which does not exist yet.
+
+---
+
 ## Module map
 
 | Module | Role |

@@ -242,8 +242,18 @@ class CriterionEvaluation(BaseModel):
     case_id: str
     result: CriterionResult
     supporting_evidence_ids: list[str] = Field(default_factory=list)
+    candidate_evidence_ids: list[str] = Field(
+        default_factory=list,
+        description="Every evidence record retrieved before the final matching decision.",
+    )
     confidence: float = Field(ge=0.0, le=1.0)
     evaluation_method: EvaluationMethod
+    matcher_version: str = "typed-match-v1"
+    normalization_version: str = "none"
+    decision_trace: list[str] = Field(
+        default_factory=list,
+        description="Short structured stages explaining retrieval, normalization, and aggregation.",
+    )
     explanation: str
     criterion_description: str = ""
     policy_source: Optional[Provenance] = None
@@ -265,6 +275,7 @@ class CaseReadinessReport(BaseModel):
     policy_id: str
     policy_version: str = "v1"
     policy_effective_date: Optional[str] = None
+    matcher_version: str = "typed-match-v1"
     payer: str
     medication: str
     indication: str
