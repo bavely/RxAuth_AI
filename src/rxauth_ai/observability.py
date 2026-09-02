@@ -51,6 +51,8 @@ LOGGABLE_FIELDS: frozenset[str] = frozenset(
         # Correlation
         "request_id",
         "case_id",
+        "organization_id",
+        "actor_id",
         "schema_version",
         "workflow_version",
         # Stage

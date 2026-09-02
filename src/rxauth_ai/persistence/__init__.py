@@ -20,12 +20,19 @@ Postgres in CI. `policy_retrieval.EmbeddingBackend` remains the seam.
 """
 
 from .repository import (
+    CaseRecord,
     CaseRunRecord,
+    UploadedDocumentRecord,
+    case_upload_usage,
+    create_case_record,
+    list_uploaded_documents,
+    load_case_record,
     load_case_run,
     load_reviewer_decisions,
     recent_case_runs,
     save_case_run,
     save_reviewer_decision,
+    save_uploaded_document,
 )
 from .session import (
     DatabaseNotConfiguredError,
@@ -34,23 +41,42 @@ from .session import (
     session_scope,
     sessionmaker_for,
 )
-from .tables import Base, CaseRunRow, CriterionEvaluationRow, DocumentRow, ReviewerDecisionRow
+from .tables import (
+    Base,
+    CaseRow,
+    CaseRunRow,
+    CriterionEvaluationRow,
+    DocumentRow,
+    JobRow,
+    ReviewerDecisionRow,
+    UploadedDocumentRow,
+)
 
 __all__ = [
     "Base",
+    "CaseRecord",
+    "CaseRow",
     "CaseRunRecord",
     "CaseRunRow",
     "CriterionEvaluationRow",
     "DatabaseNotConfiguredError",
     "DocumentRow",
+    "JobRow",
     "ReviewerDecisionRow",
+    "UploadedDocumentRecord",
+    "UploadedDocumentRow",
+    "case_upload_usage",
+    "create_case_record",
     "create_all",
     "engine_for",
     "load_case_run",
+    "load_case_record",
+    "list_uploaded_documents",
     "load_reviewer_decisions",
     "recent_case_runs",
     "save_case_run",
     "save_reviewer_decision",
+    "save_uploaded_document",
     "session_scope",
     "sessionmaker_for",
 ]

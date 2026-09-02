@@ -37,6 +37,91 @@ class Base(DeclarativeBase):
     pass
 
 
+class CaseRow(Base):
+    """Durable case manifest, unique within one organization."""
+
+    __tablename__ = "cases"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    organization_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    case_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
+    )
+    manifest: Mapped[dict] = mapped_column(JSON, nullable=False)
+
+    documents: Mapped[list[UploadedDocumentRow]] = relationship(
+        back_populates="case", cascade="all, delete-orphan", lazy="selectin"
+    )
+
+    __table_args__ = (
+        UniqueConstraint("organization_id", "case_id", name="uq_cases_organization_case"),
+    )
+
+
+class UploadedDocumentRow(Base):
+    """Original uploaded object metadata; bytes remain in object storage."""
+
+    __tablename__ = "uploaded_documents"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    case_row_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("cases.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    organization_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    case_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    filename: Mapped[str] = mapped_column(String(512), nullable=False)
+    media_type: Mapped[str] = mapped_column(String(128), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    storage_key: Mapped[str] = mapped_column(String(1024), nullable=False, unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    retain_until: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    case: Mapped[CaseRow] = relationship(back_populates="documents")
+
+    __table_args__ = (
+        UniqueConstraint("case_row_id", "filename", name="uq_uploaded_document_filename"),
+        Index(
+            "ix_uploaded_documents_organization_case",
+            "organization_id",
+            "case_id",
+        ),
+    )
+
+
+class JobRow(Base):
+    """Durable queue entry claimed by PostgreSQL workers."""
+
+    __tablename__ = "jobs"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    organization_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    case_id: Mapped[str | None] = mapped_column(String(128), index=True)
+    request_id: Mapped[str | None] = mapped_column(String(64), index=True)
+    kind: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False)
+    result: Mapped[dict | None] = mapped_column(JSON)
+    error_type: Mapped[str | None] = mapped_column(String(255))
+    error: Mapped[str | None] = mapped_column(Text)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    max_attempts: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    next_attempt_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    worker_id: Mapped[str | None] = mapped_column(String(128))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+
+    __table_args__ = (
+        Index("ix_jobs_claim", "status", "next_attempt_at", "created_at"),
+        Index("ix_jobs_organization_created", "organization_id", "created_at"),
+    )
+
+
 class CaseRunRow(Base):
     """One end-to-end run of one case packet.
 
@@ -48,6 +133,7 @@ class CaseRunRow(Base):
     __tablename__ = "case_runs"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    organization_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     case_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     request_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
@@ -87,7 +173,14 @@ class CaseRunRow(Base):
         back_populates="run", cascade="all, delete-orphan", lazy="selectin"
     )
 
-    __table_args__ = (Index("ix_case_runs_case_created", "case_id", "created_at"),)
+    __table_args__ = (
+        Index(
+            "ix_case_runs_organization_case_created",
+            "organization_id",
+            "case_id",
+            "created_at",
+        ),
+    )
 
 
 class DocumentRow(Base):
@@ -150,6 +243,7 @@ class ReviewerDecisionRow(Base):
     __tablename__ = "reviewer_decisions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    organization_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     case_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     criterion_id: Mapped[str] = mapped_column(String(64), nullable=False)
     run_id: Mapped[str | None] = mapped_column(String(64), index=True)
@@ -170,4 +264,11 @@ class ReviewerDecisionRow(Base):
     note: Mapped[str | None] = mapped_column(Text)
     payload: Mapped[dict] = mapped_column(JSON, nullable=False)
 
-    __table_args__ = (Index("ix_reviewer_decisions_case_criterion", "case_id", "criterion_id"),)
+    __table_args__ = (
+        Index(
+            "ix_reviewer_decisions_organization_case_criterion",
+            "organization_id",
+            "case_id",
+            "criterion_id",
+        ),
+    )

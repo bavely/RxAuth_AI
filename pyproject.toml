@@ -27,6 +27,7 @@ service = [
     "alembic>=1.14",
     "boto3>=1.35",
     "fastapi>=0.115",
+    "pyjwt[crypto]>=2.13,<3",
     "psycopg[binary]>=3.2",
     "python-multipart>=0.0.18",
     "sqlalchemy>=2.0",
@@ -52,6 +53,7 @@ rxauth-milestone0 = "rxauth_ai.cli:main"
 rxauth-run-case = "rxauth_ai.case_assembly:main"
 rxauth-train-classifier = "rxauth_ai.train_classifier:main"
 rxauth-train-deep-classifier = "rxauth_ai.train_deep_classifier:main"
+rxauth-worker = "rxauth_ai.worker:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -92,4 +94,5 @@ extend-immutable-calls = [
     "fastapi.Header",
     "fastapi.Path",
     "fastapi.Query",
+    "fastapi.Security",
 ]

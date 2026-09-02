@@ -18,8 +18,11 @@ so tests never touch real storage. `Settings` refuses to fall back to it in
 from __future__ import annotations
 
 import hashlib
+import os
 import shutil
+import uuid
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import BinaryIO, Optional, Protocol
 
@@ -42,7 +45,9 @@ class StoredObject:
 class ObjectStore(Protocol):
     """The slice of object storage this application needs."""
 
-    def put(self, key: str, stream: BinaryIO) -> StoredObject: ...
+    def put(
+        self, key: str, stream: BinaryIO, *, retain_until: Optional[datetime] = None
+    ) -> StoredObject: ...
 
     def get(self, key: str, destination: Path) -> Path: ...
 
@@ -51,7 +56,14 @@ class ObjectStore(Protocol):
     def delete(self, key: str) -> None: ...
 
 
-def document_key(case_id: str, document_id: str, filename: str, *, prefix: str = "cases") -> str:
+def document_key(
+    case_id: str,
+    document_id: str,
+    filename: str,
+    *,
+    organization_id: str,
+    prefix: str = "cases",
+) -> str:
     """Where one document lives.
 
     Keyed by case and document rather than by filename alone, because two cases
@@ -59,7 +71,7 @@ def document_key(case_id: str, document_id: str, filename: str, *, prefix: str =
     be silent and unrecoverable.
     """
     safe = Path(filename).name
-    return f"{prefix}/{case_id}/{document_id}/{safe}"
+    return f"{prefix}/{organization_id}/{case_id}/{document_id}/{safe}"
 
 
 def _digest(source: BinaryIO, destination: BinaryIO) -> tuple[int, str]:
@@ -88,11 +100,18 @@ class LocalObjectStore:
             raise StorageError(f"Refusing to write outside the object store: {key!r}")
         return candidate
 
-    def put(self, key: str, stream: BinaryIO) -> StoredObject:
+    def put(
+        self, key: str, stream: BinaryIO, *, retain_until: Optional[datetime] = None
+    ) -> StoredObject:
         path = self._path(key)
         path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("wb") as handle:
-            size, digest = _digest(stream, handle)
+        temporary = path.parent / f".{uuid.uuid4().hex}.upload"
+        try:
+            with temporary.open("xb") as handle:
+                size, digest = _digest(stream, handle)
+            os.replace(temporary, path)
+        finally:
+            temporary.unlink(missing_ok=True)
         return StoredObject(key=key, size_bytes=size, sha256=digest)
 
     def get(self, key: str, destination: Path) -> Path:
@@ -128,9 +147,11 @@ class S3ObjectStore:
         *,
         region: Optional[str] = None,
         endpoint_url: Optional[str] = None,
+        object_lock_mode: Optional[str] = None,
         client: Optional[object] = None,
     ) -> None:
         self.bucket = bucket
+        self.object_lock_mode = object_lock_mode
         if client is not None:
             self._client = client
             return
@@ -142,22 +163,33 @@ class S3ObjectStore:
             ) from exc
         self._client = boto3.client("s3", region_name=region, endpoint_url=endpoint_url)
 
-    def put(self, key: str, stream: BinaryIO) -> StoredObject:
-        import io
-
-        buffer = io.BytesIO()
-        size, digest = _digest(stream, buffer)
-        buffer.seek(0)
+    def put(
+        self, key: str, stream: BinaryIO, *, retain_until: Optional[datetime] = None
+    ) -> StoredObject:
         try:
-            self._client.put_object(
-                Bucket=self.bucket,
-                Key=key,
-                Body=buffer,
-                ServerSideEncryption="AES256",
-            )
+            start = stream.tell()
+            digest = hashlib.sha256()
+            size = 0
+            while chunk := stream.read(1024 * 1024):
+                digest.update(chunk)
+                size += len(chunk)
+            stream.seek(start)
+        except (AttributeError, OSError) as exc:
+            raise StorageError("S3 uploads require a seekable staged stream.") from exc
+        try:
+            request = {
+                "Bucket": self.bucket,
+                "Key": key,
+                "Body": stream,
+                "ServerSideEncryption": "AES256",
+            }
+            if retain_until is not None and self.object_lock_mode is not None:
+                request["ObjectLockMode"] = self.object_lock_mode
+                request["ObjectLockRetainUntilDate"] = retain_until
+            self._client.put_object(**request)
         except Exception as exc:
             raise StorageError(f"Could not store {key!r} in s3://{self.bucket}: {exc}") from exc
-        return StoredObject(key=key, size_bytes=size, sha256=digest)
+        return StoredObject(key=key, size_bytes=size, sha256=digest.hexdigest())
 
     def get(self, key: str, destination: Path) -> Path:
         destination = Path(destination)
@@ -194,5 +226,6 @@ def build_object_store(settings: Optional[Settings] = None) -> ObjectStore:
             active.s3_bucket,
             region=active.s3_region,
             endpoint_url=active.s3_endpoint_url,
+            object_lock_mode=active.s3_object_lock_mode,
         )
     return LocalObjectStore(active.local_storage_dir)

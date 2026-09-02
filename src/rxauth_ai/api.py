@@ -13,48 +13,130 @@ other request; FastAPI runs plain `def` handlers on a threadpool, which is the
 correct place for it. The one genuinely long operation, a case run, goes to the
 job runner instead of being held open.
 
-**No authentication yet, and it is refused rather than defaulted.** Auth and
-RBAC are Stage 3. Until they exist, `require_auth_configured` blocks startup in
-`staging` and `production`, so an unauthenticated service cannot be deployed by
-accident with PHI behind it. Locally it runs, and says so.
+**Authentication fails closed.** Staging and production require an OIDC issuer,
+audience, and JWKS endpoint. Every workflow endpoint resolves a verified
+principal, checks its role, and carries its organization into storage and
+database lookups. Local development uses one explicit synthetic principal.
 """
 
 from __future__ import annotations
 
-import shutil
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Annotated, Any, Optional
 
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status
+from fastapi import Depends, FastAPI, File, HTTPException, Security, UploadFile, status
+from fastapi import Path as ApiPath
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
+from starlette.responses import JSONResponse
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from .case_assembly import CaseManifest, build_output, load_classifier
+from .auth import (
+    ROLE_CASE_READ,
+    ROLE_CASE_WRITE,
+    ROLE_REVIEW,
+    SAFE_ID_PATTERN,
+    AuthenticationError,
+    Authenticator,
+    Principal,
+    build_authenticator,
+)
+from .case_assembly import CaseManifest
+from .case_jobs import build_case_job_handler
 from .config import Settings, get_settings
 from .feedback import ReviewerAction, decision_from_evaluation
-from .jobs import JobRunner
+from .jobs import JobQueue, JobWorker, RetentionPolicy, RetryPolicy
 from .models import CriterionResult
 from .observability import RunContext, configure_logging, log_event
 from .persistence import (
     DatabaseNotConfiguredError,
+    case_upload_usage,
+    create_case_record,
     engine_for,
+    list_uploaded_documents,
+    load_case_record,
     load_case_run,
     load_reviewer_decisions,
     recent_case_runs,
-    save_case_run,
     save_reviewer_decision,
+    save_uploaded_document,
     session_scope,
 )
-from .policy_retrieval import build_index
 from .storage import build_object_store, document_key
-from .workflow import run_case_workflow
+from .uploads import (
+    UploadConflictError,
+    UploadTooLargeError,
+    UploadValidationError,
+    stage_upload,
+)
 
 API_VERSION = "v1"
+
+
+class _RequestBodyTooLarge(Exception):
+    pass
+
+
+class UploadBodyLimitMiddleware:
+    """Reject oversized upload bodies before multipart parsing fills temp disk."""
+
+    def __init__(self, app: ASGIApp, *, max_bytes: int) -> None:
+        self.app = app
+        self.max_bytes = max_bytes
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        path = str(scope.get("path", ""))
+        if (
+            scope["type"] != "http"
+            or scope.get("method") != "POST"
+            or not path.endswith("/documents")
+        ):
+            await self.app(scope, receive, send)
+            return
+
+        headers = {key.lower(): value for key, value in scope.get("headers", [])}
+        raw_length = headers.get(b"content-length")
+        if raw_length is not None:
+            try:
+                declared_length = int(raw_length)
+            except ValueError:
+                declared_length = self.max_bytes + 1
+            if declared_length > self.max_bytes:
+                await self._reject(scope, receive, send)
+                return
+
+        received = 0
+
+        async def limited_receive() -> Message:
+            nonlocal received
+            message = await receive()
+            if message["type"] == "http.request":
+                received += len(message.get("body", b""))
+                if received > self.max_bytes:
+                    raise _RequestBodyTooLarge
+            return message
+
+        try:
+            await self.app(scope, limited_receive, send)
+        except _RequestBodyTooLarge:
+            await self._reject(scope, receive, send)
+
+    async def _reject(self, scope: Scope, receive: Receive, send: Send) -> None:
+        response = JSONResponse(
+            {"detail": f"The upload request exceeds the {self.max_bytes}-byte body limit."},
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+        )
+        await response(scope, receive, send)
 
 
 class CaseCreate(BaseModel):
     """The declared facts a packet must state (README section 3)."""
 
-    case_id: str = Field(min_length=1, max_length=128)
+    model_config = {"extra": "forbid"}
+
+    case_id: str = Field(pattern=SAFE_ID_PATTERN)
     patient_synthetic_id: str = Field(min_length=1)
     payer: str = Field(min_length=1)
     medication: str = Field(min_length=1)
@@ -68,8 +150,9 @@ class CaseCreate(BaseModel):
 
 
 class ReviewerDecisionCreate(BaseModel):
+    model_config = {"extra": "forbid"}
+
     criterion_id: str
-    reviewer_id: str
     action: ReviewerAction
     corrected_result: Optional[CriterionResult] = None
     corrected_evidence_ids: Optional[list[str]] = None
@@ -77,25 +160,43 @@ class ReviewerDecisionCreate(BaseModel):
 
 
 def require_auth_configured(settings: Settings) -> None:
-    """Refuse to serve an unauthenticated API outside a developer machine.
+    """Defense in depth for settings objects built outside normal validation.
 
-    Authentication is Stage 3. A service with no auth is fine on a laptop with
-    synthetic data and is a breach waiting to happen anywhere else, so the
-    boundary is enforced at startup rather than trusted to a deployment note.
+    `Settings` normally rejects this state first. Keeping the application-level
+    guard prevents a future alternate settings loader from weakening startup.
     """
-    if settings.environment in {"staging", "production"}:
+    if settings.environment in {"staging", "production"} and not settings.auth_enabled:
         raise RuntimeError(
-            f"Refusing to start in environment={settings.environment}: this API has no "
-            "authentication or access control yet (roadmap Stage 3). Deploying it in front of "
-            "real data would violate README section 19."
+            f"Refusing to start in environment={settings.environment}: OIDC authentication "
+            "must be enabled and configured."
         )
 
 
-def _case_dir(settings: Settings, case_id: str) -> Path:
-    return Path(settings.artifacts_dir) / "cases" / case_id
+CaseId = Annotated[str, ApiPath(pattern=SAFE_ID_PATTERN)]
 
 
-def create_app(settings: Optional[Settings] = None) -> FastAPI:
+def _case_dir(settings: Settings, organization_id: str, case_id: str) -> Path:
+    """Resolve a tenant-scoped case directory and enforce containment."""
+    root = (Path(settings.artifacts_dir) / "cases" / organization_id).resolve()
+    directory = (root / case_id).resolve()
+    if not directory.is_relative_to(root):
+        raise ValueError("Case path escapes its organization root.")
+    return directory
+
+
+def _calendar_years_from_now(years: int) -> datetime:
+    now = datetime.now(timezone.utc)
+    try:
+        return now.replace(year=now.year + years)
+    except ValueError:  # February 29 into a non-leap year.
+        return now.replace(month=2, day=28, year=now.year + years)
+
+
+def create_app(
+    settings: Optional[Settings] = None,
+    *,
+    authenticator: Optional[Authenticator] = None,
+) -> FastAPI:
     """Build the application around one settings object.
 
     Every dependency below resolves from `active` rather than from the
@@ -106,9 +207,26 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
     active = settings or get_settings()
     require_auth_configured(active)
     configure_logging(active)
+    active_authenticator = authenticator or build_authenticator(active)
 
     engine = engine_for(active) if active.database_url else None
-    runner = JobRunner(workers=active.job_workers, retention=active.job_retention)
+    queue = (
+        JobQueue(
+            engine,
+            retry_policy=RetryPolicy(
+                max_attempts=active.job_max_attempts,
+                initial_delay_seconds=active.effective_job_retry_initial_seconds,
+                maximum_delay_seconds=active.effective_job_retry_max_seconds,
+            ),
+            retention_policy=RetentionPolicy(
+                completed_years=active.completed_job_retention_years,
+                failed_days=active.failed_job_retention_days,
+            ),
+        )
+        if engine is not None
+        else None
+    )
+    bearer = HTTPBearer(auto_error=False)
 
     def app_settings() -> Settings:
         return active
@@ -123,8 +241,47 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             )
         return settings
 
-    def app_runner() -> JobRunner:
-        return runner
+    def app_queue() -> JobQueue:
+        if queue is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="The durable job queue requires RXAUTH_DATABASE_URL.",
+            )
+        return queue
+
+    def authorize(*required_roles: str):
+        accepted = frozenset(required_roles)
+
+        def dependency(
+            credentials: HTTPAuthorizationCredentials | None = Security(bearer),
+        ) -> Principal:
+            token = credentials.credentials if credentials is not None else None
+            try:
+                principal = active_authenticator.authenticate(token)
+            except AuthenticationError as exc:
+                log_event("auth.rejected", error_type=type(exc).__name__)
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail=str(exc),
+                    headers={"WWW-Authenticate": "Bearer"},
+                ) from exc
+            if not principal.permits_any(accepted):
+                log_event(
+                    "authorization.rejected",
+                    organization_id=principal.organization_id,
+                    actor_id=principal.subject,
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="The authenticated identity does not have the required role.",
+                )
+            return principal
+
+        return dependency
+
+    can_write_cases = authorize(ROLE_CASE_WRITE)
+    can_read_cases = authorize(ROLE_CASE_READ, ROLE_CASE_WRITE, ROLE_REVIEW)
+    can_review_cases = authorize(ROLE_REVIEW)
 
     def transaction():
         return session_scope(engine)
@@ -138,9 +295,25 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             "case for a human reviewer; it does not decide, approve, deny, or submit one."
         ),
     )
+    app.add_middleware(
+        UploadBodyLimitMiddleware,
+        max_bytes=active.upload_max_file_bytes + active.upload_multipart_overhead_bytes,
+    )
     app.state.settings = active
-    app.state.job_runner = runner
+    app.state.job_queue = queue
+    app.state.job_runner = queue  # Compatibility name for callers migrating from Stage 2.
     app.state.engine = engine
+    app.state.job_worker = (
+        JobWorker(
+            queue,
+            {"case_run": build_case_job_handler(active, engine)},
+            lease_seconds=active.job_lease_seconds,
+            heartbeat_seconds=active.job_heartbeat_seconds,
+            poll_seconds=active.job_poll_seconds,
+        )
+        if queue is not None and engine is not None
+        else None
+    )
 
     @app.get("/health")
     def health() -> dict[str, Any]:
@@ -153,43 +326,176 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         }
 
     @app.post("/cases", status_code=status.HTTP_201_CREATED)
-    def create_case(payload: CaseCreate) -> dict[str, Any]:
+    def create_case(
+        payload: CaseCreate,
+        settings: Settings = Depends(require_database),
+        principal: Principal = Depends(can_write_cases),
+    ) -> dict[str, Any]:
         """Write the case manifest. Documents are uploaded separately."""
         manifest = CaseManifest.model_validate(payload.model_dump())
-        directory = _case_dir(active, manifest.case_id)
+        with transaction() as session:
+            existing = load_case_record(
+                session,
+                organization_id=principal.organization_id,
+                case_id=manifest.case_id,
+            )
+            if existing is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Case {manifest.case_id!r} already exists.",
+                )
+            create_case_record(
+                session,
+                organization_id=principal.organization_id,
+                case_id=manifest.case_id,
+                manifest=manifest.model_dump(mode="json"),
+            )
+
+        directory = _case_dir(settings, principal.organization_id, manifest.case_id)
         directory.mkdir(parents=True, exist_ok=True)
         (directory / "case.json").write_text(
             manifest.model_dump_json(indent=2), encoding="utf-8", newline="\n"
         )
-        log_event("case.created", case_id=manifest.case_id)
+        log_event(
+            "case.created",
+            case_id=manifest.case_id,
+            organization_id=principal.organization_id,
+            actor_id=principal.subject,
+        )
         return {"case_id": manifest.case_id, "documents": 0}
 
     @app.post("/cases/{case_id}/documents", status_code=status.HTTP_201_CREATED)
-    def upload_document(case_id: str, file: UploadFile = File(...)) -> dict[str, Any]:
+    def upload_document(
+        case_id: CaseId,
+        file: UploadFile = File(...),
+        settings: Settings = Depends(require_database),
+        principal: Principal = Depends(can_write_cases),
+    ) -> dict[str, Any]:
         """Store one document, in object storage and on the working directory.
 
         Both, on purpose: object storage is the record of what was submitted,
         and the pipeline reads files from a directory. The stored copy is the
         one that outlives the container.
         """
-        directory = _case_dir(active, case_id)
-        if not (directory / "case.json").is_file():
-            raise HTTPException(status_code=404, detail=f"No case {case_id!r}. Create it first.")
+        with transaction() as session:
+            case_record = load_case_record(
+                session, organization_id=principal.organization_id, case_id=case_id
+            )
+            if case_record is None:
+                raise HTTPException(
+                    status_code=404, detail=f"No case {case_id!r}. Create it first."
+                )
+            document_count, case_size = case_upload_usage(
+                session, organization_id=principal.organization_id, case_id=case_id
+            )
+            filenames = {
+                document.filename
+                for document in list_uploaded_documents(
+                    session, organization_id=principal.organization_id, case_id=case_id
+                )
+            }
+        if document_count >= settings.upload_max_documents_per_case:
+            raise HTTPException(
+                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                detail=(
+                    f"The case already has the maximum of "
+                    f"{settings.upload_max_documents_per_case} documents."
+                ),
+            )
 
-        filename = Path(file.filename or "document.txt").name
-        target = directory / filename
-        with target.open("wb") as handle:
-            shutil.copyfileobj(file.file, handle)
+        directory = _case_dir(settings, principal.organization_id, case_id)
+        try:
+            staged = stage_upload(file.file, file.filename, directory, settings)
+        except UploadTooLargeError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail=str(exc)
+            ) from exc
+        except UploadConflictError as exc:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+        except UploadValidationError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+            ) from exc
 
-        store = build_object_store(active)
-        key = document_key(case_id, target.stem, filename, prefix=active.s3_prefix)
-        with target.open("rb") as handle:
-            stored = store.put(key, handle)
+        if staged.filename in filenames:
+            staged.discard()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"A document named {staged.filename!r} already exists in this case.",
+            )
+        if case_size + staged.size_bytes > settings.upload_max_case_bytes:
+            staged.discard()
+            raise HTTPException(
+                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                detail=f"The upload would exceed the {settings.upload_max_case_bytes}-byte case limit.",
+            )
 
-        log_event("document.stored", case_id=case_id)
+        document_id = uuid.uuid4().hex
+        store = build_object_store(settings)
+        key = document_key(
+            case_id,
+            document_id,
+            staged.filename,
+            organization_id=principal.organization_id,
+            prefix=settings.s3_prefix,
+        )
+        retain_until = _calendar_years_from_now(settings.original_document_retention_years)
+        try:
+            with staged.temporary_path.open("rb") as handle:
+                stored = store.put(key, handle, retain_until=retain_until)
+            with transaction() as session:
+                case_record = load_case_record(
+                    session,
+                    organization_id=principal.organization_id,
+                    case_id=case_id,
+                    for_update=True,
+                )
+                if case_record is None:
+                    raise HTTPException(status_code=404, detail=f"No case {case_id!r}.")
+                current_count, current_size = case_upload_usage(
+                    session, organization_id=principal.organization_id, case_id=case_id
+                )
+                if current_count >= settings.upload_max_documents_per_case:
+                    raise HTTPException(
+                        status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                        detail="The case document limit was reached by another upload.",
+                    )
+                if current_size + staged.size_bytes > settings.upload_max_case_bytes:
+                    raise HTTPException(
+                        status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                        detail="The case byte limit was reached by another upload.",
+                    )
+                save_uploaded_document(
+                    session,
+                    document_id=document_id,
+                    case_record_id=case_record.id,
+                    organization_id=principal.organization_id,
+                    case_id=case_id,
+                    filename=staged.filename,
+                    media_type=staged.media_type,
+                    size_bytes=staged.size_bytes,
+                    sha256=staged.sha256,
+                    storage_key=stored.key,
+                    retain_until=retain_until,
+                )
+        except Exception:
+            store.delete(key)
+            staged.discard()
+            raise
+
+        staged.commit()
+
+        log_event(
+            "document.stored",
+            case_id=case_id,
+            organization_id=principal.organization_id,
+            actor_id=principal.subject,
+        )
         return {
             "case_id": case_id,
-            "filename": filename,
+            "document_id": document_id,
+            "filename": staged.filename,
+            "media_type": staged.media_type,
             "storage_key": stored.key,
             "size_bytes": stored.size_bytes,
             "sha256": stored.sha256,
@@ -197,81 +503,87 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
 
     @app.post("/cases/{case_id}/runs", status_code=status.HTTP_202_ACCEPTED)
     def start_run(
-        case_id: str,
+        case_id: CaseId,
         settings: Settings = Depends(require_database),
-        runner: JobRunner = Depends(app_runner),
+        queue: JobQueue = Depends(app_queue),
+        principal: Principal = Depends(can_write_cases),
     ) -> dict[str, Any]:
         """Accept a run and return a job to poll.
 
         202, not 200: the work has been accepted, not done. A case run is
         seconds at best and minutes on a scanned packet.
         """
-        directory = _case_dir(settings, case_id)
-        if not (directory / "case.json").is_file():
-            raise HTTPException(status_code=404, detail=f"No case {case_id!r}.")
+        with transaction() as session:
+            case_record = load_case_record(
+                session, organization_id=principal.organization_id, case_id=case_id
+            )
+            if case_record is None:
+                raise HTTPException(status_code=404, detail=f"No case {case_id!r}.")
+            document_count, _ = case_upload_usage(
+                session, organization_id=principal.organization_id, case_id=case_id
+            )
+        if document_count == 0:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Case {case_id!r} has no uploaded documents.",
+            )
 
         context = RunContext(case_id=case_id)
-
-        def work() -> dict[str, Any]:
-            classifier = load_classifier(settings.classifier_path)
-            result = run_case_workflow(
-                directory,
-                classifier=classifier,
-                index=build_index(settings.policy_dir),
-                confidence_threshold=settings.extraction_confidence_threshold,
-                criteria_confidence_threshold=settings.criteria_confidence_threshold,
-            )
-            if result.error is not None:
-                raise result.error
-
-            state = result.state
-            assert state.report is not None
-            assert state.assembled is not None
-            assert state.resolved is not None
-            payload = build_output(
-                state.report,
-                state.assembled,
-                state.resolved,
-                directory,
-                workflow_records=result.record_dicts(),
-                checklist=state.checklist,
-                draft_groundedness=state.draft_groundedness,
-            )
-            with transaction() as session:
-                run_id = save_case_run(session, payload=payload, request_id=context.request_id)
-            return {"run_id": run_id, "case_id": case_id, "summary": state.report.summary_line()}
-
-        job = runner.submit("case_run", work, case_id=case_id, request_id=context.request_id)
+        job = queue.submit(
+            "case_run",
+            {"case_id": case_id},
+            case_id=case_id,
+            request_id=context.request_id,
+            organization_id=principal.organization_id,
+        )
         return job.as_dict()
 
     @app.get("/jobs/{job_id}")
-    def get_job(job_id: str, runner: JobRunner = Depends(app_runner)) -> dict[str, Any]:
-        job = runner.get(job_id)
+    def get_job(
+        job_id: str,
+        queue: JobQueue = Depends(app_queue),
+        principal: Principal = Depends(can_read_cases),
+    ) -> dict[str, Any]:
+        job = queue.get(job_id, organization_id=principal.organization_id)
         if job is None:
             raise HTTPException(
                 status_code=404,
                 detail=(
-                    f"No job {job_id!r}. Jobs are held in memory and do not survive a restart "
-                    "(see jobs.py); a finished run is still readable at /runs."
+                    f"No job {job_id!r} in this organization. Durable jobs remain queryable "
+                    "until their configured retention period expires."
                 ),
             )
         return job.as_dict()
 
     @app.get("/runs/{run_id}")
-    def get_run(run_id: str, settings: Settings = Depends(require_database)) -> dict[str, Any]:
+    def get_run(
+        run_id: str,
+        settings: Settings = Depends(require_database),
+        principal: Principal = Depends(can_read_cases),
+    ) -> dict[str, Any]:
         """The full run document — the same bytes written to reports/."""
         with transaction() as session:
-            record = load_case_run(session, run_id)
+            record = load_case_run(
+                session, run_id=run_id, organization_id=principal.organization_id
+            )
         if record is None:
             raise HTTPException(status_code=404, detail=f"No run {run_id!r}.")
         return record.payload
 
     @app.get("/cases/{case_id}/runs")
     def list_runs(
-        case_id: str, limit: int = 20, settings: Settings = Depends(require_database)
+        case_id: CaseId,
+        limit: int = 20,
+        settings: Settings = Depends(require_database),
+        principal: Principal = Depends(can_read_cases),
     ) -> dict[str, Any]:
         with transaction() as session:
-            records = recent_case_runs(session, case_id=case_id, limit=limit)
+            records = recent_case_runs(
+                session,
+                organization_id=principal.organization_id,
+                case_id=case_id,
+                limit=limit,
+            )
         return {
             "case_id": case_id,
             "runs": [
@@ -291,10 +603,13 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         run_id: str,
         payload: ReviewerDecisionCreate,
         settings: Settings = Depends(require_database),
+        principal: Principal = Depends(can_review_cases),
     ) -> dict[str, Any]:
         """Record what a reviewer decided about one criterion (README section 16)."""
         with transaction() as session:
-            record = load_case_run(session, run_id)
+            record = load_case_run(
+                session, run_id=run_id, organization_id=principal.organization_id
+            )
             if record is None:
                 raise HTTPException(status_code=404, detail=f"No run {run_id!r}.")
             evaluation = next(
@@ -309,7 +624,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             try:
                 decision = decision_from_evaluation(
                     evaluation,
-                    reviewer_id=payload.reviewer_id,
+                    reviewer_id=principal.subject,
                     action=payload.action,
                     corrected_result=payload.corrected_result,
                     corrected_evidence_ids=payload.corrected_evidence_ids,
@@ -317,17 +632,32 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
                 )
             except ValueError as exc:
                 raise HTTPException(status_code=422, detail=str(exc)) from exc
-            decision_id = save_reviewer_decision(session, decision, run_id=run_id)
+            decision_id = save_reviewer_decision(
+                session,
+                decision,
+                run_id=run_id,
+                organization_id=principal.organization_id,
+            )
 
-        log_event("reviewer.decision", case_id=record.case_id, criterion_id=payload.criterion_id)
+        log_event(
+            "reviewer.decision",
+            case_id=record.case_id,
+            criterion_id=payload.criterion_id,
+            organization_id=principal.organization_id,
+            actor_id=principal.subject,
+        )
         return {"decision_id": decision_id, "run_id": run_id, "action": decision.action.value}
 
     @app.get("/cases/{case_id}/decisions")
     def list_decisions(
-        case_id: str, settings: Settings = Depends(require_database)
+        case_id: CaseId,
+        settings: Settings = Depends(require_database),
+        principal: Principal = Depends(can_read_cases),
     ) -> dict[str, Any]:
         with transaction() as session:
-            decisions = load_reviewer_decisions(session, case_id=case_id)
+            decisions = load_reviewer_decisions(
+                session, organization_id=principal.organization_id, case_id=case_id
+            )
         return {
             "case_id": case_id,
             "decisions": [decision.model_dump(mode="json") for decision in decisions],

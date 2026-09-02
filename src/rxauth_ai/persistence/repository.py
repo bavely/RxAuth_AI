@@ -9,14 +9,159 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Optional
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..feedback import ReviewerDecision
 from ..models import CaseReadinessReport, CriterionEvaluation
-from .tables import CaseRunRow, CriterionEvaluationRow, DocumentRow, ReviewerDecisionRow
+from .tables import (
+    CaseRow,
+    CaseRunRow,
+    CriterionEvaluationRow,
+    DocumentRow,
+    ReviewerDecisionRow,
+    UploadedDocumentRow,
+)
+
+
+@dataclass(frozen=True)
+class CaseRecord:
+    id: str
+    organization_id: str
+    case_id: str
+    manifest: dict[str, Any]
+    created_at: datetime
+
+
+@dataclass(frozen=True)
+class UploadedDocumentRecord:
+    id: str
+    organization_id: str
+    case_id: str
+    filename: str
+    media_type: str
+    size_bytes: int
+    sha256: str
+    storage_key: str
+    created_at: datetime
+    retain_until: datetime
+
+
+def _case_record(row: CaseRow) -> CaseRecord:
+    return CaseRecord(
+        id=row.id,
+        organization_id=row.organization_id,
+        case_id=row.case_id,
+        manifest=row.manifest,
+        created_at=row.created_at,
+    )
+
+
+def _uploaded_document_record(row: UploadedDocumentRow) -> UploadedDocumentRecord:
+    return UploadedDocumentRecord(
+        id=row.id,
+        organization_id=row.organization_id,
+        case_id=row.case_id,
+        filename=row.filename,
+        media_type=row.media_type,
+        size_bytes=row.size_bytes,
+        sha256=row.sha256,
+        storage_key=row.storage_key,
+        created_at=row.created_at,
+        retain_until=row.retain_until,
+    )
+
+
+def create_case_record(
+    session: Session, *, organization_id: str, case_id: str, manifest: dict[str, Any]
+) -> CaseRecord:
+    row = CaseRow(
+        id=uuid.uuid4().hex,
+        organization_id=organization_id,
+        case_id=case_id,
+        manifest=manifest,
+    )
+    session.add(row)
+    session.flush()
+    return _case_record(row)
+
+
+def load_case_record(
+    session: Session,
+    *,
+    organization_id: str,
+    case_id: str,
+    for_update: bool = False,
+) -> Optional[CaseRecord]:
+    statement = select(CaseRow).where(
+        CaseRow.organization_id == organization_id,
+        CaseRow.case_id == case_id,
+    )
+    if for_update:
+        statement = statement.with_for_update()
+    row = session.execute(statement).scalar_one_or_none()
+    return _case_record(row) if row is not None else None
+
+
+def case_upload_usage(session: Session, *, organization_id: str, case_id: str) -> tuple[int, int]:
+    count, size = session.execute(
+        select(
+            func.count(UploadedDocumentRow.id),
+            func.coalesce(func.sum(UploadedDocumentRow.size_bytes), 0),
+        ).where(
+            UploadedDocumentRow.organization_id == organization_id,
+            UploadedDocumentRow.case_id == case_id,
+        )
+    ).one()
+    return int(count), int(size)
+
+
+def save_uploaded_document(
+    session: Session,
+    *,
+    case_record_id: str,
+    organization_id: str,
+    case_id: str,
+    filename: str,
+    media_type: str,
+    size_bytes: int,
+    sha256: str,
+    storage_key: str,
+    retain_until: datetime,
+    document_id: Optional[str] = None,
+) -> UploadedDocumentRecord:
+    row = UploadedDocumentRow(
+        id=document_id or uuid.uuid4().hex,
+        case_row_id=case_record_id,
+        organization_id=organization_id,
+        case_id=case_id,
+        filename=filename,
+        media_type=media_type,
+        size_bytes=size_bytes,
+        sha256=sha256,
+        storage_key=storage_key,
+        retain_until=retain_until,
+    )
+    session.add(row)
+    session.flush()
+    return _uploaded_document_record(row)
+
+
+def list_uploaded_documents(
+    session: Session, *, organization_id: str, case_id: str
+) -> list[UploadedDocumentRecord]:
+    rows = session.execute(
+        select(UploadedDocumentRow)
+        .where(
+            UploadedDocumentRow.organization_id == organization_id,
+            UploadedDocumentRow.case_id == case_id,
+        )
+        .order_by(UploadedDocumentRow.created_at, UploadedDocumentRow.id)
+    ).scalars()
+    return [_uploaded_document_record(row) for row in rows]
 
 
 @dataclass(frozen=True)
@@ -24,6 +169,7 @@ class CaseRunRecord:
     """A stored run, read back as the objects the pipeline produced."""
 
     run_id: str
+    organization_id: str
     case_id: str
     request_id: str
     created_at: str
@@ -52,6 +198,7 @@ def save_case_run(
     *,
     payload: dict[str, Any],
     request_id: str,
+    organization_id: str,
     storage_keys: Optional[dict[str, str]] = None,
     run_id: Optional[str] = None,
 ) -> str:
@@ -67,6 +214,7 @@ def save_case_run(
 
     row = CaseRunRow(
         id=run_id or uuid.uuid4().hex,
+        organization_id=organization_id,
         case_id=readiness["case_id"],
         request_id=request_id,
         payer=readiness["payer"],
@@ -129,6 +277,7 @@ def save_case_run(
 def _to_record(row: CaseRunRow) -> CaseRunRecord:
     return CaseRunRecord(
         run_id=row.id,
+        organization_id=row.organization_id,
         case_id=row.case_id,
         request_id=row.request_id,
         created_at=row.created_at.isoformat() if row.created_at else "",
@@ -137,26 +286,46 @@ def _to_record(row: CaseRunRow) -> CaseRunRecord:
     )
 
 
-def load_case_run(session: Session, run_id: str) -> Optional[CaseRunRecord]:
-    row = session.get(CaseRunRow, run_id)
+def load_case_run(
+    session: Session, *, run_id: str, organization_id: str
+) -> Optional[CaseRunRecord]:
+    statement = select(CaseRunRow).where(
+        CaseRunRow.id == run_id,
+        CaseRunRow.organization_id == organization_id,
+    )
+    row = session.execute(statement).scalar_one_or_none()
     return _to_record(row) if row is not None else None
 
 
 def recent_case_runs(
-    session: Session, *, case_id: Optional[str] = None, limit: int = 20
+    session: Session,
+    *,
+    organization_id: str,
+    case_id: Optional[str] = None,
+    limit: int = 20,
 ) -> list[CaseRunRecord]:
     """Newest first, because the question is almost always 'what happened last'."""
-    statement = select(CaseRunRow).order_by(CaseRunRow.created_at.desc()).limit(limit)
+    statement = (
+        select(CaseRunRow)
+        .where(CaseRunRow.organization_id == organization_id)
+        .order_by(CaseRunRow.created_at.desc())
+        .limit(limit)
+    )
     if case_id is not None:
         statement = statement.where(CaseRunRow.case_id == case_id)
     return [_to_record(row) for row in session.execute(statement).scalars()]
 
 
 def save_reviewer_decision(
-    session: Session, decision: ReviewerDecision, *, run_id: Optional[str] = None
+    session: Session,
+    decision: ReviewerDecision,
+    *,
+    organization_id: str,
+    run_id: Optional[str] = None,
 ) -> int:
     """Append one reviewer verdict. There is deliberately no update path."""
     row = ReviewerDecisionRow(
+        organization_id=organization_id,
         case_id=decision.case_id,
         criterion_id=decision.criterion_id,
         run_id=run_id,
@@ -179,9 +348,13 @@ def save_reviewer_decision(
 
 
 def load_reviewer_decisions(
-    session: Session, *, case_id: Optional[str] = None
+    session: Session, *, organization_id: str, case_id: Optional[str] = None
 ) -> list[ReviewerDecision]:
-    statement = select(ReviewerDecisionRow).order_by(ReviewerDecisionRow.id)
+    statement = (
+        select(ReviewerDecisionRow)
+        .where(ReviewerDecisionRow.organization_id == organization_id)
+        .order_by(ReviewerDecisionRow.id)
+    )
     if case_id is not None:
         statement = statement.where(ReviewerDecisionRow.case_id == case_id)
     return [

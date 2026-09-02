@@ -30,6 +30,7 @@ from rxauth_ai.persistence.tables import Base, DocumentRow
 
 _ROOT = Path(__file__).resolve().parents[1]
 _PAYLOAD = _ROOT / "reports" / "case_PA-CASE-001.json"
+_ORGANIZATION = "org-a"
 
 
 @pytest.fixture
@@ -50,12 +51,15 @@ def payload():
 
 def test_a_run_round_trips_to_the_objects_the_pipeline_produced(engine, payload):
     with session_scope(engine) as session:
-        run_id = save_case_run(session, payload=payload, request_id="req-1")
+        run_id = save_case_run(
+            session, payload=payload, request_id="req-1", organization_id=_ORGANIZATION
+        )
 
     with session_scope(engine) as session:
-        record = load_case_run(session, run_id)
+        record = load_case_run(session, run_id=run_id, organization_id=_ORGANIZATION)
 
     assert record is not None
+    assert record.organization_id == _ORGANIZATION
     assert record.case_id == payload["readiness"]["case_id"]
     assert record.request_id == "req-1"
     # The report is a real CaseReadinessReport, not a dict that looks like one.
@@ -66,10 +70,12 @@ def test_a_run_round_trips_to_the_objects_the_pipeline_produced(engine, payload)
 def test_the_stored_payload_is_byte_identical_to_what_was_written(engine, payload):
     """What the API returns and what `reports/` holds must be the same bytes."""
     with session_scope(engine) as session:
-        run_id = save_case_run(session, payload=payload, request_id="req-1")
+        run_id = save_case_run(
+            session, payload=payload, request_id="req-1", organization_id=_ORGANIZATION
+        )
 
     with session_scope(engine) as session:
-        record = load_case_run(session, run_id)
+        record = load_case_run(session, run_id=run_id, organization_id=_ORGANIZATION)
 
     assert record.payload == payload
 
@@ -77,10 +83,12 @@ def test_the_stored_payload_is_byte_identical_to_what_was_written(engine, payloa
 def test_every_cited_span_survives_the_round_trip(engine, payload):
     """A stored evaluation without its citations would defeat the whole gate."""
     with session_scope(engine) as session:
-        run_id = save_case_run(session, payload=payload, request_id="req-1")
+        run_id = save_case_run(
+            session, payload=payload, request_id="req-1", organization_id=_ORGANIZATION
+        )
 
     with session_scope(engine) as session:
-        record = load_case_run(session, run_id)
+        record = load_case_run(session, run_id=run_id, organization_id=_ORGANIZATION)
 
     supported = [
         evaluation
@@ -96,7 +104,9 @@ def test_every_cited_span_survives_the_round_trip(engine, payload):
 
 def test_versions_are_columns_so_a_bump_can_be_compared(engine, payload):
     with session_scope(engine) as session:
-        run_id = save_case_run(session, payload=payload, request_id="req-1")
+        run_id = save_case_run(
+            session, payload=payload, request_id="req-1", organization_id=_ORGANIZATION
+        )
         row = session.get(CaseRunRow, run_id)
 
         assert row.matcher_version == payload["readiness"]["matcher_version"]
@@ -107,7 +117,9 @@ def test_versions_are_columns_so_a_bump_can_be_compared(engine, payload):
 
 def test_each_criterion_is_queryable_without_opening_the_payload(engine, payload):
     with session_scope(engine) as session:
-        run_id = save_case_run(session, payload=payload, request_id="req-1")
+        run_id = save_case_run(
+            session, payload=payload, request_id="req-1", organization_id=_ORGANIZATION
+        )
         row = session.get(CaseRunRow, run_id)
 
         assert len(row.evaluations) == payload["readiness"]["criteria_total"]
@@ -119,12 +131,20 @@ def test_each_criterion_is_queryable_without_opening_the_payload(engine, payload
 def test_running_the_same_case_twice_keeps_both_runs(engine, payload):
     """Overwriting would destroy the comparison a version bump depends on."""
     with session_scope(engine) as session:
-        first = save_case_run(session, payload=payload, request_id="req-1")
-        second = save_case_run(session, payload=payload, request_id="req-2")
+        first = save_case_run(
+            session, payload=payload, request_id="req-1", organization_id=_ORGANIZATION
+        )
+        second = save_case_run(
+            session, payload=payload, request_id="req-2", organization_id=_ORGANIZATION
+        )
 
     assert first != second
     with session_scope(engine) as session:
-        runs = recent_case_runs(session, case_id=payload["readiness"]["case_id"])
+        runs = recent_case_runs(
+            session,
+            organization_id=_ORGANIZATION,
+            case_id=payload["readiness"]["case_id"],
+        )
 
     assert {run.run_id for run in runs} == {first, second}
 
@@ -133,7 +153,13 @@ def test_document_rows_record_where_the_bytes_are_never_the_bytes(engine, payloa
     keys = {"D1": "cases/PA-CASE-001/D1/01_pa_request.txt"}
 
     with session_scope(engine) as session:
-        run_id = save_case_run(session, payload=payload, request_id="req-1", storage_keys=keys)
+        run_id = save_case_run(
+            session,
+            payload=payload,
+            request_id="req-1",
+            organization_id=_ORGANIZATION,
+            storage_keys=keys,
+        )
         row = session.get(CaseRunRow, run_id)
         documents = {item.document_id: item for item in row.documents}
 
@@ -145,17 +171,21 @@ def test_document_rows_record_where_the_bytes_are_never_the_bytes(engine, payloa
 def test_a_failed_transaction_leaves_nothing_behind(engine, payload):
     with pytest.raises(RuntimeError):
         with session_scope(engine) as session:
-            save_case_run(session, payload=payload, request_id="req-1")
+            save_case_run(
+                session, payload=payload, request_id="req-1", organization_id=_ORGANIZATION
+            )
             raise RuntimeError("something went wrong after the write")
 
     with session_scope(engine) as session:
-        assert recent_case_runs(session) == []
+        assert recent_case_runs(session, organization_id=_ORGANIZATION) == []
 
 
 def test_reviewer_decisions_append_and_read_back(engine, payload):
     with session_scope(engine) as session:
-        run_id = save_case_run(session, payload=payload, request_id="req-1")
-        record = load_case_run(session, run_id)
+        run_id = save_case_run(
+            session, payload=payload, request_id="req-1", organization_id=_ORGANIZATION
+        )
+        record = load_case_run(session, run_id=run_id, organization_id=_ORGANIZATION)
         evaluation = record.evaluations[0]
 
         accepted = decision_from_evaluation(
@@ -168,11 +198,13 @@ def test_reviewer_decisions_append_and_read_back(engine, payload):
             corrected_result=CriterionResult.HUMAN_REVIEW_REQUIRED,
             note="The two documents disagree.",
         )
-        save_reviewer_decision(session, accepted, run_id=run_id)
-        save_reviewer_decision(session, corrected, run_id=run_id)
+        save_reviewer_decision(session, accepted, run_id=run_id, organization_id=_ORGANIZATION)
+        save_reviewer_decision(session, corrected, run_id=run_id, organization_id=_ORGANIZATION)
 
     with session_scope(engine) as session:
-        decisions = load_reviewer_decisions(session, case_id=record.case_id)
+        decisions = load_reviewer_decisions(
+            session, organization_id=_ORGANIZATION, case_id=record.case_id
+        )
 
     assert [item.action for item in decisions] == [
         ReviewerAction.ACCEPTED,
@@ -185,14 +217,36 @@ def test_reviewer_decisions_append_and_read_back(engine, payload):
 def test_a_superseding_decision_is_another_row_not_an_edit(engine, payload):
     """Append-only: a correction that can be edited is not a record of the moment."""
     with session_scope(engine) as session:
-        run_id = save_case_run(session, payload=payload, request_id="req-1")
-        evaluation = load_case_run(session, run_id).evaluations[0]
+        run_id = save_case_run(
+            session, payload=payload, request_id="req-1", organization_id=_ORGANIZATION
+        )
+        evaluation = load_case_run(
+            session, run_id=run_id, organization_id=_ORGANIZATION
+        ).evaluations[0]
         for action in (ReviewerAction.ACCEPTED, ReviewerAction.REJECTED):
             save_reviewer_decision(
                 session,
                 decision_from_evaluation(evaluation, reviewer_id="reviewer-01", action=action),
                 run_id=run_id,
+                organization_id=_ORGANIZATION,
             )
 
     with session_scope(engine) as session:
-        assert len(load_reviewer_decisions(session)) == 2
+        assert len(load_reviewer_decisions(session, organization_id=_ORGANIZATION)) == 2
+
+
+def test_runs_and_decisions_are_invisible_across_organizations(engine, payload):
+    with session_scope(engine) as session:
+        run_id = save_case_run(
+            session, payload=payload, request_id="req-1", organization_id=_ORGANIZATION
+        )
+        record = load_case_run(session, run_id=run_id, organization_id=_ORGANIZATION)
+        decision = decision_from_evaluation(
+            record.evaluations[0], reviewer_id="reviewer-01", action=ReviewerAction.ACCEPTED
+        )
+        save_reviewer_decision(session, decision, run_id=run_id, organization_id=_ORGANIZATION)
+
+    with session_scope(engine) as session:
+        assert load_case_run(session, run_id=run_id, organization_id="org-b") is None
+        assert recent_case_runs(session, organization_id="org-b") == []
+        assert load_reviewer_decisions(session, organization_id="org-b") == []

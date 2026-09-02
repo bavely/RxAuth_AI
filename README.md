@@ -157,17 +157,20 @@ The synthetic classifier and rendered ingestion corpora are checked in for repro
 
 ### The service layer
 
-- `docker compose up --build` brings up Postgres and the API; `docker compose exec api alembic upgrade head` creates the schema. The CLI still needs none of it — a missing `RXAUTH_DATABASE_URL` means "you are running the CLI", not a misconfiguration.
+- `docker compose up --build` brings up Postgres, runs `alembic upgrade head`, then starts the API and a separate durable worker. The CLI still needs none of it — a missing `RXAUTH_DATABASE_URL` means "you are running the CLI", not a misconfiguration.
 - Six endpoints, matching the §5 flow: create a case, upload documents, start a run, poll the job, read the run, record a reviewer decision. Nothing in the API decides anything the CLI does not; it is a way to reach the workflow, not a second implementation of it.
 - Handlers are sync `def`, deliberately. Everything underneath — scikit-learn, regex extraction, pypdf, OpenCV — is synchronous and CPU-bound, and `async def` would run it on the event loop and block every other request. FastAPI puts plain `def` handlers on a threadpool, which is where that work belongs.
 - A case run returns **202 with a job to poll**, not a held-open request. Runs are seconds on text and minutes on a scanned packet.
-- **The API refuses to start unauthenticated outside `local`.** Auth and RBAC are Stage 3; until they exist, `environment=staging|production` raises at startup rather than trusting a deployment note. `Settings` likewise refuses to fall back to local disk for document storage in those environments.
+- **The API is authenticated and tenant-scoped.** Staging and production require OIDC/JWT validation configured with a fixed issuer, audience, asymmetric algorithm allow-list, and JWKS endpoint. Case writes require `case:write`, reads require a case role, reviewer decisions require `case:review`, and `admin` is the explicit override. The verified token subject becomes the reviewer ID; clients cannot assert one.
+- The token's configurable organization claim (default `org_id`) scopes case working directories, object-storage keys, jobs, case-run queries, and reviewer-decision queries. A guessed identifier in another organization returns the same 404 as an absent resource. Local development uses the explicit `local-developer` / `local` synthetic principal; it is unavailable in staging and production.
+- `Settings` refuses to fall back to local disk for document storage in staging and production. It also rejects deployed startup when authentication is disabled or its issuer, audience, or JWKS URL is incomplete.
 - The schema keeps a column only for what is filtered, joined, or ordered on, and stores the validated Pydantic object as JSON alongside — so `models.py` stays the single definition of every shape and a read round-trips to the exact object the pipeline produced, citations included.
 - Running the same case twice keeps **both** runs. Overwriting would destroy the comparison that makes "did the new matcher change anything?" answerable — which is the question the version columns exist for.
 - Document rows record a storage key, never document bytes. Uploads go to S3 with `ServerSideEncryption` set per object rather than left to a bucket policy, and credentials are never settings fields — boto3 resolves them from the standard chain, because a secret in a settings object is one `repr()` from a log line.
 - Migrations are the deployed path, so migrations are what CI exercises: `alembic upgrade head`, then `alembic check` to prove the migration still matches the models, then the suite, then `alembic downgrade base`. Alembic reads the URL from the environment, so no connection string is committed.
 - The persistence schema is dialect-neutral, so the same assertions run on SQLite locally and Postgres in CI. **No pgvector yet** — retrieval is TF-IDF computed in memory and nothing reads embeddings from a store, so persisting vectors would be unmeasured infrastructure. `EmbeddingBackend` remains the seam.
-- Jobs live in memory and do not survive a restart. That is stated in `jobs.py` and in the 404 body rather than discovered in an incident; a completed run is durable because it is written to the database, an interrupted one is not. A durable queue is the Stage 6 fix.
+- Cases, uploaded-document metadata, and jobs are durable PostgreSQL records. Workers claim due rows with `FOR UPDATE SKIP LOCKED`, renew leases while processing, and recover abandoned work after a process restart without adding Redis or another queue dependency. A job ID is also its run ID, making a retry idempotent if a worker saves the run and exits before acknowledging completion.
+- Upload validation, initial resource limits, durable-worker behavior, retry/lease timings, and retention enforcement are recorded in [the production-hardening guide](docs/production-hardening.md).
 
 ### Repository layout
 
@@ -405,6 +408,7 @@ That principle governs the architecture, interface, evaluation strategy, and com
 - [x] Draft generation + groundedness gate (§14) — a cited requirement checklist behind a claim-level gate that rejects any value or medication absent from the spans the claim cites
 - [x] Evaluation suite (§15) — `rxauth-evaluate` scores 22 metrics across six layers against ratcheted thresholds and fails CI on a regression
 - [x] Human-in-the-loop feedback (§16) — typed, append-only reviewer decisions that export as matching-gold records
+- [x] Authentication, RBAC, and tenant isolation — OIDC/JWT verification, role-gated endpoints, token-derived reviewer identity, and organization-scoped paths, object keys, jobs, runs, and decisions
 - [ ] Reviewer UI (Next.js) — next
 - [x] Production hardening — typed settings, §18 structured logging with a PHI-safe guarantee, pickle-free versioned model artifacts, SQLAlchemy/Alembic persistence, a sync FastAPI service with a thread-pool job runner, S3 document storage, and a Docker/compose stack
 - [ ] *Later, not first:* denial-risk model (only with real labeled data), MCP server

@@ -2,8 +2,10 @@
 # bucket is configured, which `Settings` permits only in `local`.
 #
 #   docker compose up --build
-#   docker compose exec api alembic upgrade head
 #   curl localhost:8000/health
+#
+# The one-shot migrate service upgrades the schema before the API and durable
+# worker start. Local object storage is shared through api-artifacts.
 services:
   postgres:
     image: postgres:16-alpine
@@ -21,11 +23,21 @@ services:
       timeout: 3s
       retries: 10
 
-  api:
+  migrate:
     build: .
+    command: ["alembic", "upgrade", "head"]
     depends_on:
       postgres:
         condition: service_healthy
+    environment:
+      RXAUTH_ENVIRONMENT: local
+      RXAUTH_DATABASE_URL: postgresql+psycopg://rxauth:rxauth@postgres:5432/rxauth
+
+  api:
+    build: .
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
     environment:
       RXAUTH_ENVIRONMENT: local
       RXAUTH_LOG_FORMAT: json
@@ -40,6 +52,22 @@ services:
       # RXAUTH_S3_REGION: us-east-1
     ports:
       - "8000:8000"
+    volumes:
+      - api-artifacts:/app/artifacts
+
+  worker:
+    build: .
+    command: ["rxauth-worker"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      RXAUTH_ENVIRONMENT: local
+      RXAUTH_LOG_FORMAT: json
+      RXAUTH_DATABASE_URL: postgresql+psycopg://rxauth:rxauth@postgres:5432/rxauth
+      RXAUTH_POLICY_DIR: /app/data/policies
+      RXAUTH_ARTIFACTS_DIR: /app/artifacts
+      RXAUTH_CLASSIFIER_PATH: /app/artifacts/classifier_baseline
     volumes:
       - api-artifacts:/app/artifacts
 

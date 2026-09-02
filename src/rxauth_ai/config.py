@@ -69,6 +69,23 @@ class Settings(BaseModel):
     database_url: Optional[str] = None
     database_echo: bool = False
 
+    #: OIDC access-token validation. The issuer, audience, and JWKS URL are
+    #: deployment configuration rather than provider-specific code, so Entra,
+    #: Cognito, Auth0, Keycloak, and other compliant providers use the same
+    #: boundary. Local development has an explicit synthetic principal.
+    auth_enabled: bool = False
+    auth_issuer: Optional[str] = None
+    auth_audience: Optional[str] = None
+    auth_jwks_url: Optional[str] = None
+    auth_algorithms: str = "RS256"
+    auth_organization_claim: str = "org_id"
+    auth_roles_claim: str = "roles"
+    auth_clock_skew_seconds: int = Field(default=30, ge=0, le=300)
+    auth_jwks_cache_seconds: int = Field(default=300, ge=30, le=86400)
+    auth_jwks_timeout_seconds: float = Field(default=5.0, ge=0.1, le=30.0)
+    local_auth_subject: str = "local-developer"
+    local_auth_organization: str = "local"
+
     #: Object storage. Credentials are read by boto3 from the standard AWS
     #: chain (environment, shared config, instance role) and are deliberately
     #: not fields here — a secret in a settings object is a secret one
@@ -79,15 +96,38 @@ class Settings(BaseModel):
         default=None, description="Set for S3-compatible storage; unset for AWS itself."
     )
     s3_prefix: str = "cases"
+    s3_object_lock_mode: Literal["GOVERNANCE", "COMPLIANCE"] = "COMPLIANCE"
 
     #: Local directory used when no bucket is configured. This is a developer
     #: and test convenience, not a deployment target.
     local_storage_dir: Path = Path("artifacts/object-store")
 
-    job_workers: int = Field(default=2, ge=1, le=32)
-    job_retention: int = Field(
-        default=200, ge=1, description="How many finished jobs stay queryable in memory."
+    #: Upload resource limits. These defaults are intentionally conservative
+    #: for an OCR-heavy service and remain environment-overridable after load
+    #: testing with representative pharmacy packets.
+    upload_max_file_bytes: int = Field(default=25 * 1024 * 1024, ge=1024)
+    upload_max_case_bytes: int = Field(default=250 * 1024 * 1024, ge=1024)
+    upload_max_documents_per_case: int = Field(default=20, ge=1, le=500)
+    upload_max_pdf_pages: int = Field(default=100, ge=1, le=5000)
+    upload_max_image_pixels: int = Field(default=50_000_000, ge=1_000_000)
+    upload_chunk_bytes: int = Field(default=1024 * 1024, ge=64 * 1024, le=8 * 1024 * 1024)
+    upload_multipart_overhead_bytes: int = Field(
+        default=1024 * 1024, ge=64 * 1024, le=8 * 1024 * 1024
     )
+
+    #: Retention contracts. Calendar years are kept as years rather than
+    #: approximated day counts so leap years do not shorten a legal hold.
+    original_document_retention_years: int = Field(default=10, ge=1, le=100)
+    temporary_copy_retention_hours: int = Field(default=72, ge=1, le=24 * 30)
+    completed_job_retention_years: int = Field(default=6, ge=1, le=100)
+    failed_job_retention_days: int = Field(default=90, ge=1, le=3650)
+
+    job_max_attempts: int = Field(default=3, ge=1, le=20)
+    job_retry_initial_seconds: float = Field(default=30 * 60, ge=0.0, le=86400.0)
+    job_retry_max_seconds: float = Field(default=60 * 60, ge=0.0, le=604800.0)
+    job_lease_seconds: float = Field(default=15 * 60, ge=60.0, le=86400.0)
+    job_heartbeat_seconds: float = Field(default=5 * 60, ge=1.0, le=28800.0)
+    job_poll_seconds: float = Field(default=1.0, ge=0.05, le=60.0)
 
     #: Whether logs may carry text quoted out of a patient document. Off, and
     #: not switchable on outside `local`: see the validator below.
@@ -113,6 +153,72 @@ class Settings(BaseModel):
                 "(README section 19)."
             )
         return self
+
+    @model_validator(mode="after")
+    def require_complete_authentication_outside_local(self) -> Settings:
+        deployed = self.environment in {"staging", "production"}
+        if deployed and not self.auth_enabled:
+            raise ValueError(f"environment={self.environment} requires RXAUTH_AUTH_ENABLED=true.")
+        required = {
+            "RXAUTH_AUTH_ISSUER": self.auth_issuer,
+            "RXAUTH_AUTH_AUDIENCE": self.auth_audience,
+            "RXAUTH_AUTH_JWKS_URL": self.auth_jwks_url,
+        }
+        missing = [name for name, value in required.items() if not value]
+        if self.auth_enabled and missing:
+            raise ValueError(
+                "Authentication is enabled but required settings are missing: " + ", ".join(missing)
+            )
+        allowed_algorithms = {"RS256", "RS384", "RS512", "ES256", "ES384", "ES512", "EdDSA"}
+        configured = self.auth_algorithm_list
+        if not configured or not set(configured).issubset(allowed_algorithms):
+            raise ValueError(
+                "RXAUTH_AUTH_ALGORITHMS must contain only asymmetric algorithms: "
+                + ", ".join(sorted(allowed_algorithms))
+            )
+        return self
+
+    @model_validator(mode="after")
+    def require_compliance_object_lock_in_production(self) -> Settings:
+        if self.environment == "production" and self.s3_object_lock_mode != "COMPLIANCE":
+            raise ValueError(
+                "Production document retention requires RXAUTH_S3_OBJECT_LOCK_MODE=COMPLIANCE."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validate_job_timing_policy(self) -> Settings:
+        if self.job_retry_initial_seconds > self.job_retry_max_seconds:
+            raise ValueError(
+                "RXAUTH_JOB_RETRY_INITIAL_SECONDS cannot exceed RXAUTH_JOB_RETRY_MAX_SECONDS."
+            )
+        if self.job_heartbeat_seconds >= self.job_lease_seconds:
+            raise ValueError(
+                "RXAUTH_JOB_HEARTBEAT_SECONDS must be shorter than RXAUTH_JOB_LEASE_SECONDS."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def require_postgresql_outside_local(self) -> Settings:
+        if self.environment not in {"staging", "production"}:
+            return self
+        if not self.database_url:
+            raise ValueError(f"environment={self.environment} requires RXAUTH_DATABASE_URL.")
+        if not self.database_url.casefold().startswith("postgresql"):
+            raise ValueError("Staging and production require a PostgreSQL RXAUTH_DATABASE_URL.")
+        return self
+
+    @property
+    def effective_job_retry_initial_seconds(self) -> float:
+        return self.job_retry_initial_seconds
+
+    @property
+    def effective_job_retry_max_seconds(self) -> float:
+        return self.job_retry_max_seconds
+
+    @property
+    def auth_algorithm_list(self) -> tuple[str, ...]:
+        return tuple(part.strip() for part in self.auth_algorithms.split(",") if part.strip())
 
     @property
     def storage_is_local(self) -> bool:

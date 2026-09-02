@@ -129,3 +129,96 @@ def test_blank_variables_are_treated_as_unset(monkeypatch):
     monkeypatch.setenv(f"{ENV_PREFIX}DATA_DIR", "   ")
 
     assert settings_from_env().data_dir == Path("data")
+
+
+def test_deployed_environments_require_complete_oidc_configuration():
+    with pytest.raises(ConfigurationError, match="AUTH_ENABLED"):
+        settings_from_env(environment="production", s3_bucket="rxauth-docs")
+
+    with pytest.raises(ConfigurationError, match="AUTH_JWKS_URL"):
+        settings_from_env(
+            environment="production",
+            s3_bucket="rxauth-docs",
+            auth_enabled=True,
+            auth_issuer="https://identity.example.test/",
+            auth_audience="rxauth-api",
+        )
+
+
+def test_authentication_accepts_only_configured_asymmetric_algorithms():
+    with pytest.raises(ConfigurationError, match="asymmetric algorithms"):
+        settings_from_env(
+            auth_enabled=True,
+            auth_issuer="https://identity.example.test/",
+            auth_audience="rxauth-api",
+            auth_jwks_url="https://identity.example.test/jwks.json",
+            auth_algorithms="HS256",
+        )
+
+
+def test_auth_algorithm_list_is_fixed_by_configuration():
+    settings = settings_from_env(
+        auth_enabled=True,
+        auth_issuer="https://identity.example.test/",
+        auth_audience="rxauth-api",
+        auth_jwks_url="https://identity.example.test/jwks.json",
+        auth_algorithms="RS256,ES256",
+    )
+
+    assert settings.auth_algorithm_list == ("RS256", "ES256")
+
+
+def test_production_requires_compliance_object_lock_mode():
+    with pytest.raises(ConfigurationError, match="S3_OBJECT_LOCK_MODE=COMPLIANCE"):
+        settings_from_env(
+            environment="production",
+            s3_bucket="rxauth-docs",
+            s3_object_lock_mode="GOVERNANCE",
+            auth_enabled=True,
+            auth_issuer="https://identity.example.test/",
+            auth_audience="rxauth-api",
+            auth_jwks_url="https://identity.example.test/jwks.json",
+            job_retry_initial_seconds=1800,
+            job_retry_max_seconds=3600,
+            job_lease_seconds=3600,
+        )
+
+
+def test_confirmed_retry_and_object_lock_defaults_are_encoded():
+    settings = settings_from_env()
+
+    assert settings.job_max_attempts == 3
+    assert settings.job_retry_initial_seconds == 30 * 60
+    assert settings.job_retry_max_seconds == 60 * 60
+    assert settings.job_lease_seconds == 15 * 60
+    assert settings.job_heartbeat_seconds == 5 * 60
+    assert settings.s3_object_lock_mode == "COMPLIANCE"
+
+
+def test_job_heartbeat_must_be_shorter_than_the_lease():
+    with pytest.raises(ConfigurationError, match="JOB_HEARTBEAT_SECONDS"):
+        settings_from_env(job_lease_seconds=900, job_heartbeat_seconds=900)
+
+
+def test_deployed_environments_require_postgresql():
+    common = {
+        "environment": "staging",
+        "s3_bucket": "rxauth-docs",
+        "auth_enabled": True,
+        "auth_issuer": "https://identity.example.test/",
+        "auth_audience": "rxauth-api",
+        "auth_jwks_url": "https://identity.example.test/jwks.json",
+        "job_retry_initial_seconds": 1800,
+        "job_retry_max_seconds": 3600,
+        "job_lease_seconds": 3600,
+    }
+    with pytest.raises(ConfigurationError, match="DATABASE_URL"):
+        settings_from_env(**common)
+    with pytest.raises(ConfigurationError, match="PostgreSQL"):
+        settings_from_env(database_url="sqlite:///rxauth.db", **common)
+
+    configured = settings_from_env(
+        database_url="postgresql+psycopg://rxauth:secret@db.example.test/rxauth",
+        **common,
+    )
+    assert configured.database_url.startswith("postgresql")
