@@ -64,6 +64,31 @@ class Settings(BaseModel):
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     log_format: Literal["json", "text"] = "text"
 
+    #: SQLAlchemy URL. Unset means "no database": the CLI keeps working exactly
+    #: as it always has, and only the service layer requires one.
+    database_url: Optional[str] = None
+    database_echo: bool = False
+
+    #: Object storage. Credentials are read by boto3 from the standard AWS
+    #: chain (environment, shared config, instance role) and are deliberately
+    #: not fields here — a secret in a settings object is a secret one
+    #: `repr()` away from a log line.
+    s3_bucket: Optional[str] = None
+    s3_region: Optional[str] = None
+    s3_endpoint_url: Optional[str] = Field(
+        default=None, description="Set for S3-compatible storage; unset for AWS itself."
+    )
+    s3_prefix: str = "cases"
+
+    #: Local directory used when no bucket is configured. This is a developer
+    #: and test convenience, not a deployment target.
+    local_storage_dir: Path = Path("artifacts/object-store")
+
+    job_workers: int = Field(default=2, ge=1, le=32)
+    job_retention: int = Field(
+        default=200, ge=1, description="How many finished jobs stay queryable in memory."
+    )
+
     #: Whether logs may carry text quoted out of a patient document. Off, and
     #: not switchable on outside `local`: see the validator below.
     log_source_text: bool = False
@@ -77,6 +102,22 @@ class Settings(BaseModel):
                 "puts PHI somewhere with no retention policy (README section 19)."
             )
         return self
+
+    @model_validator(mode="after")
+    def refuse_local_storage_in_a_deployed_environment(self) -> Settings:
+        if self.s3_bucket is None and self.environment in {"staging", "production"}:
+            raise ValueError(
+                "No RXAUTH_S3_BUCKET is configured. Falling back to local disk in "
+                f"environment={self.environment} would put uploaded documents on an "
+                "ephemeral filesystem with no encryption, retention, or audit trail "
+                "(README section 19)."
+            )
+        return self
+
+    @property
+    def storage_is_local(self) -> bool:
+        """True when uploads go to disk rather than to a bucket."""
+        return self.s3_bucket is None
 
     @property
     def policy_dir_resolved(self) -> Path:
@@ -114,7 +155,7 @@ def settings_from_env(**overrides: object) -> Settings:
     """
     values: dict[str, object] = {}
     for name in Settings.model_fields:
-        if name == "log_source_text":
+        if Settings.model_fields[name].annotation is bool:
             parsed = _read_bool(name)
         else:
             parsed = _read(name)

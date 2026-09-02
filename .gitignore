@@ -24,3 +24,6 @@ Thumbs.db
 
 # Runtime reviewer feedback store (PHI-bearing in a real deployment, README section 19)
 data/reviewer_feedback.jsonl
+
+# Alembic bytecode
+alembic/versions/__pycache__/

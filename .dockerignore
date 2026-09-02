@@ -1,0 +1,13 @@
+.git/
+.venv/
+.pytest_cache/
+.ruff_cache/
+**/__pycache__/
+artifacts/
+dist/
+build/
+docs/*.pdf
+docs/*.pptx
+data/documents/
+data/rendered/
+reports/

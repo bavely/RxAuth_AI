@@ -1,0 +1,48 @@
+# Local stack. Postgres is real; object storage falls back to disk because no
+# bucket is configured, which `Settings` permits only in `local`.
+#
+#   docker compose up --build
+#   docker compose exec api alembic upgrade head
+#   curl localhost:8000/health
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: rxauth
+      POSTGRES_PASSWORD: rxauth
+      POSTGRES_DB: rxauth
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rxauth -d rxauth"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      RXAUTH_ENVIRONMENT: local
+      RXAUTH_LOG_FORMAT: json
+      RXAUTH_DATABASE_URL: postgresql+psycopg://rxauth:rxauth@postgres:5432/rxauth
+      RXAUTH_POLICY_DIR: /app/data/policies
+      RXAUTH_ARTIFACTS_DIR: /app/artifacts
+      RXAUTH_CLASSIFIER_PATH: /app/artifacts/classifier_baseline
+      # To use S3 instead of local disk, set RXAUTH_S3_BUCKET and let boto3
+      # resolve credentials from the environment or an instance role. Never
+      # commit a key here.
+      # RXAUTH_S3_BUCKET: your-bucket
+      # RXAUTH_S3_REGION: us-east-1
+    ports:
+      - "8000:8000"
+    volumes:
+      - api-artifacts:/app/artifacts
+
+volumes:
+  postgres-data:
+  api-artifacts:
