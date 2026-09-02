@@ -38,6 +38,7 @@ from typing import Protocol
 
 from pydantic import BaseModel, Field
 
+from .config import get_settings
 from .criteria_extraction import (
     DEFAULT_CRITERIA_CONFIDENCE_THRESHOLD,
     CriteriaExtractionResult,
@@ -69,7 +70,7 @@ from .policy_retrieval import (
     resolve_policy_document,
 )
 
-DEFAULT_CLASSIFIER_PATH = Path("artifacts/classifier_baseline.pkl")
+DEFAULT_CLASSIFIER_PATH = Path(get_settings().classifier_path)
 MANIFEST_FILENAME = "case.json"
 _DOCUMENT_SUFFIXES = {".txt", ".md", ".pdf", ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp"}
 
@@ -170,7 +171,7 @@ def load_classifier(path: Path = DEFAULT_CLASSIFIER_PATH) -> DocumentClassifierL
     from .classifier import DocumentClassifier
 
     path = Path(path)
-    if not path.is_file():
+    if not path.is_dir():
         raise FileNotFoundError(
             f"Classifier artifact not found at {path}. Build it first:\n"
             "    uv run rxauth-build-dataset\n"
@@ -657,7 +658,7 @@ def main() -> None:
     parser.add_argument("case_dir", type=Path, help="Directory holding case.json and documents.")
     parser.add_argument("--classifier-path", type=Path, default=DEFAULT_CLASSIFIER_PATH)
     parser.add_argument("--policy-dir", type=Path, default=DEFAULT_POLICY_DIR)
-    parser.add_argument("--output-dir", type=Path, default=Path("reports"))
+    parser.add_argument("--output-dir", type=Path, default=get_settings().reports_dir)
     parser.add_argument("--confidence-threshold", type=float, default=DEFAULT_CONFIDENCE_THRESHOLD)
     parser.add_argument("--json-only", action="store_true", help="Print only the JSON output.")
     args = parser.parse_args()

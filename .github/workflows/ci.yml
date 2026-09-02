@@ -40,6 +40,12 @@ jobs:
   reports:
     name: Reports reproduce
     runs-on: ubuntu-latest
+    # Exercises the settings layer rather than relying on defaults, and proves
+    # the PHI-safe log path: `environment: ci` makes RXAUTH_LOG_SOURCE_TEXT
+    # unsettable, so no quoted span can reach the build log.
+    env:
+      RXAUTH_ENVIRONMENT: ci
+      RXAUTH_LOG_FORMAT: json
     steps:
       - uses: actions/checkout@v4
         with:

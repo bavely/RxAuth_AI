@@ -79,8 +79,14 @@ def test_classifier_evaluates_challenge_and_persists_bundle():
         assert results["confusion_matrix"].shape == (n_classes, n_classes)
         assert 0 <= results["evaluations"]["challenge"]["macro_f1"] <= 1
 
-        artifact = out_dir / "classifier.pkl"
+        # The artifact is a self-describing directory, not a pickle: see registry.py.
+        artifact = out_dir / "classifier_artifact"
         results["classifier"].save(artifact)
+        assert sorted(item.name for item in artifact.iterdir()) == [
+            "manifest.json",
+            "model.json",
+            "weights.npz",
+        ]
         restored = DocumentClassifier.load(artifact)
         before = results["classifier"].predict_text(splits["test"].texts[0])
         after = restored.predict_text(splits["test"].texts[0])

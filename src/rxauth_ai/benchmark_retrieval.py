@@ -34,6 +34,7 @@ from typing import Any, Sequence
 
 from pydantic import BaseModel, Field
 
+from .config import get_settings
 from .policy_corpus import CORPUS_VERSION, DEFAULT_POLICY_DIR, load_corpus
 from .policy_retrieval import (
     CHUNK_STRATEGY,
@@ -46,7 +47,7 @@ from .policy_retrieval import (
     TfidfEmbedding,
 )
 
-DEFAULT_GOLD_PATH = Path("data/policy_retrieval_gold.jsonl")
+DEFAULT_GOLD_PATH = get_settings().data_dir / "policy_retrieval_gold.jsonl"
 
 
 class GoldQuery(BaseModel):
@@ -360,7 +361,7 @@ def main() -> None:
     )
     parser.add_argument("--gold-path", type=Path, default=DEFAULT_GOLD_PATH)
     parser.add_argument("--policy-dir", type=Path, default=DEFAULT_POLICY_DIR)
-    parser.add_argument("--output-dir", type=Path, default=Path("reports"))
+    parser.add_argument("--output-dir", type=Path, default=get_settings().reports_dir)
     parser.add_argument("--top-k", type=int, default=DEFAULT_TOP_K)
     parser.add_argument("--json-only", action="store_true")
     args = parser.parse_args()

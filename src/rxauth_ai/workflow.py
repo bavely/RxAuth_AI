@@ -45,6 +45,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
+from time import perf_counter
 from typing import Optional
 
 from pydantic import BaseModel, Field
@@ -77,6 +78,7 @@ from .models import (
     EvidenceLink,
     RequirementChecklist,
 )
+from .observability import RunContext, log_event
 from .pipeline import run_pipeline
 from .policy_corpus import DEFAULT_POLICY_DIR, PolicyDocument
 from .policy_retrieval import PolicyIndex, RetrievalResult, build_index, resolve_policy_document
@@ -123,6 +125,7 @@ class WorkflowState:
     criteria_confidence_threshold: float = DEFAULT_CRITERIA_CONFIDENCE_THRESHOLD
     interpreter: Optional[AmbiguityInterpreter] = None
     generator: Optional[DraftGenerator] = None
+    context: RunContext = field(default_factory=RunContext)
 
     manifest: Optional[CaseManifest] = None
     document_paths: list[Path] = field(default_factory=list)
@@ -182,6 +185,8 @@ class WorkflowResult:
 def _validate_case(state: WorkflowState) -> str:
     state.manifest = load_manifest(state.case_dir)
     state.document_paths = case_document_paths(state.case_dir)
+    # Every line after this one correlates to the case, not just the request.
+    state.context.case_id = state.manifest.case_id
     return (
         f"{state.manifest.case_id}: {len(state.document_paths)} document(s) for "
         f"{state.manifest.payer} / {state.manifest.medication}"
@@ -406,6 +411,28 @@ def _versions_for(name: str, state: WorkflowState) -> dict[str, str]:
     return {}
 
 
+#: `NodeRecord.versions` uses short keys (`matcher`, `generator`); the log
+#: allow-list uses the section 18 names. One table, so a new version key that
+#: is not safe to log is dropped rather than guessed at.
+_VERSION_LOG_KEYS = {
+    "extractor": "extractor_version",
+    # Its own field, not folded into `extractor_version`: the evidence
+    # extractor and the criteria extractor are different components, and one
+    # name for both makes a log line unable to say which it is about.
+    "criteria_extractor": "criteria_extractor_version",
+    "embedding": "embedding_model",
+    "matcher": "matcher_version",
+    "generator": "generator_version",
+    "prompt": "prompt_version",
+}
+
+
+def _loggable_versions(versions: dict[str, str]) -> dict[str, str]:
+    return {
+        _VERSION_LOG_KEYS[key]: value for key, value in versions.items() if key in _VERSION_LOG_KEYS
+    }
+
+
 def run_workflow(state: WorkflowState, *, nodes: tuple[Node, ...] = NODES) -> WorkflowResult:
     """Run the graph, recording every node.
 
@@ -420,11 +447,19 @@ def run_workflow(state: WorkflowState, *, nodes: tuple[Node, ...] = NODES) -> Wo
     for node in nodes:
         if failure is not None:
             records.append(NodeRecord(name=node.name, status=NodeStatus.NOT_RUN, attempts=0))
+            log_event(
+                "workflow.node",
+                workflow_node=node.name,
+                node_status=NodeStatus.NOT_RUN.value,
+                workflow_version=WORKFLOW_VERSION,
+                **state.context.fields(),
+            )
             continue
 
         attempts = 0
         while True:
             attempts += 1
+            started = perf_counter()
             try:
                 summary = node.run(state)
             except Exception as exc:  # noqa: BLE001 - recorded, then re-raised by the caller
@@ -441,15 +476,38 @@ def run_workflow(state: WorkflowState, *, nodes: tuple[Node, ...] = NODES) -> Wo
                         error=str(exc),
                     )
                 )
+                # Latency belongs in the log, not in the committed report.
+                log_event(
+                    "workflow.node",
+                    workflow_node=node.name,
+                    node_status=NodeStatus.FAILED.value,
+                    attempts=attempts,
+                    latency_ms=round((perf_counter() - started) * 1000, 3),
+                    error_type=type(exc).__name__,
+                    error=str(exc),
+                    workflow_version=WORKFLOW_VERSION,
+                    **state.context.fields(),
+                )
                 break
+            versions = _versions_for(node.name, state)
             records.append(
                 NodeRecord(
                     name=node.name,
                     status=NodeStatus.OK,
                     attempts=attempts,
                     summary=summary,
-                    versions=_versions_for(node.name, state),
+                    versions=versions,
                 )
+            )
+            log_event(
+                "workflow.node",
+                workflow_node=node.name,
+                node_status=NodeStatus.OK.value,
+                attempts=attempts,
+                latency_ms=round((perf_counter() - started) * 1000, 3),
+                workflow_version=WORKFLOW_VERSION,
+                **_loggable_versions(versions),
+                **state.context.fields(),
             )
             break
 

@@ -35,6 +35,7 @@ from .benchmark_extraction import benchmark_extraction
 from .benchmark_matching import benchmark_matching
 from .benchmark_retrieval import benchmark_retrieval
 from .classifier import load_manifest, train_and_evaluate
+from .config import get_settings
 from .generation import generate_checklist
 from .groundedness import check_draft_groundedness
 from .models import ClaimStatus
@@ -198,12 +199,21 @@ def _generation_metrics() -> list[Metric]:
 
 def collect_metrics(
     *,
-    data_dir: Path = Path("data"),
-    extraction_gold: Path = Path("data/extraction_gold.jsonl"),
-    matching_gold: Path = Path("data/matching_gold.jsonl"),
+    data_dir: Optional[Path] = None,
+    extraction_gold: Optional[Path] = None,
+    matching_gold: Optional[Path] = None,
     include_classification: bool = True,
 ) -> list[Metric]:
-    """Run every layer's benchmark and return the scorecard."""
+    """Run every layer's benchmark and return the scorecard.
+
+    Paths resolve from settings when unset, at call time rather than import
+    time, so a caller that changes the environment still gets what it asked for.
+    """
+    settings = get_settings()
+    data_dir = data_dir or settings.data_dir
+    extraction_gold = extraction_gold or settings.data_dir / "extraction_gold.jsonl"
+    matching_gold = matching_gold or settings.data_dir / "matching_gold.jsonl"
+
     metrics: list[Metric] = []
     if include_classification:
         metrics += _classification_metrics(data_dir)
@@ -261,8 +271,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Run every layer's benchmark and gate on its threshold."
     )
-    parser.add_argument("--data-dir", type=Path, default=Path("data"))
-    parser.add_argument("--output-dir", type=Path, default=Path("reports"))
+    parser.add_argument("--data-dir", type=Path, default=get_settings().data_dir)
+    parser.add_argument("--output-dir", type=Path, default=get_settings().reports_dir)
     parser.add_argument(
         "--skip-classification",
         action="store_true",

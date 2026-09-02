@@ -9,6 +9,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from .config import get_settings
 from .ingestion import ingest_document, preprocess_image
 
 
@@ -139,8 +140,8 @@ def render_report(results: dict[str, Any]) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Evaluate rendered document ingestion.")
-    parser.add_argument("--data-dir", type=Path, default=Path("data"))
-    parser.add_argument("--output-dir", type=Path, default=Path("reports"))
+    parser.add_argument("--data-dir", type=Path, default=get_settings().data_dir)
+    parser.add_argument("--output-dir", type=Path, default=get_settings().reports_dir)
     parser.add_argument(
         "--run-ocr",
         action="store_true",

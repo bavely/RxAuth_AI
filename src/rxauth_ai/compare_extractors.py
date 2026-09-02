@@ -20,6 +20,7 @@ from sklearn.feature_extraction import DictVectorizer
 from sklearn.linear_model import LogisticRegression
 
 from .benchmark_extraction import GoldDocument, load_gold
+from .config import get_settings
 from .extraction import EXTRACTOR_VERSION, extract_evidence
 from .ingestion import IngestedDocument
 
@@ -326,8 +327,10 @@ def render_report(results: dict[str, Any], gold_path: Path) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Compare rule and learned extraction candidates.")
-    parser.add_argument("--gold-path", type=Path, default=Path("data/extraction_gold.jsonl"))
-    parser.add_argument("--output-dir", type=Path, default=Path("reports"))
+    parser.add_argument(
+        "--gold-path", type=Path, default=get_settings().data_dir / "extraction_gold.jsonl"
+    )
+    parser.add_argument("--output-dir", type=Path, default=get_settings().reports_dir)
     args = parser.parse_args()
     results = compare_extractors(args.gold_path)
     report = render_report(results, args.gold_path)

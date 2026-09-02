@@ -9,6 +9,7 @@ from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field
 
+from .config import get_settings
 from .matching import MATCHER_VERSION, NORMALIZATION_VERSION, evaluate_criterion
 from .models import Case, Criterion, CriterionResult, Evidence, Provenance
 
@@ -315,8 +316,10 @@ def render_report(results: dict[str, Any], gold_path: Path) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Benchmark criteria-to-evidence matching.")
-    parser.add_argument("--gold-path", type=Path, default=Path("data/matching_gold.jsonl"))
-    parser.add_argument("--output-dir", type=Path, default=Path("reports"))
+    parser.add_argument(
+        "--gold-path", type=Path, default=get_settings().data_dir / "matching_gold.jsonl"
+    )
+    parser.add_argument("--output-dir", type=Path, default=get_settings().reports_dir)
     args = parser.parse_args()
     results = benchmark_matching(args.gold_path)
     report = render_report(results, args.gold_path)

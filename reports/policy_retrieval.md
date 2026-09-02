@@ -18,10 +18,10 @@ _Reproducible: `rxauth-benchmark-retrieval`._
 ## Results
 | Embedding | Mode | Correct-policy rate | Recall@K | Precision@K | MRR | Abstentions correct | Latency (ms/query) |
 |---|---|---:|---:|---:|---:|---:|---:|
-| `tfidf-v1` | metadata+similarity | 1.000 | 0.846 | 0.169 | 0.572 | 3/3 | 0.294 |
-| `tfidf-v1` | similarity_only | 0.625 | 0.692 | 0.138 | 0.454 | 0/3 | 0.370 |
-| `tfidf-lsa-v1[64]` | metadata+similarity | 1.000 | 0.846 | 0.169 | 0.572 | 3/3 | 0.427 |
-| `tfidf-lsa-v1[64]` | similarity_only | 0.625 | 0.692 | 0.138 | 0.454 | 0/3 | 0.456 |
+| `tfidf-v1` | metadata+similarity | 1.000 | 0.846 | 0.169 | 0.572 | 3/3 | 0.431 |
+| `tfidf-v1` | similarity_only | 0.625 | 0.692 | 0.138 | 0.454 | 0/3 | 0.363 |
+| `tfidf-lsa-v1[64]` | metadata+similarity | 1.000 | 0.846 | 0.169 | 0.572 | 3/3 | 0.480 |
+| `tfidf-lsa-v1[64]` | similarity_only | 0.625 | 0.692 | 0.138 | 0.454 | 0/3 | 0.507 |
 
 ## Failures by configuration
 

@@ -142,6 +142,19 @@ The synthetic classifier and rendered ingestion corpora are checked in for repro
 - Reviewer corrections are typed, append-only, and versioned (§16). Agreement is stored too — a component nobody corrects and one nobody reviews are otherwise indistinguishable — which is what makes correction-rate-per-matcher-version answerable.
 - A correction exports as a `matching_gold.jsonl` record and is verified against the real loader in a test, so a reviewer disagreeing with the matcher becomes a regression case rather than an anecdote. Exports default to the validation split, keeping the frozen test split frozen.
 
+### Configuration, logging, and model artifacts
+
+- Every path, threshold, and logging choice comes from one validated `Settings` object read from `RXAUTH_*` environment variables. An empty environment reproduces the historical CLI defaults exactly — which is how this landed without moving a single number in `reports/`.
+- There are no CWD-relative `Path()` literals left outside `config.py`. A CLI flag beats an environment variable beats the default, and the settings object is the *source* of the argparse defaults rather than a competitor to them.
+- Settings are frozen and read once. Settings that change under a running process produce bugs nobody can reproduce.
+- Structured logging implements the §18 schema — `request_id`, `case_id`, `workflow_node`, versions, `latency_ms`, `estimated_cost_usd`, `error_type` — with one line per workflow node, correlated by a request ID. Before this the project had **zero** `logging` calls and 100+ `print` statements.
+- Log fields are **allow-listed, not deny-listed**. `log_event` takes an event name and structured fields — never a format string — and anything outside `LOGGABLE_FIELDS` is dropped with the drop itself recorded. A deny-list of "PHI-ish" names fails the moment someone invents a field, and the failure mode is patient text in an aggregator with no retention policy.
+- `RXAUTH_LOG_SOURCE_TEXT=true` is refused unless `RXAUTH_ENVIRONMENT=local`, and a test runs a whole case and asserts that **no quoted span from any document reached any log handler**. The allow-list is the guard rail; that test is the guarantee.
+- Latency lives in the logs, never in `reports/`. The committed reports are evidence and are gated on reproducing exactly, so a duration would make them differ every run for reasons that say nothing about correctness.
+- The classifier artifact is no longer a pickle. It is a directory — `model.json`, `weights.npz`, `manifest.json` — that is readable without executing anything, records what trained it (data fingerprint, split sizes, metrics, library versions), and is SHA-256 verified on load. A tampered or truncated artifact is refused; a scikit-learn minor-version change warns rather than refuses, because reconstruction uses documented fitted attributes.
+- The round trip is exact: a test asserts a reconstructed model reproduces every prediction to zero absolute tolerance.
+- `rxauth-check-reports` now gates ten reports, including the classifier report, whose latency is stated in prose rather than a table cell.
+
 ### Repository layout
 
 ```text
@@ -376,5 +389,5 @@ That principle governs the architecture, interface, evaluation strategy, and com
 - [x] Evaluation suite (§15) — `rxauth-evaluate` scores 22 metrics across six layers against ratcheted thresholds and fails CI on a regression
 - [x] Human-in-the-loop feedback (§16) — typed, append-only reviewer decisions that export as matching-gold records
 - [ ] Reviewer UI (Next.js) — next
-- [ ] Production hardening (versioning, observability, Docker, CI)
+- [~] Production hardening — typed settings, §18 structured logging with a PHI-safe guarantee, and pickle-free versioned model artifacts are done; persistence, API, and containers are next
 - [ ] *Later, not first:* denial-risk model (only with real labeled data), MCP server

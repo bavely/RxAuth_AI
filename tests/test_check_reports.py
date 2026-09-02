@@ -145,3 +145,18 @@ def test_an_absent_report_is_drift_not_a_silent_pass(tmp_path: Path):
 def test_default_report_list_matches_what_is_checked_in():
     for name in DEFAULT_REPORTS:
         assert Path(name).is_file(), f"{name} is listed as checked in but is absent"
+
+
+def test_a_timing_stated_in_prose_is_blanked_too():
+    """The classifier report states latency in a bullet, not a table cell."""
+    fast = "- Batch inference latency: 0.004 ms/document (CPU)\n- Review routing rate: 45.8%"
+    slow = "- Batch inference latency: 0.911 ms/document (CPU)\n- Review routing rate: 45.8%"
+
+    assert normalize_markdown(fast) == normalize_markdown(slow)
+
+
+def test_a_quality_number_in_prose_is_not_blanked():
+    fast = "- Batch inference latency: 0.004 ms/document (CPU)\n- Review routing rate: 45.8%"
+    regressed = "- Batch inference latency: 0.004 ms/document (CPU)\n- Review routing rate: 61.2%"
+
+    assert normalize_markdown(fast) != normalize_markdown(regressed)

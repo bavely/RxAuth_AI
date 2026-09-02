@@ -25,6 +25,7 @@ import random
 import re
 from pathlib import Path
 
+from .config import get_settings
 from .models import DocumentType
 
 # ---- synthetic vocabularies — all fabricated placeholders (README §3) ----
@@ -372,7 +373,7 @@ def main() -> None:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path("data"),
+        default=get_settings().data_dir,
         help="Destination directory (default: ./data).",
     )
     parser.add_argument(

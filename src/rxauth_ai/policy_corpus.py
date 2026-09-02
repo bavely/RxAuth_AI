@@ -36,10 +36,11 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field, model_validator
 
+from .config import get_settings
 from .medications import MEDICATION_ALIASES
 
 CORPUS_VERSION = "policy-corpus-v1"
-DEFAULT_POLICY_DIR = Path("data/policies")
+DEFAULT_POLICY_DIR = get_settings().policy_dir
 
 _PAGE_BREAK = re.compile(r"^---\s*page\s+(?P<page>\d+)\s*---\s*$", re.IGNORECASE | re.MULTILINE)
 _SECTION_HEADING = re.compile(r"^SECTION\s+(?P<number>\d+)\.\s*(?P<title>.+?)\s*$", re.MULTILINE)

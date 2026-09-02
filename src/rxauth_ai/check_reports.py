@@ -34,6 +34,7 @@ from pathlib import Path
 #: table cell, and CI does not train it.
 DEFAULT_REPORTS: tuple[str, ...] = (
     "reports/case_PA-CASE-001.json",
+    "reports/classifier_baseline.md",
     "reports/criteria_extraction.md",
     "reports/extraction_benchmark.md",
     "reports/extraction_calibration.md",
@@ -48,6 +49,9 @@ DEFAULT_REPORTS: tuple[str, ...] = (
 _TIMING = re.compile(r"latency|elapsed|duration|runtime|\btime\b", re.IGNORECASE)
 
 _PLACEHOLDER = " <timing> "
+
+#: Any numeric literal, so a timing stated in prose can be blanked too.
+_NUMBER = re.compile(r"\d+(?:\.\d+)?")
 
 
 class ReportDrift(Exception):
@@ -80,7 +84,10 @@ def normalize_markdown(text: str) -> str:
         if not stripped.startswith("|"):
             in_table = False
             timing_columns = set()
-            output.append(line)
+            # Timings also appear as prose, e.g. the classifier report's
+            # "- Batch inference latency: 0.004 ms/document (CPU)". Blank the
+            # numbers on any line that names a timing; leave everything else.
+            output.append(_NUMBER.sub(_PLACEHOLDER, line) if _TIMING.search(line) else line)
             continue
 
         cells = _split_row(line)

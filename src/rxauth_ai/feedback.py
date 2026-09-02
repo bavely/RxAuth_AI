@@ -34,10 +34,11 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
+from .config import get_settings
 from .models import Case, Criterion, CriterionEvaluation, CriterionResult
 
 FEEDBACK_SCHEMA_VERSION = "reviewer-feedback-v1"
-DEFAULT_FEEDBACK_PATH = Path("data/reviewer_feedback.jsonl")
+DEFAULT_FEEDBACK_PATH = get_settings().feedback_path
 
 
 class ReviewerAction(str, Enum):

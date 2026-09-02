@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from .config import get_settings
 from .models import CriterionResult
 from .pipeline import run_pipeline
 from .synthetic_case import build_case, build_policy
@@ -86,7 +87,7 @@ def main() -> None:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path("reports"),
+        default=get_settings().reports_dir,
         help="Destination directory (default: ./reports).",
     )
     args = parser.parse_args()
