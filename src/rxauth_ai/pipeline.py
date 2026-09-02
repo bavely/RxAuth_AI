@@ -16,8 +16,10 @@ and a groundedness gate before anything is presented.
 
 from __future__ import annotations
 
+from typing import Optional
+
 from .groundedness import check_groundedness
-from .matching import MATCHER_VERSION, evaluate_case
+from .matching import MATCHER_VERSION, AmbiguityInterpreter, evaluate_case
 from .models import (
     Case,
     CaseReadinessReport,
@@ -32,6 +34,7 @@ def run_pipeline(
     *,
     evidence_requiring_review: int = 0,
     documents_requiring_classification_review: int = 0,
+    interpreter: Optional[AmbiguityInterpreter] = None,
 ) -> CaseReadinessReport:
     """Evaluate one case against one policy and report how ready it is.
 
@@ -62,7 +65,7 @@ def run_pipeline(
         )
 
     # 1. Evaluate every policy criterion against the case evidence.
-    evaluations = evaluate_case(case, policy.criteria)
+    evaluations = evaluate_case(case, policy.criteria, interpreter=interpreter)
 
     # 2. Groundedness gate — nothing is "ready" if a claim lacks a source.
     gate = check_groundedness(evaluations)

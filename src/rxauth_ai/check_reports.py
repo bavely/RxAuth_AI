@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import difflib
+import json
 import re
 import subprocess
 import sys
@@ -36,6 +37,7 @@ DEFAULT_REPORTS: tuple[str, ...] = (
     "reports/criteria_extraction.md",
     "reports/extraction_benchmark.md",
     "reports/extraction_calibration.md",
+    "reports/evaluation_suite.md",
     "reports/extraction_learned_comparison.md",
     "reports/ingestion_benchmark.md",
     "reports/matching_evaluation.md",
@@ -105,11 +107,38 @@ def normalize_markdown(text: str) -> str:
     return "\n".join(output)
 
 
+def _strip_timing_keys(value: object) -> object:
+    """Drop timing-named keys anywhere in a JSON document.
+
+    Case reports carry no timings today, and the workflow node records were
+    written without them on purpose. This is here so that adding one later
+    degrades into "the gate stops watching that field" rather than "the gate
+    fails on every commit until somebody deletes it".
+    """
+    if isinstance(value, dict):
+        return {
+            key: _strip_timing_keys(item) for key, item in value.items() if not _TIMING.search(key)
+        }
+    if isinstance(value, list):
+        return [_strip_timing_keys(item) for item in value]
+    return value
+
+
+def normalize_json(text: str) -> str:
+    try:
+        document = json.loads(text)
+    except json.JSONDecodeError:
+        # Not valid JSON: compare it verbatim rather than silently passing it.
+        return text
+    return json.dumps(_strip_timing_keys(document), indent=2, sort_keys=True)
+
+
 def normalize(path: Path, text: str) -> str:
     """Strip machine-dependent values so the rest can be compared exactly."""
     if path.suffix == ".md":
         return normalize_markdown(text)
-    # Case reports carry no timing fields, so they are compared as written.
+    if path.suffix == ".json":
+        return normalize_json(text)
     return text
 
 

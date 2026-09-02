@@ -1,7 +1,7 @@
 # RxAuth AI
 ## Specialty Pharmacy Prior Authorization Intelligence Copilot
 
-> **Status:** Phase 4 complete. The policy is no longer a fixture: retrieval selects the applicable payer-policy *version* by metadata before it ranks anything, criteria extraction reads that version's requirements out of its prose, and the end-to-end run reproduces the Milestone 0 criterion profile from a document on disk. Criteria-to-evidence matching (§12) is now measured against its own gold set. The LangGraph workflow (§13) is next.
+> **Status:** Phase 4 complete. The policy is no longer a fixture: retrieval selects the applicable payer-policy *version* by metadata before it ranks anything, criteria extraction reads that version's requirements out of its prose, and the end-to-end run reproduces the Milestone 0 criterion profile from a document on disk. Criteria-to-evidence matching (§12) is measured against its own gold set, and the AI workflow is complete: the run is an explicit state graph (§13) that drafts a cited requirement checklist (§14) behind a claim-level groundedness gate, with one command scoring every layer against a threshold (§15) and a schema that turns reviewer corrections into regression cases (§16). The reviewer UI and the service layer are next.
 > **Goal:** One flagship AI-engineering project that begins as IBM AI Engineering coursework, grows into a portfolio system, and has a credible path to a commercial pilot — built incrementally so the commit history traces the progression from classical ML through deep learning to RAG and agentic systems.
 
 **Author:** Bavely S. Tawfik — [pavli-tawfik.com](https://pavli-tawfik.com) · [linkedin.com/in/bavelytawfik](https://www.linkedin.com/in/bavelytawfik) · [github.com/bavely](https://github.com/bavely)
@@ -28,6 +28,7 @@ uv run rxauth-benchmark-retrieval
 uv run rxauth-benchmark-criteria
 uv run rxauth-benchmark-matching
 uv run rxauth-run-case data/cases/PA-CASE-001
+uv run rxauth-evaluate
 uv run rxauth-check-reports
 uv run pytest
 ```
@@ -125,6 +126,21 @@ The synthetic classifier and rendered ingestion corpora are checked in for repro
 - The readiness report now also counts what a reviewer still has to look at: document classifications below threshold, extracted fields that produced an issue, policy requirements that could not be structured, and exclusion rules the system does not evaluate. A case can be "4 of 6 supported" and still need a human underneath.
 - Classification is injectable behind a one-method protocol, so the trained baseline, a served model, or a test stub all drop in without touching assembly.
 - `pa_required` stays declared input: §3 forbids inferring a live benefit from policy text, because a public policy cannot establish a member's benefit status. It is the only remaining supplied value in the flow. See [the case-assembly guide](docs/case-assembly.md).
+
+### The workflow, the draft, and how both are checked
+
+- The end-to-end run is an explicit state graph of thirteen named nodes over typed state (§13). Every node records how it ended, and a failure marks the nodes after it `not_run` — so a partial result can never be read as a complete one.
+- Each node records the component versions its output depended on: extractor, embedding, criteria extractor, matcher, normalization, generator. "Which matcher produced this evidence" is answerable from the report rather than from the commit that wrote it.
+- The graph is linear on purpose (§13), and the executor is hand-written rather than LangGraph. That is a considered trade recorded in [ADR 001](docs/adr-001-workflow-runtime.md): this graph makes zero model calls and has no branches, loops, or concurrency, so the framework's capabilities would go unexercised while its dependency tree landed in a package whose CI lightness is a stated goal. The decomposition and typed contracts are runtime-agnostic, so adopting LangGraph later is an adapter, not a rewrite.
+- `Node.retries` exists and every node sets it to zero, because every node is deterministic and offline and a retry could only repeat the same failure. A test asserts that, so the first networked node has to justify its own policy.
+- Building the graph exposed that every document was being read twice — once by the classifier and once by the extractor, meaning every scan was OCR'd twice. Ingestion is now one node feeding both.
+- `rxauth-run-case` drafts a **cited requirement checklist** (§14). Sentences are assembled from structured results and quote their source spans verbatim; a missing requirement drafts as "not documented", never as a guess.
+- The claim-level groundedness gate re-derives support from the case rather than trusting the generator's own citations. Every number and every medication name in a drafted sentence must appear in a span that sentence cites, so a generator that invents a duration **and** a citation for it still fails. A restated policy threshold is allowed, because quoting the requirement is not a claim about the patient.
+- `DraftGenerator` is the seam a prompted model drops into, and it inherits no extra trust: a test swaps in a deliberately fabricating generator and asserts the gate catches it. The offline default is deterministic, which is why no published number here contains model-generated text.
+- No field anywhere marks a checklist submittable. §20 puts autonomous submission permanently out of scope, so the data model gives it nowhere to be recorded, and the terminal node reports what a person still has to do.
+- `rxauth-evaluate` (§15) scores **22 metrics across six layers** — classification, extraction, retrieval, criteria, matching, generation — against thresholds set at the values the current code produces. Regressions fail the build; relaxing a threshold is a visible diff. False-support rate and unsupported-claim rate are the two ceilings, because every other error asks a human for more work and those two tell them there is none.
+- Reviewer corrections are typed, append-only, and versioned (§16). Agreement is stored too — a component nobody corrects and one nobody reviews are otherwise indistinguishable — which is what makes correction-rate-per-matcher-version answerable.
+- A correction exports as a `matching_gold.jsonl` record and is verified against the real loader in a test, so a reviewer disagreeing with the matcher becomes a regression case rather than an anecdote. Exports default to the validation split, keeping the frozen test split frozen.
 
 ### Repository layout
 
@@ -355,10 +371,10 @@ That principle governs the architecture, interface, evaluation strategy, and com
 - [x] Real-document case assembly — the Milestone 0 spine now runs on ingested, classified, and extracted documents instead of fixtures
 - [x] Payer-policy RAG (§10) + criteria extraction (§11) — metadata-filtered retrieval with a measured ablation against vector-only search, policy-version selection driven by an extracted request date, and prose-to-structured criteria that retain, flag, and route what they cannot check
 - [x] Criteria-to-evidence matching (§12) — hybrid retrieval, unit normalization, five-state results, and a 42-record gold set scoring the cited evidence alongside the status
-- [ ] LangGraph workflow (§13) — next
-- [ ] Draft generation + groundedness gate (§14)
-- [ ] Evaluation suite (§15)
-- [ ] Human-in-the-loop feedback (§16)
-- [ ] Reviewer UI (Next.js)
+- [x] Workflow state graph (§13) — thirteen named nodes over typed state, per-node status, component versions, and an explicit failure state ([ADR 001](docs/adr-001-workflow-runtime.md) records why the executor is hand-written rather than LangGraph)
+- [x] Draft generation + groundedness gate (§14) — a cited requirement checklist behind a claim-level gate that rejects any value or medication absent from the spans the claim cites
+- [x] Evaluation suite (§15) — `rxauth-evaluate` scores 22 metrics across six layers against ratcheted thresholds and fails CI on a regression
+- [x] Human-in-the-loop feedback (§16) — typed, append-only reviewer decisions that export as matching-gold records
+- [ ] Reviewer UI (Next.js) — next
 - [ ] Production hardening (versioning, observability, Docker, CI)
 - [ ] *Later, not first:* denial-risk model (only with real labeled data), MCP server

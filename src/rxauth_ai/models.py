@@ -268,6 +268,93 @@ class CriterionEvaluation(BaseModel):
     )
 
 
+class ClaimStatus(str, Enum):
+    """How well one drafted sentence is supported (README section 14)."""
+
+    GROUNDED = "grounded"
+    PARTIALLY_GROUNDED = "partially_grounded"
+    UNSUPPORTED = "unsupported"
+    CONFLICTING = "conflicting"
+    REQUIRES_REVIEW = "requires_review"
+
+
+class ClaimType(str, Enum):
+    """What a drafted sentence asserts.
+
+    The type is carried rather than inferred from the wording, because the
+    groundedness gate holds different claims to different standards: only a
+    `REQUIREMENT_MET` claim asserts support, and only that claim must cite
+    patient evidence to be allowed through.
+    """
+
+    REQUIREMENT_MET = "requirement_met"
+    REQUIREMENT_NOT_MET = "requirement_not_met"
+    EVIDENCE_MISSING = "evidence_missing"
+    NEEDS_REVIEW = "needs_review"
+
+
+class DraftClaim(BaseModel):
+    """One sentence of a drafted checklist, with everything it rests on.
+
+    A claim is never stored without its sources. The generator may only write
+    a sentence it can attach to a policy span and, when it asserts support, to
+    patient evidence — so the gate that follows has something to check rather
+    than prose to believe.
+    """
+
+    criterion_id: str
+    claim_type: ClaimType
+    text: str = Field(min_length=1)
+    evidence_ids: list[str] = Field(default_factory=list)
+    policy_source: Optional[Provenance] = None
+    patient_evidence_sources: list[Provenance] = Field(default_factory=list)
+
+
+class RequirementChecklist(BaseModel):
+    """The drafted, citable answer a reviewer reads (README section 14).
+
+    `human_review_required` is computed, never negotiated, and there is no
+    field that marks a checklist submittable. README section 20 puts
+    autonomous submission permanently out of scope, so the data model does not
+    give it a place to be recorded.
+    """
+
+    case_id: str
+    policy_id: str
+    policy_version: str
+    generator_version: str
+    prompt_version: Optional[str] = Field(
+        default=None,
+        description="Set only when a prompted model drafted the text; None for deterministic.",
+    )
+    claims: list[DraftClaim] = Field(default_factory=list)
+    human_review_required: bool = True
+
+
+class ClaimAssessment(BaseModel):
+    """The gate's verdict on one drafted sentence."""
+
+    criterion_id: str
+    claim_type: ClaimType
+    status: ClaimStatus
+    reason: str
+
+
+class DraftGroundedness(BaseModel):
+    """Whether a drafted checklist may be shown to a reviewer at all."""
+
+    passed: bool
+    assessments: list[ClaimAssessment] = Field(default_factory=list)
+    issues: list[str] = Field(default_factory=list)
+
+    @property
+    def status(self) -> str:
+        return "PASS" if self.passed else "FAIL"
+
+    def count(self, status: ClaimStatus) -> int:
+        return sum(1 for item in self.assessments if item.status is status)
+
+
 class CaseReadinessReport(BaseModel):
     """The end-to-end output of Milestone 0 for one case."""
 

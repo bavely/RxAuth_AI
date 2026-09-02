@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
 
@@ -61,9 +62,37 @@ def test_two_tables_in_one_document_do_not_share_column_positions():
     assert "| test | 0 | 1.000 |" in normalized
 
 
-def test_json_reports_are_compared_verbatim():
+def test_json_reports_are_compared_by_content_not_by_formatting():
     path = Path("reports/case_PA-CASE-001.json")
-    text = '{"readiness": {"criteria_satisfied": 4}}'
+    compact = '{"readiness":{"criteria_satisfied":4,"case_id":"X"}}'
+    reordered = json.dumps({"readiness": {"case_id": "X", "criteria_satisfied": 4}}, indent=1)
+
+    assert normalize(path, compact) == normalize(path, reordered)
+
+
+def test_a_changed_value_in_a_json_report_is_still_drift():
+    path = Path("reports/case_PA-CASE-001.json")
+    before = '{"readiness": {"criteria_satisfied": 4}}'
+    after = '{"readiness": {"criteria_satisfied": 3}}'
+
+    assert normalize(path, before) != normalize(path, after)
+
+
+def test_timing_keys_anywhere_in_a_json_report_are_ignored():
+    """The workflow record has none today; this keeps adding one from breaking the gate."""
+    path = Path("reports/case_PA-CASE-001.json")
+    fast = '{"workflow": {"nodes": [{"name": "a", "elapsed_ms": 3, "status": "ok"}]}}'
+    slow = '{"workflow": {"nodes": [{"name": "a", "elapsed_ms": 91, "status": "ok"}]}}'
+    broken = '{"workflow": {"nodes": [{"name": "a", "elapsed_ms": 3, "status": "failed"}]}}'
+
+    assert normalize(path, fast) == normalize(path, slow)
+    assert normalize(path, fast) != normalize(path, broken)
+
+
+def test_a_json_report_that_will_not_parse_is_compared_verbatim():
+    """Malformed output must read as drift, never silently pass."""
+    path = Path("reports/case_PA-CASE-001.json")
+    text = "{not json at all"
 
     assert normalize(path, text) == text
 

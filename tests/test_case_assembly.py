@@ -48,14 +48,15 @@ class _FilenameClassifier:
     def __init__(self, confidence: float = 0.95) -> None:
         self.confidence = confidence
 
-    def classify_path(self, path: Path, *, document_id: str) -> tuple[Document, bool]:
+    def classify_ingested(self, ingested, *, document_id: str) -> tuple[Document, bool]:
+        stem = Path(ingested.filename).stem
         label = next(
-            (document_type for document_type in DocumentType if document_type.value in path.stem),
+            (document_type for document_type in DocumentType if document_type.value in stem),
             DocumentType.OTHER,
         )
         document = Document(
             id=document_id,
-            filename=path.name,
+            filename=ingested.filename,
             document_type=label,
             classification_confidence=self.confidence,
         )

@@ -23,20 +23,28 @@ Offline: no database, no network, no LLM.
 
 ### Main flow (`uv run rxauth-run-case data/cases/PA-CASE-001`)
 
-| # | Step | Module |
-|---|---|---|
-| 1 | Read `case.json` — declared payer, drug, indication, `pa_required` | `case_assembly.load_manifest` |
-| 2 | File to page text + confidence (`.txt` direct, `.pdf` pypdf, images OpenCV + Tesseract) | `ingestion.ingest_document` |
-| 3 | Classify each document type; low confidence is flagged for review | `classifier.DocumentClassifier.classify_path` |
-| 4 | Regex rules pull typed `Evidence`, each carrying document, page, span, quoted text | `extraction.extract_evidence` |
-| 5 | Resolve overlaps, merge repeats, link duration+outcome, fold in source confidence | `extraction` (Phase 3.5 stages) |
-| 6 | Link identical facts appearing in two or more documents | `case_assembly.link_cross_document_evidence` |
-| 7 | Decide the request date (manifest, else the PA request's own extracted date) | `case_assembly.request_date_for` |
-| 8 | Metadata filter (payer/drug/indication/version window) **then** similarity ranking | `policy_retrieval.resolve_policy_document` |
-| 9 | Policy prose to typed `Criterion` (operator, value, unit, outcome); exclusions split out | `criteria_extraction.build_policy` |
-| 10 | Retrieve evidence per criterion, normalize units, compare, aggregate | `matching.evaluate_case` |
-| 11 | Groundedness gate — nothing is "satisfied" without a patient span and a policy span | `groundedness.check_groundedness` |
-| 12 | Print the report, write `reports/case_<id>.json` | `pipeline.run_pipeline` + `cli.print_report` |
+The run is a state graph (`workflow.NODES`). Each row below is one node, and each
+node records how it ended, which versions it used, and — on failure — that every
+node after it never ran.
+
+| # | Node | What happens | Module |
+|---|---|---|---|
+| 1 | `validate_case` | Read `case.json` — declared payer, drug, indication, `pa_required` | `case_assembly.load_manifest` |
+| 2 | `resolve_pa_trigger` | Read the PA trigger. Declared input, never inferred from policy text (§3) | `workflow` |
+| 3 | `ingest_documents` | File to page text + confidence, **once** per document (`.txt` direct, `.pdf` pypdf, images OpenCV + Tesseract) | `ingestion.ingest_document` |
+| 4 | `classify_documents` | Classify each document type; low confidence is flagged for review | `classifier.classify_ingested` |
+| 5 | `extract_case_evidence` | Regex rules pull typed `Evidence` with document, page, span, quoted text — then overlap, merge, duration+outcome linking, source confidence | `extraction.extract_evidence` |
+| 6 | `link_cross_document_evidence` | Link identical facts appearing in two or more documents | `case_assembly.link_cross_document_evidence` |
+| 7 | `resolve_request_date` | Decide the request date (manifest, else the PA request's own extracted date) | `case_assembly.request_date_for` |
+| 8 | `retrieve_policy` | Metadata filter (payer/drug/indication/version window) **then** similarity ranking | `policy_retrieval.resolve_policy_document` |
+| 9 | `extract_policy_criteria` | Policy prose to typed `Criterion` (operator, value, unit, outcome); exclusions split out | `criteria_extraction.build_policy` |
+| 10 | `evaluate_criteria` | Retrieve evidence per criterion, normalize units, compare, aggregate — then the structural citation gate and the tally | `matching.evaluate_case` + `groundedness.check_groundedness` + `pipeline.run_pipeline` |
+| 11 | `generate_requirement_checklist` | Draft one cited sentence per requirement, quoting spans verbatim | `generation.generate_checklist` |
+| 12 | `check_draft_groundedness` | Every value and medication in a drafted sentence must appear in a span it cites | `groundedness.check_draft_groundedness` |
+| 13 | `await_human_review` | Name what a person still has to do. Nothing is ever submitted (§20) | `workflow` |
+
+The CLI then prints the report and writes `reports/case_<id>.json` (`cli.print_report`,
+`case_assembly.build_output`).
 
 Five possible criterion results: `SATISFIED`, `NOT_SATISFIED`, `MISSING`,
 `AMBIGUOUS`, `HUMAN_REVIEW_REQUIRED`. The design exists to make the last three
@@ -111,11 +119,15 @@ catch the most real regressions).
 
 - **Dependencies run one way.** `models.py` feeds everything; nothing imports `case_assembly`
   or `cli`. Changes get safer the further down the flow you go.
-- **Matching is measured (as of 2026-08-31):** `matching.py` ships as `evidence-match-v2`,
-  scored by `rxauth-benchmark-matching` against the 42-record `data/matching_gold.jsonl`
-  (see [matching-gold.md](matching-gold.md)) and published to
-  `reports/matching_evaluation.md`. `rxauth-check-reports` fails CI when any committed
-  report stops reproducing, timings excluded.
+- **`case_assembly` no longer runs the flow (as of 2026-09-02).** `workflow.py` owns the
+  graph; `case_assembly` owns the stages it calls and keeps `run_case` as the narrow entry
+  point that raises. The dependency runs `workflow` → `case_assembly`, and `case_assembly`
+  imports `workflow` lazily inside two functions to keep it that way.
+- **Everything is gated.** `rxauth-evaluate` scores 22 metrics across six layers against
+  ratcheted thresholds; `rxauth-check-reports` fails CI when a committed report stops
+  reproducing, timings excluded. Gold-set caveats live in [matching-gold.md](matching-gold.md)
+  and [extraction-gold.md](extraction-gold.md); the LangGraph decision lives in
+  [ADR 001](adr-001-workflow-runtime.md).
 
 ---
 

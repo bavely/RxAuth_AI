@@ -50,22 +50,22 @@ from .extraction import (
     SuppressedSpan,
     extract_evidence,
 )
-from .ingestion import ingest_document
+from .ingestion import IngestedDocument, ingest_document
 from .models import (
     Case,
     CaseReadinessReport,
     Document,
     DocumentType,
+    DraftGroundedness,
     Evidence,
     EvidenceLink,
     Policy,
+    RequirementChecklist,
 )
-from .pipeline import run_pipeline
 from .policy_corpus import DEFAULT_POLICY_DIR, PolicyDocument
 from .policy_retrieval import (
     PolicyIndex,
     RetrievalResult,
-    build_index,
     resolve_policy_document,
 )
 
@@ -112,9 +112,15 @@ class DocumentClassifierLike(Protocol):
 
     Declared as a protocol so a caller — a test, or a future service — can
     supply its own classifier without loading a pickled artifact.
+
+    It takes an already-ingested document rather than a path. Classification
+    and extraction need the same page text, and taking the path here meant
+    every document was read — and every scan OCR'd — twice per run.
     """
 
-    def classify_path(self, path: Path, *, document_id: str) -> tuple[Document, bool]: ...
+    def classify_ingested(
+        self, ingested: IngestedDocument, *, document_id: str
+    ) -> tuple[Document, bool]: ...
 
 
 @dataclass
@@ -218,6 +224,52 @@ def link_cross_document_evidence(evidence: list[Evidence]) -> list[EvidenceLink]
     return links
 
 
+def ingest_documents(case_dir: Path) -> dict[str, IngestedDocument]:
+    """Read every document in the packet exactly once, keyed by document ID.
+
+    Document IDs are assigned by filename order, so they are stable across
+    runs, and extraction scopes evidence IDs to their document — which is what
+    makes every evidence ID in the assembled case unique.
+    """
+    return {
+        f"D{index}": ingest_document(path)
+        for index, path in enumerate(case_document_paths(case_dir), start=1)
+    }
+
+
+def classify_documents(
+    ingested: dict[str, IngestedDocument], *, classifier: DocumentClassifierLike
+) -> tuple[list[Document], list[str]]:
+    """Type every ingested document, returning the ones a reviewer must confirm."""
+    documents: list[Document] = []
+    needs_review: list[str] = []
+    for document_id, source in ingested.items():
+        document, requires_review = classifier.classify_ingested(source, document_id=document_id)
+        documents.append(document)
+        if requires_review:
+            needs_review.append(document_id)
+    return documents, needs_review
+
+
+def extract_documents(
+    ingested: dict[str, IngestedDocument],
+    *,
+    confidence_threshold: float = DEFAULT_CONFIDENCE_THRESHOLD,
+) -> tuple[list[Evidence], list[ExtractionIssue], list[SuppressedSpan]]:
+    """Pull typed, cited evidence out of every ingested document."""
+    evidence: list[Evidence] = []
+    issues: list[ExtractionIssue] = []
+    suppressed: list[SuppressedSpan] = []
+    for document_id, source in ingested.items():
+        result = extract_evidence(
+            source, document_id=document_id, confidence_threshold=confidence_threshold
+        )
+        evidence.extend(result.evidence)
+        issues.extend(result.issues)
+        suppressed.extend(result.suppressed)
+    return evidence, issues, suppressed
+
+
 def assemble_case(
     case_dir: Path,
     *,
@@ -226,32 +278,15 @@ def assemble_case(
 ) -> AssembledCase:
     """Classify and extract every document in a packet into one typed Case.
 
-    Document IDs are assigned by filename order, and extraction scopes evidence
-    IDs to their document, so every evidence ID in the assembled case is unique
-    and stable across runs.
+    Composed from the same three stages the workflow graph runs as separate
+    nodes, so there is one implementation rather than two that can drift.
     """
     manifest = load_manifest(case_dir)
-    documents: list[Document] = []
-    evidence: list[Evidence] = []
-    needs_classification_review: list[str] = []
-    issues: list[ExtractionIssue] = []
-    suppressed: list[SuppressedSpan] = []
-
-    for index, path in enumerate(case_document_paths(case_dir), start=1):
-        document_id = f"D{index}"
-        document, requires_review = classifier.classify_path(path, document_id=document_id)
-        documents.append(document)
-        if requires_review:
-            needs_classification_review.append(document_id)
-
-        result = extract_evidence(
-            ingest_document(path),
-            document_id=document_id,
-            confidence_threshold=confidence_threshold,
-        )
-        evidence.extend(result.evidence)
-        issues.extend(result.issues)
-        suppressed.extend(result.suppressed)
+    ingested = ingest_documents(case_dir)
+    documents, needs_classification_review = classify_documents(ingested, classifier=classifier)
+    evidence, issues, suppressed = extract_documents(
+        ingested, confidence_threshold=confidence_threshold
+    )
 
     case = Case(
         id=manifest.case_id,
@@ -375,17 +410,32 @@ def run_case(
     index: PolicyIndex | None = None,
     policy_dir: Path = DEFAULT_POLICY_DIR,
 ) -> tuple[CaseReadinessReport, AssembledCase, ResolvedPolicy]:
-    assembled = assemble_case(
-        case_dir, classifier=classifier, confidence_threshold=confidence_threshold
+    """Run one packet end to end and return the three Milestone 0 artifacts.
+
+    The work happens in `workflow.run_workflow` (README section 13); this stays
+    as the narrow, long-standing entry point that raises on failure. Callers
+    that want the per-node record — which stage failed, what each stage
+    produced, which versions it used — should call `run_case_workflow`
+    directly and read `WorkflowResult`.
+
+    Imported inside the function because `workflow` imports this module for its
+    node implementations, and there is no cycle as long as the dependency runs
+    one way at import time.
+    """
+    from .workflow import run_case_workflow
+
+    result = run_case_workflow(
+        case_dir,
+        classifier=classifier,
+        confidence_threshold=confidence_threshold,
+        index=index,
+        policy_dir=policy_dir,
     )
-    resolved = resolve_policy(assembled, index=index or build_index(policy_dir))
-    report = run_pipeline(
-        assembled.case,
-        resolved.policy,
-        evidence_requiring_review=assembled.evidence_requiring_review,
-        documents_requiring_classification_review=len(assembled.documents_requiring_review),
-    )
-    return report, assembled, resolved
+    if result.error is not None:
+        raise result.error
+    state = result.state
+    assert state.report is not None and state.assembled is not None and state.resolved is not None
+    return state.report, state.assembled, state.resolved
 
 
 def build_output(
@@ -393,8 +443,18 @@ def build_output(
     assembled: AssembledCase,
     resolved: ResolvedPolicy,
     case_dir: Path,
+    *,
+    workflow_records: list[dict[str, object]] | None = None,
+    checklist: RequirementChecklist | None = None,
+    draft_groundedness: DraftGroundedness | None = None,
 ) -> dict[str, object]:
-    return {
+    """Assemble the committed JSON record of one run.
+
+    The workflow section carries no timings on purpose: this file is committed
+    as evidence and gated by `rxauth-check-reports`, so a duration would make
+    it differ on every run for reasons that say nothing about correctness.
+    """
+    output: dict[str, object] = {
         "readiness": report.model_dump(mode="json"),
         "policy": {
             "selected": resolved.document.key,
@@ -432,6 +492,16 @@ def build_output(
             ],
         },
     }
+    if workflow_records is not None:
+        # Lazy: `workflow` imports this module for its node implementations.
+        from .workflow import WORKFLOW_VERSION
+
+        output["workflow"] = {"version": WORKFLOW_VERSION, "nodes": workflow_records}
+    if checklist is not None:
+        output["checklist"] = checklist.model_dump(mode="json")
+    if draft_groundedness is not None:
+        output["draft_groundedness"] = draft_groundedness.model_dump(mode="json")
+    return output
 
 
 def print_policy_summary(resolved: ResolvedPolicy) -> None:
@@ -521,6 +591,65 @@ def print_extraction_summary(assembled: AssembledCase) -> None:
         print()
 
 
+_CLAIM_ICON = {
+    "grounded": "[ok ]",
+    "partially_grounded": "[par]",
+    "requires_review": "[hum]",
+    "unsupported": "[!! ]",
+    "conflicting": "[!! ]",
+}
+
+
+def print_checklist(checklist: RequirementChecklist, gate: DraftGroundedness) -> None:
+    """Print the drafted checklist beside the gate's verdict on each sentence.
+
+    The verdict is printed next to the sentence rather than summarized at the
+    end, because "which of these sentences can I trust" is the question a
+    reviewer actually has.
+    """
+    line = "-" * 56
+    print("Drafted requirement checklist")
+    print(line)
+    print(f"Generator:       {checklist.generator_version}")
+    print(f"Prompt version:  {checklist.prompt_version or 'n/a (deterministic)'}")
+    print(f"Groundedness:    {gate.status}")
+    print()
+
+    verdicts = {item.criterion_id: item for item in gate.assessments}
+    for claim in checklist.claims:
+        verdict = verdicts.get(claim.criterion_id)
+        status = verdict.status.value if verdict else "unassessed"
+        print(f"{_CLAIM_ICON.get(status, '[?  ]')} {claim.criterion_id}  {claim.text}")
+        print(f"       support:   {', '.join(claim.evidence_ids) or 'none cited'}")
+        if verdict is not None:
+            print(f"       gate:      {status} — {verdict.reason}")
+        print()
+
+    if gate.issues:
+        print("Claims the gate refused")
+        print(line)
+        for issue in gate.issues:
+            print(f"  {issue}")
+        print()
+
+    print("This checklist is a draft for a reviewer. Nothing has been submitted.")
+    print()
+
+
+def print_workflow_trace(records) -> None:
+    line = "-" * 56
+    print("Workflow trace")
+    print(line)
+    for record in records:
+        versions = " ".join(f"{key}={value}" for key, value in record.versions.items())
+        print(f"{record.status.value:8} {record.name:32} {record.summary}")
+        if versions:
+            print(f"{'':8} {'':32} [{versions}]")
+        if record.error:
+            print(f"{'':8} {'':32} {record.error_type}: {record.error}")
+    print()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Run one document packet end to end: ingest, classify, extract, evaluate."
@@ -536,14 +665,30 @@ def main() -> None:
     if not 0.0 <= args.confidence_threshold <= 1.0:
         parser.error("--confidence-threshold must be between 0 and 1.")
 
+    from .workflow import run_case_workflow
+
     classifier = load_classifier(args.classifier_path)
-    report, assembled, resolved = run_case(
+    result = run_case_workflow(
         args.case_dir,
         classifier=classifier,
         confidence_threshold=args.confidence_threshold,
         policy_dir=args.policy_dir,
     )
-    output = build_output(report, assembled, resolved, args.case_dir)
+    if result.error is not None:
+        raise result.error
+
+    state = result.state
+    report, assembled, resolved = state.report, state.assembled, state.resolved
+    assert report is not None and assembled is not None and resolved is not None
+    output = build_output(
+        report,
+        assembled,
+        resolved,
+        args.case_dir,
+        workflow_records=result.record_dicts(),
+        checklist=state.checklist,
+        draft_groundedness=state.draft_groundedness,
+    )
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     out_path = args.output_dir / f"case_{report.case_id}.json"
@@ -558,6 +703,9 @@ def main() -> None:
     print_report(report, report.evaluations)
     print_policy_summary(resolved)
     print_extraction_summary(assembled)
+    if state.checklist is not None and state.draft_groundedness is not None:
+        print_checklist(state.checklist, state.draft_groundedness)
+    print_workflow_trace(result.records)
     print(f"Structured output written to: {out_path}")
 
 

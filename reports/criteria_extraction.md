@@ -24,7 +24,7 @@ _Reproducible: `rxauth-benchmark-criteria`._
 | Connective accuracy | 1.000 |
 | Exclusion-count accuracy | 1.000 |
 | Unstructured-requirement recall | 1.000 (1 expected) |
-| Latency (ms/policy) | 0.069 |
+| Latency (ms/policy) | 0.140 |
 
 ## Per policy
 | Policy version | Gold | Extracted | Matched | Connective | Exclusions | Unstructured |

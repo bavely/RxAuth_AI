@@ -14,7 +14,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, f1_score
 
-from .ingestion import ingest_document
+from .ingestion import IngestedDocument, ingest_document
 from .models import Document, DocumentType
 
 
@@ -54,17 +54,28 @@ class DocumentClassifier:
             requires_human_review=confidence < self.confidence_threshold,
         )
 
-    def classify_path(self, path: Path, *, document_id: str) -> tuple[Document, bool]:
-        ingested = ingest_document(path)
+    def classify_ingested(
+        self, ingested: IngestedDocument, *, document_id: str
+    ) -> tuple[Document, bool]:
+        """Classify a document that has already been read off disk.
+
+        Classification and extraction both need the same page text. Taking the
+        ingested document rather than the path means a scan is OCR'd once per
+        run instead of once per consumer.
+        """
         prediction = self.predict_text(ingested.text)
         document = Document(
             id=document_id,
-            filename=path.name,
+            filename=ingested.filename,
             document_type=DocumentType(prediction.label),
             classification_confidence=prediction.confidence,
             page_count=len(ingested.pages),
         )
         return document, prediction.requires_human_review
+
+    def classify_path(self, path: Path, *, document_id: str) -> tuple[Document, bool]:
+        """Read and classify one file. Convenience wrapper for single-document use."""
+        return self.classify_ingested(ingest_document(path), document_id=document_id)
 
     def save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)

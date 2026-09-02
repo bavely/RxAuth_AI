@@ -15,9 +15,9 @@ _Reproducible: `rxauth-benchmark-extraction`._
 ## Results
 | Split | Documents | Gold fields | Predicted | Precision | Recall | F1 | Normalized accuracy | Span accuracy | Review F1 | Document review accuracy | Latency (ms/doc) |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| validation | 29 | 30 | 30 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 0.065 |
-| test | 20 | 25 | 25 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 0.053 |
-| challenge | 12 | 11 | 11 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 0.054 |
+| validation | 29 | 30 | 30 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 0.047 |
+| test | 20 | 25 | 25 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 0.046 |
+| challenge | 12 | 11 | 11 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 0.055 |
 
 ## Validation failures
 None.

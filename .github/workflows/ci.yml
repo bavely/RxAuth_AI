@@ -73,6 +73,12 @@ jobs:
           uv run rxauth-calibrate-extraction
           uv run rxauth-compare-extractors
 
+      # One scorecard across every layer, each metric against a threshold set
+      # at the value the current code produces. Exits non-zero on a regression,
+      # so relaxing a threshold has to be a deliberate, reviewable diff.
+      - name: Score every layer against its threshold
+        run: uv run rxauth-evaluate
+
       # Published reports are evidence (README §3). A committed report the
       # current code would not reproduce is a number nobody can regenerate.
       # Wall-clock timings are excluded; every quality metric is compared
