@@ -30,6 +30,8 @@ rxauth-benchmark-ingestion = "rxauth_ai.benchmark_ingestion:main"
 rxauth-benchmark-extraction = "rxauth_ai.benchmark_extraction:main"
 rxauth-benchmark-retrieval = "rxauth_ai.benchmark_retrieval:main"
 rxauth-benchmark-criteria = "rxauth_ai.benchmark_criteria:main"
+rxauth-benchmark-matching = "rxauth_ai.benchmark_matching:main"
+rxauth-check-reports = "rxauth_ai.check_reports:main"
 rxauth-calibrate-extraction = "rxauth_ai.calibration:main"
 rxauth-compare-extractors = "rxauth_ai.compare_extractors:main"
 rxauth-extract = "rxauth_ai.extraction:main"
@@ -48,6 +50,7 @@ build-backend = "hatchling.build"
 [dependency-groups]
 dev = [
     "pytest>=8.3",
+    "pytest-cov>=6.0",
     "ruff>=0.9",
 ]
 

@@ -111,10 +111,11 @@ catch the most real regressions).
 
 - **Dependencies run one way.** `models.py` feeds everything; nothing imports `case_assembly`
   or `cli`. Changes get safer the further down the flow you go.
-- **Work in progress (as of 2026-08-30):** `matching.py` has a large uncommitted rewrite
-  (`typed-match-v1` to `evidence-match-v2`), plus untracked `benchmark_matching.py` and
-  `tests/test_matching.py`. `benchmark_matching.py` expects `data/matching_gold.jsonl`,
-  which does not exist yet.
+- **Matching is measured (as of 2026-08-31):** `matching.py` ships as `evidence-match-v2`,
+  scored by `rxauth-benchmark-matching` against the 42-record `data/matching_gold.jsonl`
+  (see [matching-gold.md](matching-gold.md)) and published to
+  `reports/matching_evaluation.md`. `rxauth-check-reports` fails CI when any committed
+  report stops reproducing, timings excluded.
 
 ---
 

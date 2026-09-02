@@ -6,7 +6,7 @@ Run: uv run pytest
 
 from __future__ import annotations
 
-from rxauth_ai.matching import evaluate_criterion
+from rxauth_ai.matching import MATCHER_VERSION, evaluate_criterion
 from rxauth_ai.models import (
     Case,
     Criterion,
@@ -197,3 +197,16 @@ def test_full_case_all_states_and_gate_passes():
     assert CriterionResult.AMBIGUOUS in results
     assert report.groundedness_gate == "PASS"
     assert report.criteria_total == 6
+
+
+def test_report_stamps_the_matcher_that_actually_ran():
+    """The readiness report advertises its own provenance.
+
+    `CaseReadinessReport.matcher_version` carries a literal default, because
+    models.py cannot import matching.py without a cycle. That default sat at
+    `typed-match-v1` while `evidence-match-v2` produced the results, so every
+    published report misnamed the matcher that scored it.
+    """
+    report = run_pipeline(build_case(), build_policy())
+    assert report.matcher_version == MATCHER_VERSION
+    assert {ev.matcher_version for ev in report.evaluations} == {MATCHER_VERSION}

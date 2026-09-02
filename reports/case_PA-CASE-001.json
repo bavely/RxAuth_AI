@@ -4,6 +4,7 @@
     "policy_id": "PA-104",
     "policy_version": "2026-01",
     "policy_effective_date": "2026-01-01",
+    "matcher_version": "evidence-match-v2",
     "payer": "Example Health Plan",
     "medication": "Drug A",
     "indication": "Example Condition",
@@ -27,11 +28,24 @@
         "case_id": "PA-CASE-001",
         "result": "SATISFIED",
         "supporting_evidence_ids": [
-          "D1-EV2"
+          "D1-EV2",
+          "D3-EV1"
+        ],
+        "candidate_evidence_ids": [
+          "D1-EV2",
+          "D3-EV1"
         ],
         "confidence": 0.95,
         "evaluation_method": "deterministic",
-        "explanation": "Required documentation is present in the case.",
+        "matcher_version": "evidence-match-v2",
+        "normalization_version": "clinical-units-v1",
+        "decision_trace": [
+          "retrieved 2 candidate(s): D1-EV2@0.990, D3-EV1@0.990",
+          "one or more candidates satisfied the requirement",
+          "deterministic existence check",
+          "deterministic existence check"
+        ],
+        "explanation": "Supporting evidence found. Required documentation is present. Required documentation is present.",
         "criterion_description": "The patient has a documented diagnosis of Example Condition.",
         "policy_source": {
           "document_id": "PA-104",
@@ -57,6 +71,14 @@
             "start_char": 149,
             "end_char": 177,
             "source_text": "Diagnosis: Example Condition"
+          },
+          {
+            "document_id": "D3",
+            "filename": "03_clinical_note.txt",
+            "page": 1,
+            "start_char": 74,
+            "end_char": 103,
+            "source_text": "Assessment: Example Condition"
           }
         ]
       },
@@ -67,9 +89,20 @@
         "supporting_evidence_ids": [
           "D4-EV1"
         ],
+        "candidate_evidence_ids": [
+          "D4-EV1"
+        ],
         "confidence": 0.85,
         "evaluation_method": "deterministic",
-        "explanation": "16.0 >= 12.0 -> true.",
+        "matcher_version": "evidence-match-v2",
+        "normalization_version": "clinical-units-v1",
+        "decision_trace": [
+          "retrieved 1 candidate(s): D4-EV1@0.970",
+          "one or more candidates satisfied the requirement",
+          "units already agree as weeks",
+          "deterministic numeric comparison"
+        ],
+        "explanation": "Supporting evidence found. 16 >= 12 is true.",
         "criterion_description": "The patient has completed at least 12 weeks of therapy with Drug A.",
         "policy_source": {
           "document_id": "PA-104",
@@ -113,9 +146,21 @@
         "supporting_evidence_ids": [
           "D4-EV1"
         ],
+        "candidate_evidence_ids": [
+          "D4-EV1"
+        ],
         "confidence": 0.85,
         "evaluation_method": "deterministic",
-        "explanation": "16.0 >= 12.0 -> true; required outcome 'inadequate_response' met (evidence: 'inadequate_response').",
+        "matcher_version": "evidence-match-v2",
+        "normalization_version": "clinical-units-v1",
+        "decision_trace": [
+          "retrieved 1 candidate(s): D4-EV1@0.970",
+          "one or more candidates satisfied the requirement",
+          "units already agree as weeks",
+          "deterministic numeric comparison",
+          "deterministic outcome comparison"
+        ],
+        "explanation": "Supporting evidence found. 16 >= 12 is true; required outcome 'inadequate_response' matches 'inadequate_response'.",
         "criterion_description": "The patient had an inadequate response to therapy with Drug A after at least 12 weeks.",
         "policy_source": {
           "document_id": "PA-104",
@@ -159,9 +204,20 @@
         "supporting_evidence_ids": [
           "D5-EV1"
         ],
+        "candidate_evidence_ids": [
+          "D5-EV1"
+        ],
         "confidence": 0.95,
         "evaluation_method": "deterministic",
-        "explanation": "7.4 < 8.0 -> true.",
+        "matcher_version": "evidence-match-v2",
+        "normalization_version": "clinical-units-v1",
+        "decision_trace": [
+          "retrieved 1 candidate(s): D5-EV1@0.990",
+          "one or more candidates satisfied the requirement",
+          "units already agree as percent",
+          "deterministic numeric comparison"
+        ],
+        "explanation": "Supporting evidence found. 7.4 < 8 is true.",
         "criterion_description": "The most recent A1c is below 8.0 percent.",
         "policy_source": {
           "document_id": "PA-104",
@@ -195,9 +251,15 @@
         "case_id": "PA-CASE-001",
         "result": "MISSING",
         "supporting_evidence_ids": [],
-        "confidence": 0.99,
+        "candidate_evidence_ids": [],
+        "confidence": 0.92,
         "evaluation_method": "deterministic",
-        "explanation": "No evidence of type 'screening_doc' found in the case.",
+        "matcher_version": "evidence-match-v2",
+        "normalization_version": "clinical-units-v1",
+        "decision_trace": [
+          "structured retrieval returned no relevant evidence"
+        ],
+        "explanation": "No relevant evidence of type 'screening_doc' was found in the case.",
         "criterion_description": "Required screening documentation is on file.",
         "policy_source": {
           "document_id": "PA-104",
@@ -217,9 +279,20 @@
         "supporting_evidence_ids": [
           "D3-EV2"
         ],
+        "candidate_evidence_ids": [
+          "D3-EV2"
+        ],
         "confidence": 0.5,
         "evaluation_method": "model_assisted",
-        "explanation": "Criterion requires a numeric comparison but the evidence value is not explicit enough for a deterministic check. In a later phase a model would attempt interpretation; here it is routed to human review.",
+        "matcher_version": "evidence-match-v2",
+        "normalization_version": "clinical-units-v1",
+        "decision_trace": [
+          "retrieved 1 candidate(s): D3-EV2@0.720",
+          "no deterministic answer; ambiguity preserved",
+          "model-assisted interpretation requested",
+          "interpreter abstained"
+        ],
+        "explanation": "criterion needs a number but the cited evidence has no explicit numeric value; the ambiguity interpreter abstained, so no value was guessed.",
         "criterion_description": "The duration of the most recent therapy course is documented and is at least 8 weeks.",
         "policy_source": {
           "document_id": "PA-104",

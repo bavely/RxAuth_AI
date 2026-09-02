@@ -9,7 +9,15 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    name: Lint and test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Development happens on Windows and CI ran only on Ubuntu, so
+        # path handling and text encoding were never exercised where the
+        # code is actually written.
+        os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -21,4 +29,53 @@ jobs:
       - run: uv sync --locked --group dev
       - run: uv run ruff check .
       - run: uv run ruff format --check .
-      - run: uv run pytest
+      - run: uv run pytest --cov=rxauth_ai --cov-report=term-missing --cov-report=xml
+      - name: Upload coverage
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.xml
+
+  reports:
+    name: Reports reproduce
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # check_reports compares the working tree against the committed
+          # blob, so the job needs more than a shallow tip.
+          fetch-depth: 2
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+      - run: uv sync --locked --group dev
+
+      # `artifacts/` is gitignored, so the flagship command cannot run on a
+      # fresh clone until the classifier is trained. Nothing in CI trained it,
+      # which is how `rxauth-run-case` went unexercised for four phases.
+      - name: Train the document classifier
+        run: uv run rxauth-train-classifier
+
+      - name: Run the flagship case end to end
+        run: uv run rxauth-run-case data/cases/PA-CASE-001
+
+      - name: Regenerate every benchmark
+        run: |
+          uv run rxauth-benchmark-ingestion
+          uv run rxauth-benchmark-extraction
+          uv run rxauth-benchmark-retrieval
+          uv run rxauth-benchmark-criteria
+          uv run rxauth-benchmark-matching
+          uv run rxauth-calibrate-extraction
+          uv run rxauth-compare-extractors
+
+      # Published reports are evidence (README §3). A committed report the
+      # current code would not reproduce is a number nobody can regenerate.
+      # Wall-clock timings are excluded; every quality metric is compared
+      # exactly.
+      - name: Fail on report drift
+        run: uv run rxauth-check-reports

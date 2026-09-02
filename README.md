@@ -1,7 +1,7 @@
 # RxAuth AI
 ## Specialty Pharmacy Prior Authorization Intelligence Copilot
 
-> **Status:** Phase 4 complete. The policy is no longer a fixture: retrieval selects the applicable payer-policy *version* by metadata before it ranks anything, criteria extraction reads that version's requirements out of its prose, and the end-to-end run reproduces the Milestone 0 criterion profile from a document on disk. Criteria-to-evidence matching (§12) is next.
+> **Status:** Phase 4 complete. The policy is no longer a fixture: retrieval selects the applicable payer-policy *version* by metadata before it ranks anything, criteria extraction reads that version's requirements out of its prose, and the end-to-end run reproduces the Milestone 0 criterion profile from a document on disk. Criteria-to-evidence matching (§12) is now measured against its own gold set. The LangGraph workflow (§13) is next.
 > **Goal:** One flagship AI-engineering project that begins as IBM AI Engineering coursework, grows into a portfolio system, and has a credible path to a commercial pilot — built incrementally so the commit history traces the progression from classical ML through deep learning to RAG and agentic systems.
 
 **Author:** Bavely S. Tawfik — [pavli-tawfik.com](https://pavli-tawfik.com) · [linkedin.com/in/bavelytawfik](https://www.linkedin.com/in/bavelytawfik) · [github.com/bavely](https://github.com/bavely)
@@ -26,7 +26,9 @@ uv run rxauth-search-policy "What A1c threshold applies?" --payer "Example Healt
 uv run rxauth-extract-criteria PA-104:2026-01
 uv run rxauth-benchmark-retrieval
 uv run rxauth-benchmark-criteria
+uv run rxauth-benchmark-matching
 uv run rxauth-run-case data/cases/PA-CASE-001
+uv run rxauth-check-reports
 uv run pytest
 ```
 
@@ -99,6 +101,21 @@ The synthetic classifier and rendered ingestion corpora are checked in for repro
 - `rxauth-benchmark-criteria` scores 32 gold criteria across all eight policy versions at **1.000** F1, provenance-span accuracy, connective accuracy, and unstructured-requirement recall. A criterion counts as correct only when its type, medication, operator, threshold, unit, required outcome, and quoted source text all agree.
 - The criteria read out of `PA-104 v2026-01` are structurally identical to the Milestone 0 fixture. That equivalence is the acceptance test for this phase, not a demo.
 - The policy corpus is synthetic public-style text authored locally in the forms the rules expect. These scores validate the declared contract — normalization, provenance, version selection, connective detection, and the routing of what could not be structured — not generalization to real payer publications.
+
+### Criteria-to-evidence matching
+
+- `evidence-match-v2` retrieves every structurally relevant fact before it decides anything, and reports the candidates it considered alongside the ones it cited, so a fact that was found and then discarded is visible rather than invisible.
+- Evidence type and named medication are hard constraints. A `diagnosis` must equal the case indication: `"Example Condition, suspected"` does not satisfy a rule requiring a documented diagnosis of `"Example Condition"`, because substring matching would erase the difference between suspected and documented.
+- Medication comparison runs through the same auditable lexicon as extraction, in both directions — the policy may say `Humira` while the chart says `adalimumab`. A biosimilar outside the lexicon (`adalimumab-atto`) shares a prefix with the reference product and is **not** normalized into it.
+- Days and weeks convert exactly. Calendar months do not convert in either direction, because a month has no exact week count and the threshold can sit between the plausible readings; the case routes to a reviewer instead of being resolved by a rounding rule.
+- Every supporting fact is cited, not just the most confident one. Contradictory facts route to `HUMAN_REVIEW_REQUIRED` with **both** spans attached — and deferring to the more confident span is exactly the shortcut the challenge split is built to catch.
+- Ambiguity outranks failure. A vague statement alongside a failing one stays `AMBIGUOUS` rather than reporting `NOT_SATISFIED`, because denying a case on an incomplete reading is a worse error than asking for a better document.
+- The model-assisted stage is a seam, not a dependency. `AmbiguityInterpreter` accepts only a typed decision, rejects any interpreter that tries to return `MISSING`, and routes a low-confidence interpretation to review. The offline default abstains, so no published number here contains a model-generated value.
+- `rxauth-benchmark-matching` scores 42 hand-authored matches — 15 validation, 14 test, 13 challenge — at **1.000** result accuracy, evidence F1, retrieval recall, and citation accuracy, with a **0.000** false-support rate. A record counts as correct only when the five-state result *and* the exact set of cited evidence IDs both agree: the right status with the wrong source is a failure.
+- False-support rate is reported separately because an unsupported `SATISFIED` is the most dangerous error this component can make. Every other mistake asks a human for more work; that one tells them there is none.
+- All five results appear in all three splits, enforced by a test. A split missing a state would be averaged against a class it never exercised and would not be comparable to the others.
+- The gold set was authored from the documented contract rather than from observed output, but by someone who had read the implementation. It is a regression harness and a contract check, not an independent audit, and [the gold dataset card](docs/matching-gold.md) records two behaviours it pins without endorsing.
+- `rxauth-check-reports` fails CI when a committed report stops reproducing. Wall-clock timings are excluded — they vary by more than 2x between runs, and a gate that fails on every commit is a gate somebody removes — while every quality metric, count, failure table, and citation ID is compared exactly.
 
 ### End-to-end on real documents
 
@@ -337,8 +354,8 @@ That principle governs the architecture, interface, evaluation strategy, and com
 - [x] Information extraction with confidence (§9) — medication normalization, multi-page/OCR challenge coverage, multi-span and cross-document provenance, calibrated review routing, and deterministic-vs-learned comparison
 - [x] Real-document case assembly — the Milestone 0 spine now runs on ingested, classified, and extracted documents instead of fixtures
 - [x] Payer-policy RAG (§10) + criteria extraction (§11) — metadata-filtered retrieval with a measured ablation against vector-only search, policy-version selection driven by an extracted request date, and prose-to-structured criteria that retain, flag, and route what they cannot check
-- [ ] Criteria-to-evidence matching (§12) — next
-- [ ] LangGraph workflow (§13)
+- [x] Criteria-to-evidence matching (§12) — hybrid retrieval, unit normalization, five-state results, and a 42-record gold set scoring the cited evidence alongside the status
+- [ ] LangGraph workflow (§13) — next
 - [ ] Draft generation + groundedness gate (§14)
 - [ ] Evaluation suite (§15)
 - [ ] Human-in-the-loop feedback (§16)

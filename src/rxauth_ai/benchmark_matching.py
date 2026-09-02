@@ -178,10 +178,9 @@ def _evaluate(records: list[GoldMatch]) -> dict[str, Any]:
             evidence = evidence_by_id.get(evidence_id)
             if evidence is not None and evidence.provenance.source_text:
                 citation_correct += 1
-        if (
-            evaluation.result is not record.expected_result
-            or set(evaluation.supporting_evidence_ids) != set(record.expected_evidence_ids)
-        ):
+        if evaluation.result is not record.expected_result or set(
+            evaluation.supporting_evidence_ids
+        ) != set(record.expected_evidence_ids):
             failures.append(
                 {
                     "match_id": record.match_id,

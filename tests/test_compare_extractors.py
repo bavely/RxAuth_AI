@@ -20,7 +20,10 @@ def test_learned_candidate_trains_only_on_validation_and_rules_remain_selected()
     assert "GOLD-038" not in results["selection_document_ids"]
     assert "GOLD-050" not in results["selection_document_ids"]
     assert results["selected_extractor"] == "regex-v3"
-    assert results["evaluations"]["test"]["rules"]["f1"] >= results["evaluations"]["test"]["learned"]["f1"]
+    assert (
+        results["evaluations"]["test"]["rules"]["f1"]
+        >= results["evaluations"]["test"]["learned"]["f1"]
+    )
 
 
 def test_comparison_report_discloses_scope_and_selection():

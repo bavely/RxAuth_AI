@@ -46,7 +46,9 @@ class PredictedSpan:
 
 
 def _tokens(text: str) -> list[Token]:
-    return [Token(match.group(), match.start(), match.end()) for match in _TOKEN_PATTERN.finditer(text)]
+    return [
+        Token(match.group(), match.start(), match.end()) for match in _TOKEN_PATTERN.finditer(text)
+    ]
 
 
 def _shape(token: str) -> str:
@@ -83,9 +85,7 @@ def _labels(record: GoldDocument, page_number: int, tokens: list[Token]) -> list
         start = page_text.index(expected.source_text)
         end = start + len(expected.source_text)
         indexes = [
-            index
-            for index, token in enumerate(tokens)
-            if token.start >= start and token.end <= end
+            index for index, token in enumerate(tokens) if token.start >= start and token.end <= end
         ]
         for offset, token_index in enumerate(indexes):
             prefix = "B" if offset == 0 else "I"
@@ -197,12 +197,20 @@ def _metrics(
         false_positive += len(predicted - expected)
         false_negative += len(expected - predicted)
         for key in sorted(expected - predicted):
-            failures.append({"document_id": record.document_id, "kind": "false negative", "span": repr(key)})
+            failures.append(
+                {"document_id": record.document_id, "kind": "false negative", "span": repr(key)}
+            )
         for key in sorted(predicted - expected):
-            failures.append({"document_id": record.document_id, "kind": "false positive", "span": repr(key)})
+            failures.append(
+                {"document_id": record.document_id, "kind": "false positive", "span": repr(key)}
+            )
     elapsed = time.perf_counter() - started
-    precision = true_positive / (true_positive + false_positive) if true_positive + false_positive else 0.0
-    recall = true_positive / (true_positive + false_negative) if true_positive + false_negative else 0.0
+    precision = (
+        true_positive / (true_positive + false_positive) if true_positive + false_positive else 0.0
+    )
+    recall = (
+        true_positive / (true_positive + false_negative) if true_positive + false_negative else 0.0
+    )
     f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
     return {
         "documents": len(records),
@@ -219,7 +227,9 @@ def _metrics(
 
 def _rule_predict(record: GoldDocument) -> list[PredictedSpan]:
     result = extract_evidence(
-        IngestedDocument(filename=record.filename, media_type="text", pages=record.ingested_pages()),
+        IngestedDocument(
+            filename=record.filename, media_type="text", pages=record.ingested_pages()
+        ),
         document_id=record.document_id,
     )
     return [
@@ -258,7 +268,9 @@ def compare_extractors(gold_path: Path) -> dict[str, Any]:
             "rules": _metrics(split_records, _rule_predict),
             "learned": _metrics(split_records, learned.predict),
         }
-    rules_win = evaluations["validation"]["rules"]["f1"] >= evaluations["validation"]["learned"]["f1"]
+    rules_win = (
+        evaluations["validation"]["rules"]["f1"] >= evaluations["validation"]["learned"]["f1"]
+    )
     return {
         "rule_extractor": EXTRACTOR_VERSION,
         "learned_extractor": LEARNED_EXTRACTOR_VERSION,

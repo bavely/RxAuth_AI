@@ -17,7 +17,7 @@ and a groundedness gate before anything is presented.
 from __future__ import annotations
 
 from .groundedness import check_groundedness
-from .matching import evaluate_case
+from .matching import MATCHER_VERSION, evaluate_case
 from .models import (
     Case,
     CaseReadinessReport,
@@ -82,6 +82,10 @@ def run_pipeline(
 
     return CaseReadinessReport(
         case_id=case.id,
+        # Stamped from the matcher that actually ran. The model's default is a
+        # literal (models.py cannot import matching.py without a cycle), so an
+        # unset field would quietly advertise a matcher that never saw the case.
+        matcher_version=MATCHER_VERSION,
         policy_id=policy.id,
         policy_version=policy.version,
         policy_effective_date=policy.effective_date,

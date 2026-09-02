@@ -18,14 +18,14 @@ _Reproducible: `rxauth-compare-extractors`._
 
 | Split | Candidate | Documents | Precision | Recall | F1 | Latency (ms/doc) |
 |---|---|---:|---:|---:|---:|---:|
-| training | rules | 20 | 1.000 | 1.000 | 1.000 | 0.079 |
-| training | learned | 20 | 0.385 | 0.833 | 0.526 | 0.323 |
-| validation | rules | 9 | 1.000 | 1.000 | 1.000 | 0.091 |
-| validation | learned | 9 | 0.044 | 0.167 | 0.070 | 0.360 |
-| test | rules | 20 | 1.000 | 1.000 | 1.000 | 0.066 |
-| test | learned | 20 | 0.053 | 0.200 | 0.084 | 0.337 |
-| challenge | rules | 12 | 1.000 | 1.000 | 1.000 | 0.075 |
-| challenge | learned | 12 | 0.000 | 0.000 | 0.000 | 0.353 |
+| training | rules | 20 | 1.000 | 1.000 | 1.000 | 0.052 |
+| training | learned | 20 | 0.385 | 0.833 | 0.526 | 0.275 |
+| validation | rules | 9 | 1.000 | 1.000 | 1.000 | 0.083 |
+| validation | learned | 9 | 0.044 | 0.167 | 0.070 | 0.319 |
+| test | rules | 20 | 1.000 | 1.000 | 1.000 | 0.118 |
+| test | learned | 20 | 0.053 | 0.200 | 0.084 | 0.318 |
+| challenge | rules | 12 | 1.000 | 1.000 | 1.000 | 0.064 |
+| challenge | learned | 12 | 0.000 | 0.000 | 0.000 | 0.305 |
 
 ## Decision
 
