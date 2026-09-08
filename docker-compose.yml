@@ -45,6 +45,10 @@ services:
       RXAUTH_POLICY_DIR: /app/data/policies
       RXAUTH_ARTIFACTS_DIR: /app/artifacts
       RXAUTH_CLASSIFIER_PATH: /app/artifacts/classifier_baseline
+      # The reviewer UI's dev server. Plain HTTP is accepted only because this
+      # stack is RXAUTH_ENVIRONMENT=local; staging and production refuse it, and
+      # refuse '*', at startup. Replace with the deployed origin there.
+      RXAUTH_CORS_ALLOWED_ORIGINS: http://localhost:3000
       # To use S3 instead of local disk, set RXAUTH_S3_BUCKET and let boto3
       # resolve credentials from the environment or an instance role. Never
       # commit a key here.
@@ -70,6 +74,18 @@ services:
       RXAUTH_CLASSIFIER_PATH: /app/artifacts/classifier_baseline
     volumes:
       - api-artifacts:/app/artifacts
+
+  web:
+    build: ./web
+    depends_on:
+      - api
+    environment:
+      # Server to server, inside the compose network. The browser never calls
+      # the API directly: the reviewer UI fetches on the server so no access
+      # token and no patient document reaches client JavaScript.
+      RXAUTH_API_URL: http://api:8000
+    ports:
+      - "3000:3000"
 
 volumes:
   postgres-data:

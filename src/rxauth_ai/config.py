@@ -129,6 +129,16 @@ class Settings(BaseModel):
     job_heartbeat_seconds: float = Field(default=5 * 60, ge=1.0, le=28800.0)
     job_poll_seconds: float = Field(default=1.0, ge=0.05, le=60.0)
 
+    #: Browser origins allowed to call this API, comma separated. Empty means
+    #: "no browser client", which is the correct default for a service whose
+    #: only clients so far are the CLI and a worker: a CORS policy nobody needs
+    #: is an attack surface nobody is watching.
+    #:
+    #: The reviewer UI is a separate origin from the API, so it cannot work
+    #: without this. The validator below refuses the two configurations that
+    #: turn it into a hole — `*` and plain HTTP — outside local development.
+    cors_allowed_origins: str = ""
+
     #: Whether logs may carry text quoted out of a patient document. Off, and
     #: not switchable on outside `local`: see the validator below.
     log_source_text: bool = False
@@ -179,6 +189,50 @@ class Settings(BaseModel):
         return self
 
     @model_validator(mode="after")
+    def refuse_unsafe_cors_origins_outside_local(self) -> Settings:
+        """A browser policy is only as good as the origins it names.
+
+        Two configurations are refused in a deployed environment. `*` would let
+        any page on the internet issue authenticated requests with a token it
+        obtained, which is the whole attack. Plain HTTP would let a network
+        attacker read patient documents out of the response. Neither is a
+        preference; both are the difference between a boundary and a decoration.
+        """
+        origins = self.cors_origin_list
+        deployed = self.environment in {"staging", "production"}
+        for origin in origins:
+            if origin == "*":
+                if deployed:
+                    raise ValueError(
+                        "RXAUTH_CORS_ALLOWED_ORIGINS cannot be '*' in "
+                        f"environment={self.environment}. Name the reviewer UI origin "
+                        "explicitly; a wildcard on an authenticated PHI API lets any site "
+                        "spend a stolen token (README section 19)."
+                    )
+                continue
+            scheme, separator, remainder = origin.partition("://")
+            if not separator or not remainder:
+                raise ValueError(
+                    f"RXAUTH_CORS_ALLOWED_ORIGINS entry {origin!r} is not an origin. "
+                    "Use scheme://host[:port], with no path and no trailing slash."
+                )
+            if "/" in remainder:
+                raise ValueError(
+                    f"RXAUTH_CORS_ALLOWED_ORIGINS entry {origin!r} has a path. An origin is "
+                    "scheme://host[:port] only; browsers match nothing else."
+                )
+            if scheme not in {"http", "https"}:
+                raise ValueError(
+                    f"RXAUTH_CORS_ALLOWED_ORIGINS entry {origin!r} must be http or https."
+                )
+            if deployed and scheme != "https":
+                raise ValueError(
+                    f"RXAUTH_CORS_ALLOWED_ORIGINS entry {origin!r} must use https in "
+                    f"environment={self.environment}. Patient documents cross this boundary."
+                )
+        return self
+
+    @model_validator(mode="after")
     def require_compliance_object_lock_in_production(self) -> Settings:
         if self.environment == "production" and self.s3_object_lock_mode != "COMPLIANCE":
             raise ValueError(
@@ -219,6 +273,11 @@ class Settings(BaseModel):
     @property
     def auth_algorithm_list(self) -> tuple[str, ...]:
         return tuple(part.strip() for part in self.auth_algorithms.split(",") if part.strip())
+
+    @property
+    def cors_origin_list(self) -> tuple[str, ...]:
+        """Configured browser origins, in order, with blanks dropped."""
+        return tuple(part.strip() for part in self.cors_allowed_origins.split(",") if part.strip())
 
     @property
     def storage_is_local(self) -> bool:

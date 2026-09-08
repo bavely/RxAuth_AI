@@ -117,7 +117,7 @@ def build_case_job_handler(settings: Settings, engine: Engine) -> Callable[[Job]
             manifest.model_dump_json(indent=2), encoding="utf-8", newline="\n"
         )
 
-        storage_keys: dict[str, str] = {}
+        keys_by_filename: dict[str, str] = {}
         for document in documents:
             destination = directory / document.filename
             if not destination.is_file() or _digest(destination) != document.sha256:
@@ -132,7 +132,7 @@ def build_case_job_handler(settings: Settings, engine: Engine) -> Callable[[Job]
                     os.replace(temporary, destination)
                 finally:
                     temporary.unlink(missing_ok=True)
-            storage_keys[destination.stem] = document.storage_key
+            keys_by_filename[document.filename] = document.storage_key
 
         classifier = load_classifier(settings.classifier_path)
         result = run_case_workflow(
@@ -158,6 +158,17 @@ def build_case_job_handler(settings: Settings, engine: Engine) -> Callable[[Job]
             checklist=state.checklist,
             draft_groundedness=state.draft_groundedness,
         )
+        # Join the uploaded objects to the run's own document ids. The run
+        # assigns `D1`, `D2` during ingestion, which is what a citation points
+        # at and what `save_case_run` stores a key against; the upload only
+        # knows filenames. Keying this dict by anything else silently stores no
+        # key at all, and a citation whose document cannot be fetched is the
+        # one failure this project cannot afford.
+        storage_keys = {
+            entry["id"]: keys_by_filename[entry["filename"]]
+            for entry in payload.get("assembly", {}).get("documents", [])
+            if entry["filename"] in keys_by_filename
+        }
         context = RunContext(request_id=job.request_id or job.id, case_id=job.case_id)
         with session_scope(engine) as session:
             run_id = save_case_run(

@@ -1,10 +1,19 @@
 """HTTP surface for the case workflow (roadmap Stage 2).
 
-Six endpoints, deliberately: create a case, upload its documents, start a run,
-poll the run, read the result, record a reviewer decision. That is the whole
-flow from §5, and nothing here decides anything the CLI does not already
-decide — the API is a way to reach the workflow, not a second implementation
-of it.
+The write path is six endpoints, deliberately: create a case, upload its
+documents, start a run, poll the run, read the result, record a reviewer
+decision. That is the whole flow from §5, and nothing here decides anything the
+CLI does not already decide — the API is a way to reach the workflow, not a
+second implementation of it.
+
+The read path adds what a human reviewer needs and a script does not: a
+worklist (`GET /cases`), the documents a case holds, and the bytes behind a
+citation. A caller with a case id could already reach everything else; a
+reviewer opening a browser has no id, and a citation whose document cannot be
+opened is a promise the project does not keep. There is deliberately no
+endpoint that re-projects citations out of a stored run — the run payload
+already carries every span, and re-deriving it server-side would be the second
+implementation this module exists to avoid.
 
 **Sync, not async.** Every dependency underneath is synchronous and
 CPU-bound — scikit-learn, regex extraction, pypdf, OpenCV. Declaring the
@@ -21,16 +30,21 @@ database lookups. Local development uses one explicit synthetic principal.
 
 from __future__ import annotations
 
+import hashlib
+import shutil
+import tempfile
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated, Any, Optional
 
-from fastapi import Depends, FastAPI, File, HTTPException, Security, UploadFile, status
+from fastapi import Depends, FastAPI, File, HTTPException, Query, Security, UploadFile, status
 from fastapi import Path as ApiPath
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
-from starlette.responses import JSONResponse
+from starlette.background import BackgroundTask
+from starlette.responses import FileResponse, JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from .auth import (
@@ -55,16 +69,18 @@ from .persistence import (
     case_upload_usage,
     create_case_record,
     engine_for,
+    list_cases,
     list_uploaded_documents,
     load_case_record,
     load_case_run,
     load_reviewer_decisions,
+    load_run_document,
     recent_case_runs,
     save_reviewer_decision,
     save_uploaded_document,
     session_scope,
 )
-from .storage import build_object_store, document_key
+from .storage import StorageError, build_object_store, document_key
 from .uploads import (
     UploadConflictError,
     UploadTooLargeError,
@@ -299,6 +315,23 @@ def create_app(
         UploadBodyLimitMiddleware,
         max_bytes=active.upload_max_file_bytes + active.upload_multipart_overhead_bytes,
     )
+    if active.cors_origin_list:
+        # Only when origins are configured. An unconfigured API keeps sending no
+        # CORS headers at all, which is the correct answer for a service whose
+        # clients are the CLI and the worker.
+        #
+        # `allow_credentials=False` deliberately: this API authenticates with a
+        # bearer token the client attaches itself, never with a cookie. Turning
+        # credentials on would buy nothing and would forbid the wildcard that
+        # local development is allowed to use.
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=list(active.cors_origin_list),
+            allow_credentials=False,
+            allow_methods=["GET", "POST", "OPTIONS"],
+            allow_headers=["Authorization", "Content-Type"],
+            max_age=600,
+        )
     app.state.settings = active
     app.state.job_queue = queue
     app.state.job_runner = queue  # Compatibility name for callers migrating from Stage 2.
@@ -363,6 +396,63 @@ def create_app(
             actor_id=principal.subject,
         )
         return {"case_id": manifest.case_id, "documents": 0}
+
+    @app.get("/cases")
+    def list_case_worklist(
+        limit: int = Query(default=25, ge=1, le=100),
+        offset: int = Query(default=0, ge=0),
+        settings: Settings = Depends(require_database),
+        principal: Principal = Depends(can_read_cases),
+    ) -> dict[str, Any]:
+        """The reviewer worklist: this organization's cases, newest first.
+
+        Every other read in this API needs an identifier the caller already has.
+        A reviewer opening the application has none, which made the rest of the
+        surface unreachable from a browser.
+        """
+        with transaction() as session:
+            summaries, total = list_cases(
+                session,
+                organization_id=principal.organization_id,
+                limit=limit,
+                offset=offset,
+            )
+        return {
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "cases": [
+                {
+                    "case_id": summary.case_id,
+                    "created_at": summary.created_at,
+                    "patient_synthetic_id": summary.manifest.get("patient_synthetic_id"),
+                    "payer": summary.manifest.get("payer"),
+                    "medication": summary.manifest.get("medication"),
+                    "indication": summary.manifest.get("indication"),
+                    "pa_required": summary.manifest.get("pa_required"),
+                    "documents": summary.document_count,
+                    "latest_run": (
+                        None
+                        if summary.latest_run is None
+                        else {
+                            "run_id": summary.latest_run.run_id,
+                            "created_at": summary.latest_run.created_at,
+                            "matcher_version": summary.latest_run.matcher_version,
+                            "groundedness_gate": summary.latest_run.groundedness_gate,
+                            "draft_gate": summary.latest_run.draft_gate,
+                            "criteria": {
+                                "total": summary.latest_run.criteria_total,
+                                "satisfied": summary.latest_run.criteria_satisfied,
+                                "not_satisfied": summary.latest_run.criteria_not_satisfied,
+                                "missing": summary.latest_run.criteria_missing,
+                                "needs_review": summary.latest_run.criteria_needs_review,
+                            },
+                        }
+                    ),
+                }
+                for summary in summaries
+            ],
+        }
 
     @app.post("/cases/{case_id}/documents", status_code=status.HTTP_201_CREATED)
     def upload_document(
@@ -501,6 +591,43 @@ def create_app(
             "sha256": stored.sha256,
         }
 
+    @app.get("/cases/{case_id}/documents")
+    def list_case_documents(
+        case_id: CaseId,
+        settings: Settings = Depends(require_database),
+        principal: Principal = Depends(can_read_cases),
+    ) -> dict[str, Any]:
+        """What was uploaded, and enough to prove it is unchanged.
+
+        Metadata only. The storage key is deliberately absent: a browser client
+        has no use for the bucket layout, and the way to read a document is the
+        content endpoint, which checks the organization first.
+        """
+        with transaction() as session:
+            case_record = load_case_record(
+                session, organization_id=principal.organization_id, case_id=case_id
+            )
+            if case_record is None:
+                raise HTTPException(status_code=404, detail=f"No case {case_id!r}.")
+            documents = list_uploaded_documents(
+                session, organization_id=principal.organization_id, case_id=case_id
+            )
+        return {
+            "case_id": case_id,
+            "documents": [
+                {
+                    "document_id": document.id,
+                    "filename": document.filename,
+                    "media_type": document.media_type,
+                    "size_bytes": document.size_bytes,
+                    "sha256": document.sha256,
+                    "created_at": document.created_at,
+                    "retain_until": document.retain_until,
+                }
+                for document in documents
+            ],
+        }
+
     @app.post("/cases/{case_id}/runs", status_code=status.HTTP_202_ACCEPTED)
     def start_run(
         case_id: CaseId,
@@ -569,6 +696,98 @@ def create_app(
         if record is None:
             raise HTTPException(status_code=404, detail=f"No run {run_id!r}.")
         return record.payload
+
+    @app.get("/runs/{run_id}/documents/{document_id}/content")
+    def get_run_document_content(
+        run_id: str,
+        document_id: str,
+        settings: Settings = Depends(require_database),
+        principal: Principal = Depends(can_read_cases),
+    ) -> FileResponse:
+        """The bytes behind one citation.
+
+        `document_id` is the run-local id a `Provenance` carries (`D1`), not the
+        upload's UUID, because the reviewer arrives here from a citation. The
+        project's central promise is that every claim can be traced to a span in
+        a document; until this endpoint existed the span could be read but the
+        document behind it could not be opened.
+
+        Served as an attachment with `nosniff`. These are patient documents from
+        an upload path that accepts several formats, and rendering one inline in
+        the reviewer's origin would make the document viewer an XSS surface. A
+        client that wants to display it fetches it and renders the blob itself.
+        """
+        with transaction() as session:
+            record = load_run_document(
+                session,
+                run_id=run_id,
+                document_id=document_id,
+                organization_id=principal.organization_id,
+            )
+        if record is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Run {run_id!r} has no document {document_id!r} in this organization.",
+            )
+        if not record.storage_key:
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    f"Document {document_id!r} has no stored object. Runs started from the "
+                    "CLI read documents from a directory and store no copy."
+                ),
+            )
+
+        store = build_object_store(settings)
+        staging = Path(tempfile.mkdtemp(prefix="rxauth-document-"))
+        cleanup = BackgroundTask(shutil.rmtree, staging, ignore_errors=True)
+        destination = staging / Path(record.filename).name
+        try:
+            store.get(record.storage_key, destination)
+            if record.sha256:
+                digest = hashlib.sha256()
+                with destination.open("rb") as handle:
+                    while chunk := handle.read(settings.upload_chunk_bytes):
+                        digest.update(chunk)
+                if digest.hexdigest() != record.sha256:
+                    # The object no longer matches what was accepted at upload.
+                    # Serving it anyway would put a document of unknown
+                    # provenance in front of a reviewer as if it were evidence.
+                    raise StorageError(
+                        f"Stored object {record.storage_key!r} does not match its recorded digest."
+                    )
+        except StorageError as exc:
+            shutil.rmtree(staging, ignore_errors=True)
+            log_event(
+                "document.unreadable",
+                case_id=record.case_id,
+                organization_id=principal.organization_id,
+                actor_id=principal.subject,
+                document_ids=[record.document_id],
+                error_type=type(exc).__name__,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="The stored document could not be read or failed its integrity check.",
+            ) from exc
+
+        log_event(
+            "document.read",
+            case_id=record.case_id,
+            organization_id=principal.organization_id,
+            actor_id=principal.subject,
+            document_ids=[record.document_id],
+        )
+        return FileResponse(
+            destination,
+            media_type=record.media_type or "application/octet-stream",
+            filename=record.filename,
+            headers={
+                "X-Content-Type-Options": "nosniff",
+                "Cache-Control": "no-store, private",
+            },
+            background=cleanup,
+        )
 
     @app.get("/cases/{case_id}/runs")
     def list_runs(

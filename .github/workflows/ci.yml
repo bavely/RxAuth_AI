@@ -140,3 +140,28 @@ jobs:
       # exactly.
       - name: Fail on report drift
         run: uv run rxauth-check-reports
+
+  web:
+    name: Reviewer UI
+    runs-on: ubuntu-latest
+    # The UI is a separate toolchain with its own lockfile, so it gets its own
+    # job rather than a step bolted onto the Python matrix. It needs no database
+    # and no API: everything below is lint, types, unit tests, and a build.
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      # `npm ci` and not `npm install`: the lockfile is the build input, and a
+      # CI run that can resolve a different tree proves nothing about the tree
+      # that ships.
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build

@@ -222,3 +222,81 @@ def test_deployed_environments_require_postgresql():
         **common,
     )
     assert configured.database_url.startswith("postgresql")
+
+
+# --- Browser origins -------------------------------------------------------
+
+
+_DEPLOYED = {
+    "environment": "staging",
+    "database_url": "postgresql+psycopg://rxauth:secret@db.example.test/rxauth",
+    "s3_bucket": "rxauth-docs",
+    "auth_enabled": True,
+    "auth_issuer": "https://identity.example.test/",
+    "auth_audience": "rxauth-api",
+    "auth_jwks_url": "https://identity.example.test/jwks.json",
+    "job_retry_initial_seconds": 1800,
+    "job_retry_max_seconds": 3600,
+    "job_lease_seconds": 3600,
+}
+
+
+def test_no_browser_origin_is_configured_by_default():
+    """The CLI and the worker are not browsers. Silence is the right default."""
+    assert settings_from_env().cors_origin_list == ()
+
+
+def test_origins_parse_in_order_with_blanks_dropped():
+    settings = settings_from_env(
+        cors_allowed_origins="https://reviewer.example.test, ,https://admin.example.test"
+    )
+
+    assert settings.cors_origin_list == (
+        "https://reviewer.example.test",
+        "https://admin.example.test",
+    )
+
+
+def test_a_wildcard_origin_is_refused_in_a_deployed_environment():
+    """A stolen token plus `*` is any website reading patient documents."""
+    with pytest.raises(ConfigurationError, match="wildcard"):
+        settings_from_env(cors_allowed_origins="*", **_DEPLOYED)
+
+
+def test_a_wildcard_origin_remains_available_locally():
+    settings = settings_from_env(cors_allowed_origins="*")
+
+    assert settings.cors_origin_list == ("*",)
+
+
+def test_a_plain_http_origin_is_refused_in_a_deployed_environment():
+    with pytest.raises(ConfigurationError, match="https"):
+        settings_from_env(cors_allowed_origins="http://reviewer.example.test", **_DEPLOYED)
+
+    configured = settings_from_env(
+        cors_allowed_origins="https://reviewer.example.test", **_DEPLOYED
+    )
+    assert configured.cors_origin_list == ("https://reviewer.example.test",)
+
+
+def test_localhost_over_http_still_works_for_development():
+    settings = settings_from_env(cors_allowed_origins="http://localhost:3000")
+
+    assert settings.cors_origin_list == ("http://localhost:3000",)
+
+
+def test_something_that_is_not_an_origin_is_refused_everywhere():
+    """A browser matches scheme://host[:port] and nothing else.
+
+    A trailing slash or a path never matches any request, so accepting one
+    would produce a policy that silently blocks every call it was meant to
+    allow.
+    """
+    with pytest.raises(ConfigurationError, match="not an origin"):
+        settings_from_env(cors_allowed_origins="reviewer.example.test")
+    with pytest.raises(ConfigurationError, match="path"):
+        settings_from_env(cors_allowed_origins="https://reviewer.example.test/app")
+    with pytest.raises(ConfigurationError, match="path"):
+        settings_from_env(cors_allowed_origins="https://reviewer.example.test/")
+    with pytest.raises(ConfigurationError, match="http or https"):
+        settings_from_env(cors_allowed_origins="ftp://reviewer.example.test")

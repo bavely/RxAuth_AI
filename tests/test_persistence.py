@@ -9,21 +9,27 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 
 from rxauth_ai.feedback import ReviewerAction, decision_from_evaluation
 from rxauth_ai.models import CriterionResult
 from rxauth_ai.persistence import (
+    CaseRow,
     CaseRunRow,
     create_all,
+    create_case_record,
+    list_cases,
     load_case_run,
     load_reviewer_decisions,
+    load_run_document,
     recent_case_runs,
     save_case_run,
     save_reviewer_decision,
+    save_uploaded_document,
     session_scope,
 )
 from rxauth_ai.persistence.tables import Base, DocumentRow
@@ -250,3 +256,232 @@ def test_runs_and_decisions_are_invisible_across_organizations(engine, payload):
         assert load_case_run(session, run_id=run_id, organization_id="org-b") is None
         assert recent_case_runs(session, organization_id="org-b") == []
         assert load_reviewer_decisions(session, organization_id="org-b") == []
+
+
+# --- The reviewer worklist -------------------------------------------------
+
+
+def _case_manifest(case_id: str) -> dict:
+    return {
+        "case_id": case_id,
+        "patient_synthetic_id": "SYNTH-0001",
+        "payer": "Example Health Plan",
+        "medication": "Drug A",
+        "indication": "Example Condition",
+        "pa_required": True,
+    }
+
+
+def test_the_worklist_shows_the_newest_run_not_the_last_one_written(engine, payload):
+    """`created_at` decides, so a backfilled run does not become the headline.
+
+    The timestamps are set explicitly rather than left to the clock: two runs
+    written in one transaction can land in the same microsecond, and a test that
+    passed because of insertion order would not be testing the ordering at all.
+    """
+    case_id = payload["readiness"]["case_id"]
+    with session_scope(engine) as session:
+        create_case_record(
+            session,
+            organization_id=_ORGANIZATION,
+            case_id=case_id,
+            manifest=_case_manifest(case_id),
+        )
+        older = save_case_run(
+            session, payload=payload, request_id="req-1", organization_id=_ORGANIZATION
+        )
+        newer = save_case_run(
+            session, payload=payload, request_id="req-2", organization_id=_ORGANIZATION
+        )
+        session.get(CaseRunRow, older).created_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        session.get(CaseRunRow, newer).created_at = datetime(2026, 6, 1, tzinfo=timezone.utc)
+
+    with session_scope(engine) as session:
+        summaries, total = list_cases(session, organization_id=_ORGANIZATION)
+
+    assert total == 1
+    assert summaries[0].latest_run is not None
+    assert summaries[0].latest_run.run_id == newer
+
+    # Move the other run ahead of it: the headline must follow the timestamp.
+    with session_scope(engine) as session:
+        session.get(CaseRunRow, older).created_at = datetime(2026, 12, 1, tzinfo=timezone.utc)
+
+    with session_scope(engine) as session:
+        summaries, _ = list_cases(session, organization_id=_ORGANIZATION)
+
+    assert summaries[0].latest_run.run_id == older
+
+
+def test_the_worklist_carries_the_counts_a_reviewer_triages_on(engine, payload):
+    case_id = payload["readiness"]["case_id"]
+    with session_scope(engine) as session:
+        create_case_record(
+            session,
+            organization_id=_ORGANIZATION,
+            case_id=case_id,
+            manifest=_case_manifest(case_id),
+        )
+        save_case_run(session, payload=payload, request_id="req-1", organization_id=_ORGANIZATION)
+
+    with session_scope(engine) as session:
+        summaries, _ = list_cases(session, organization_id=_ORGANIZATION)
+
+    latest = summaries[0].latest_run
+    assert latest.criteria_total == payload["readiness"]["criteria_total"]
+    assert latest.groundedness_gate == payload["readiness"]["groundedness_gate"]
+    assert latest.matcher_version
+
+
+def test_a_case_that_has_never_run_still_appears_on_the_worklist(engine):
+    """A case with no run is the one a reviewer most needs to be shown."""
+    with session_scope(engine) as session:
+        create_case_record(
+            session,
+            organization_id=_ORGANIZATION,
+            case_id="PA-CASE-NEW",
+            manifest=_case_manifest("PA-CASE-NEW"),
+        )
+
+    with session_scope(engine) as session:
+        summaries, total = list_cases(session, organization_id=_ORGANIZATION)
+
+    assert total == 1
+    assert summaries[0].case_id == "PA-CASE-NEW"
+    assert summaries[0].latest_run is None
+    assert summaries[0].document_count == 0
+
+
+def test_the_worklist_pages_newest_first_and_reports_the_whole_total(engine):
+    base = datetime(2026, 3, 1, tzinfo=timezone.utc)
+    with session_scope(engine) as session:
+        for index in range(5):
+            create_case_record(
+                session,
+                organization_id=_ORGANIZATION,
+                case_id=f"PA-CASE-{index}",
+                manifest=_case_manifest(f"PA-CASE-{index}"),
+            )
+        rows = session.execute(
+            select(CaseRow).where(CaseRow.organization_id == _ORGANIZATION)
+        ).scalars()
+        for row in rows:
+            row.created_at = base + timedelta(days=int(row.case_id.rsplit("-", 1)[1]))
+
+    with session_scope(engine) as session:
+        first_page, total = list_cases(session, organization_id=_ORGANIZATION, limit=2)
+        second_page, _ = list_cases(session, organization_id=_ORGANIZATION, limit=2, offset=2)
+
+    assert total == 5
+    assert [summary.case_id for summary in first_page] == ["PA-CASE-4", "PA-CASE-3"]
+    assert [summary.case_id for summary in second_page] == ["PA-CASE-2", "PA-CASE-1"]
+
+
+def test_the_worklist_stops_at_the_organization_boundary(engine):
+    with session_scope(engine) as session:
+        create_case_record(
+            session,
+            organization_id=_ORGANIZATION,
+            case_id="PA-CASE-A",
+            manifest=_case_manifest("PA-CASE-A"),
+        )
+        create_case_record(
+            session,
+            organization_id="org-b",
+            case_id="PA-CASE-B",
+            manifest=_case_manifest("PA-CASE-B"),
+        )
+
+    with session_scope(engine) as session:
+        summaries, total = list_cases(session, organization_id=_ORGANIZATION)
+
+    assert total == 1
+    assert [summary.case_id for summary in summaries] == ["PA-CASE-A"]
+
+
+# --- Resolving a citation to the object that was uploaded ------------------
+
+
+def test_a_cited_document_resolves_to_the_object_it_was_uploaded_as(engine, payload):
+    """`D1` in a citation and a UUID in object storage are the same document."""
+    case_id = payload["readiness"]["case_id"]
+    key = "cases/org-a/PA-CASE-001/abc123/01_pa_request.txt"
+    with session_scope(engine) as session:
+        case_record = create_case_record(
+            session,
+            organization_id=_ORGANIZATION,
+            case_id=case_id,
+            manifest=_case_manifest(case_id),
+        )
+        save_uploaded_document(
+            session,
+            case_record_id=case_record.id,
+            organization_id=_ORGANIZATION,
+            case_id=case_id,
+            filename="01_pa_request.txt",
+            media_type="text/plain",
+            size_bytes=412,
+            sha256="a" * 64,
+            storage_key=key,
+            retain_until=datetime(2036, 1, 1, tzinfo=timezone.utc),
+        )
+        run_id = save_case_run(
+            session,
+            payload=payload,
+            request_id="req-1",
+            organization_id=_ORGANIZATION,
+            storage_keys={"D1": key},
+        )
+
+    with session_scope(engine) as session:
+        record = load_run_document(
+            session, run_id=run_id, document_id="D1", organization_id=_ORGANIZATION
+        )
+
+    assert record is not None
+    assert record.filename == "01_pa_request.txt"
+    assert record.storage_key == key
+    # Digest and media type come from the upload, the only record of what was
+    # actually accepted at the boundary.
+    assert record.sha256 == "a" * 64
+    assert record.media_type == "text/plain"
+
+
+def test_a_cited_document_is_invisible_from_another_organization(engine, payload):
+    with session_scope(engine) as session:
+        run_id = save_case_run(
+            session,
+            payload=payload,
+            request_id="req-1",
+            organization_id=_ORGANIZATION,
+            storage_keys={"D1": "cases/org-a/PA-CASE-001/abc123/01_pa_request.txt"},
+        )
+
+    with session_scope(engine) as session:
+        assert (
+            load_run_document(session, run_id=run_id, document_id="D1", organization_id="org-b")
+            is None
+        )
+        assert (
+            load_run_document(
+                session, run_id=run_id, document_id="D9", organization_id=_ORGANIZATION
+            )
+            is None
+        )
+
+
+def test_a_run_whose_documents_were_never_uploaded_resolves_without_a_key(engine, payload):
+    """A CLI run stores no object. The citation resolves; the bytes do not exist."""
+    with session_scope(engine) as session:
+        run_id = save_case_run(
+            session, payload=payload, request_id="req-1", organization_id=_ORGANIZATION
+        )
+
+    with session_scope(engine) as session:
+        record = load_run_document(
+            session, run_id=run_id, document_id="D1", organization_id=_ORGANIZATION
+        )
+
+    assert record is not None
+    assert record.storage_key is None
+    assert record.sha256 is None

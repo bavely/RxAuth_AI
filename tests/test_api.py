@@ -5,12 +5,13 @@ from __future__ import annotations
 import io
 import os
 import shutil
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 
 from rxauth_ai.api import create_app, require_auth_configured
 from rxauth_ai.auth import AuthenticationError, Principal
@@ -22,7 +23,7 @@ from rxauth_ai.persistence import (
     load_case_record,
     session_scope,
 )
-from rxauth_ai.persistence.tables import Base
+from rxauth_ai.persistence.tables import Base, DocumentRow
 from rxauth_ai.storage import LocalObjectStore, StorageError, build_object_store, document_key
 
 _ROOT = Path(__file__).resolve().parents[1]
@@ -601,3 +602,252 @@ def test_s3_uploads_apply_the_configured_object_retention():
 
     assert calls[0]["ObjectLockMode"] == "COMPLIANCE"
     assert calls[0]["ObjectLockRetainUntilDate"] == retain_until
+
+
+# --- The reviewer read surface ---------------------------------------------
+
+
+@contextmanager
+def _client_with(settings, **overrides):
+    """A client over settings that differ from the fixture in one respect."""
+    adjusted = settings.model_copy(update=overrides)
+    engine = create_engine(adjusted.database_url, future=True)
+    Base.metadata.drop_all(engine)
+    create_all(engine)
+    engine.dispose()
+
+    app = create_app(adjusted)
+    with TestClient(app) as client:
+        client.app_state = app.state
+        yield client
+
+    engine = create_engine(adjusted.database_url, future=True)
+    Base.metadata.drop_all(engine)
+    engine.dispose()
+
+
+def _run_case(client) -> str:
+    """Create a case, upload its documents, run it, return the run id."""
+    _new_case(client)
+    _upload_case_documents(client)
+    job_id = client.post("/cases/PA-CASE-001/runs").json()["job_id"]
+    assert client.app_state.job_worker.run_once() is True
+    job = client.get(f"/jobs/{job_id}").json()
+    assert job["status"] == JobStatus.SUCCEEDED.value, job
+    return job["result"]["run_id"]
+
+
+def test_the_worklist_is_where_a_reviewer_with_no_case_id_starts(client):
+    """Every other read needs an identifier the caller already has."""
+    run_id = _run_case(client)
+    _new_case(client, case_id="PA-CASE-002")
+
+    body = client.get("/cases").json()
+
+    assert body["total"] == 2
+    listed = {case["case_id"]: case for case in body["cases"]}
+    assert set(listed) == {"PA-CASE-001", "PA-CASE-002"}
+
+    ran = listed["PA-CASE-001"]
+    assert ran["payer"] == "Example Health Plan"
+    assert ran["medication"] == "Drug A"
+    assert ran["documents"] == 5
+    assert ran["latest_run"]["run_id"] == run_id
+    assert ran["latest_run"]["criteria"]["total"] == 6
+    assert ran["latest_run"]["groundedness_gate"] == "PASS"
+
+    # A case nobody has run yet is exactly the one a worklist must still show.
+    assert listed["PA-CASE-002"]["latest_run"] is None
+    assert listed["PA-CASE-002"]["documents"] == 0
+
+
+def test_the_worklist_pages_and_states_how_many_there_are(client):
+    for index in range(3):
+        _new_case(client, case_id=f"PA-CASE-{index}")
+
+    body = client.get("/cases", params={"limit": 2}).json()
+
+    assert body["total"] == 3
+    assert body["limit"] == 2
+    assert len(body["cases"]) == 2
+
+
+def test_the_worklist_is_scoped_to_the_callers_organization(authenticated_client):
+    authenticated_client.post(
+        "/cases",
+        json={
+            "case_id": "PA-CASE-A",
+            "patient_synthetic_id": "SYNTH-1",
+            "payer": "P",
+            "medication": "M",
+            "indication": "I",
+            "pa_required": True,
+        },
+        headers=_bearer("writer-a"),
+    )
+
+    mine = authenticated_client.get("/cases", headers=_bearer("reader-a")).json()
+    theirs = authenticated_client.get("/cases", headers=_bearer("writer-b")).json()
+
+    assert [case["case_id"] for case in mine["cases"]] == ["PA-CASE-A"]
+    assert theirs["cases"] == []
+    assert theirs["total"] == 0
+
+
+def test_the_worklist_requires_a_token(authenticated_client):
+    assert authenticated_client.get("/cases").status_code == 401
+
+
+def test_case_documents_are_listed_without_the_bucket_layout(client):
+    _new_case(client)
+    _upload_case_documents(client)
+
+    body = client.get("/cases/PA-CASE-001/documents").json()
+
+    assert len(body["documents"]) == 5
+    first = body["documents"][0]
+    assert first["filename"] == "01_pa_request.txt"
+    assert first["media_type"] == "text/plain"
+    assert len(first["sha256"]) == 64
+    # A browser has no use for the object key, and publishing it describes the
+    # bucket's shape to every client that ever renders a document list.
+    assert "storage_key" not in first
+
+
+def test_listing_documents_for_an_unknown_case_is_a_404(client):
+    assert client.get("/cases/PA-CASE-404/documents").status_code == 404
+
+
+def test_a_citation_can_be_opened_and_its_span_lands_where_it_claims(client):
+    """The promise the whole project sells, checked over HTTP.
+
+    A citation names a document, a page, and a character range. This asserts
+    the range indexes into the bytes the API serves — not that some document
+    came back, but that the reviewer clicking the citation is shown the text
+    the system quoted.
+    """
+    run_id = _run_case(client)
+    payload = client.get(f"/runs/{run_id}").json()
+    citation = payload["readiness"]["evaluations"][0]["patient_evidence_source"]
+
+    response = client.get(f"/runs/{run_id}/documents/{citation['document_id']}/content")
+
+    assert response.status_code == 200
+    served = response.text
+    assert served[citation["start_char"] : citation["end_char"]] == citation["source_text"]
+
+
+def test_every_document_a_run_cited_can_be_fetched(client):
+    """Regression: the run's document ids and the upload's keys must join.
+
+    `case_jobs` knows filenames and the run assigns `D1`, `D2`. When the two
+    were keyed differently every `storage_key` persisted as NULL, and the
+    column looked present while no citation could ever be opened.
+    """
+    run_id = _run_case(client)
+    payload = client.get(f"/runs/{run_id}").json()
+
+    for document in payload["assembly"]["documents"]:
+        response = client.get(f"/runs/{run_id}/documents/{document['id']}/content")
+        assert response.status_code == 200, (document, response.json())
+        assert response.content
+
+
+def test_a_served_document_is_an_attachment_that_cannot_be_sniffed(client):
+    """Patient documents arrive from an upload path that takes several formats.
+
+    Rendering one inline in the reviewer's own origin would make the document
+    viewer an XSS surface, so the response refuses to be a page.
+    """
+    run_id = _run_case(client)
+
+    response = client.get(f"/runs/{run_id}/documents/D1/content")
+
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["content-disposition"].startswith("attachment")
+    assert "no-store" in response.headers["cache-control"]
+
+
+def test_a_cited_document_is_a_404_from_another_organization(authenticated_client, settings):
+    """A guessed run id from another tenant is indistinguishable from absence."""
+    response = authenticated_client.get(
+        "/runs/some-run-id/documents/D1/content", headers=_bearer("writer-b")
+    )
+
+    assert response.status_code == 404
+
+
+def test_an_unknown_document_in_a_real_run_is_a_404(client):
+    run_id = _run_case(client)
+
+    assert client.get(f"/runs/{run_id}/documents/D99/content").status_code == 404
+
+
+def test_a_stored_object_that_no_longer_matches_its_digest_is_refused(client, settings):
+    """Serving it anyway would put a document of unknown provenance in front of
+    a reviewer as though it were evidence."""
+    run_id = _run_case(client)
+    with session_scope(client.app_state.engine) as session:
+        documents = list_uploaded_documents(session, organization_id="local", case_id="PA-CASE-001")
+    target = next(document for document in documents if document.filename == "01_pa_request.txt")
+
+    stored = Path(settings.local_storage_dir) / target.storage_key
+    stored.write_bytes(b"Diagnosis: something else entirely")
+
+    response = client.get(f"/runs/{run_id}/documents/D1/content")
+
+    assert response.status_code == 502
+    assert "integrity" in response.json()["detail"]
+
+
+def test_a_run_created_by_the_cli_has_no_bytes_to_serve(client, settings):
+    """A CLI run reads a directory and stores no object. The 404 says which."""
+    run_id = _run_case(client)
+    with session_scope(client.app_state.engine) as session:
+        row = session.execute(
+            select(DocumentRow).where(DocumentRow.run_id == run_id, DocumentRow.document_id == "D1")
+        ).scalar_one()
+        row.storage_key = None
+        session.flush()
+
+    response = client.get(f"/runs/{run_id}/documents/D1/content")
+
+    assert response.status_code == 404
+    assert "CLI" in response.json()["detail"]
+
+
+# --- Browser origins -------------------------------------------------------
+
+
+def test_no_cors_headers_are_sent_when_no_origin_is_configured(client):
+    """The CLI and the worker are not browsers. An unconfigured API stays silent."""
+    response = client.get("/health", headers={"Origin": "https://reviewer.example.test"})
+
+    assert response.status_code == 200
+    assert "access-control-allow-origin" not in response.headers
+
+
+def test_a_configured_origin_is_allowed_through_preflight_and_the_request(settings):
+    with _client_with(settings, cors_allowed_origins="https://reviewer.example.test") as client:
+        preflight = client.options(
+            "/cases",
+            headers={
+                "Origin": "https://reviewer.example.test",
+                "Access-Control-Request-Method": "GET",
+                "Access-Control-Request-Headers": "authorization",
+            },
+        )
+        actual = client.get("/health", headers={"Origin": "https://reviewer.example.test"})
+
+    assert preflight.status_code == 200
+    assert preflight.headers["access-control-allow-origin"] == "https://reviewer.example.test"
+    assert actual.headers["access-control-allow-origin"] == "https://reviewer.example.test"
+    # Bearer tokens, never cookies: credentials mode buys nothing here.
+    assert "access-control-allow-credentials" not in actual.headers
+
+
+def test_an_origin_that_was_not_configured_gets_nothing(settings):
+    with _client_with(settings, cors_allowed_origins="https://reviewer.example.test") as client:
+        response = client.get("/health", headers={"Origin": "https://attacker.example.test"})
+
+    assert "access-control-allow-origin" not in response.headers
