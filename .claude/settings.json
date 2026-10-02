@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(uv sync:*)",
+      "Bash(uv run pytest:*)",
+      "Bash(uv run ruff:*)",
+      "Bash(uv run alembic check:*)",
+      "Bash(uv run alembic current:*)",
+      "Bash(uv run alembic history:*)",
+      "Bash(uv run rxauth-run-case:*)",
+      "Bash(uv run rxauth-milestone0:*)",
+      "Bash(uv run rxauth-evaluate:*)",
+      "Bash(uv run rxauth-check-reports:*)",
+      "Bash(uv run rxauth-benchmark-ingestion:*)",
+      "Bash(uv run rxauth-benchmark-extraction:*)",
+      "Bash(uv run rxauth-benchmark-retrieval:*)",
+      "Bash(uv run rxauth-benchmark-criteria:*)",
+      "Bash(uv run rxauth-benchmark-matching:*)",
+      "Bash(uv run rxauth-calibrate-extraction:*)",
+      "Bash(uv run rxauth-compare-extractors:*)",
+      "Bash(uv run rxauth-train-classifier:*)",
+      "Bash(uv run rxauth-extract:*)",
+      "Bash(uv run rxauth-extract-criteria:*)",
+      "Bash(uv run rxauth-ingest:*)",
+      "Bash(uv run rxauth-search-policy:*)",
+      "Bash(npm run lint:*)",
+      "Bash(npm run typecheck:*)",
+      "Bash(npm test:*)",
+      "Bash(npx vitest run:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./web/.env)",
+      "Read(./web/.env.local)",
+      "Read(./web/.env.*.local)",
+      "Read(./data/reviewer_feedback.jsonl)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(uv run alembic downgrade:*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|MultiEdit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --no-project --quiet python \"$CLAUDE_PROJECT_DIR/.claude/hooks/protect-paths.py\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|MultiEdit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --no-project --quiet python \"$CLAUDE_PROJECT_DIR/.claude/hooks/validate-code.py\"",
+            "timeout": 90
+          }
+        ]
+      }
+    ]
+  }
+}
