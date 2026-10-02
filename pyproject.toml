@@ -23,6 +23,16 @@ deep = [
     "transformers>=4.48,<6",
 ]
 ocr = ["pytesseract>=0.3.13"]
+service = [
+    "alembic>=1.14",
+    "boto3>=1.35",
+    "fastapi>=0.115",
+    "pyjwt[crypto]>=2.13,<3",
+    "psycopg[binary]>=3.2",
+    "python-multipart>=0.0.18",
+    "sqlalchemy>=2.0",
+    "uvicorn[standard]>=0.32",
+]
 
 [project.scripts]
 rxauth-build-dataset = "rxauth_ai.build_dataset:main"
@@ -34,6 +44,7 @@ rxauth-benchmark-matching = "rxauth_ai.benchmark_matching:main"
 rxauth-check-reports = "rxauth_ai.check_reports:main"
 rxauth-calibrate-extraction = "rxauth_ai.calibration:main"
 rxauth-compare-extractors = "rxauth_ai.compare_extractors:main"
+rxauth-evaluate = "rxauth_ai.evaluation_suite:main"
 rxauth-extract = "rxauth_ai.extraction:main"
 rxauth-extract-criteria = "rxauth_ai.criteria_extraction:main"
 rxauth-ingest = "rxauth_ai.ingestion:main"
@@ -42,6 +53,7 @@ rxauth-milestone0 = "rxauth_ai.cli:main"
 rxauth-run-case = "rxauth_ai.case_assembly:main"
 rxauth-train-classifier = "rxauth_ai.train_classifier:main"
 rxauth-train-deep-classifier = "rxauth_ai.train_deep_classifier:main"
+rxauth-worker = "rxauth_ai.worker:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -49,6 +61,7 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
+    "httpx>=0.28",
     "pytest>=8.3",
     "pytest-cov>=6.0",
     "ruff>=0.9",
@@ -67,3 +80,19 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I", "B"]
+
+[tool.ruff.lint.flake8-bugbear]
+# B008 forbids function calls in argument defaults, which is exactly how
+# FastAPI declares dependencies and request parts. The rule is right in
+# general and wrong for these seven callables, so they are excepted by name
+# rather than the rule being switched off.
+extend-immutable-calls = [
+    "fastapi.Body",
+    "fastapi.Depends",
+    "fastapi.File",
+    "fastapi.Form",
+    "fastapi.Header",
+    "fastapi.Path",
+    "fastapi.Query",
+    "fastapi.Security",
+]

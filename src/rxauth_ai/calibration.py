@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any
 
 from .benchmark_extraction import GoldDocument, load_gold
+from .config import get_settings
 from .extraction import DEFAULT_CONFIDENCE_THRESHOLD, EXTRACTOR_VERSION, extract_evidence
 from .ingestion import IngestedDocument, IngestedPage
 
@@ -373,8 +374,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Measure extraction confidence against the gold validation split."
     )
-    parser.add_argument("--gold-path", type=Path, default=Path("data/extraction_gold.jsonl"))
-    parser.add_argument("--output-dir", type=Path, default=Path("reports"))
+    parser.add_argument(
+        "--gold-path", type=Path, default=get_settings().data_dir / "extraction_gold.jsonl"
+    )
+    parser.add_argument("--output-dir", type=Path, default=get_settings().reports_dir)
     parser.add_argument(
         "--review-threshold",
         type=float,

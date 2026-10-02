@@ -1,0 +1,29 @@
+{
+  "name": "rxauth-reviewer-ui",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Reviewer UI for RxAuth AI. Prepares a prior-authorization case for a human; it does not decide one.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "next": "16.3.4",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.4",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}

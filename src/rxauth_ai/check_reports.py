@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import difflib
+import json
 import re
 import subprocess
 import sys
@@ -33,9 +34,11 @@ from pathlib import Path
 #: table cell, and CI does not train it.
 DEFAULT_REPORTS: tuple[str, ...] = (
     "reports/case_PA-CASE-001.json",
+    "reports/classifier_baseline.md",
     "reports/criteria_extraction.md",
     "reports/extraction_benchmark.md",
     "reports/extraction_calibration.md",
+    "reports/evaluation_suite.md",
     "reports/extraction_learned_comparison.md",
     "reports/ingestion_benchmark.md",
     "reports/matching_evaluation.md",
@@ -46,6 +49,9 @@ DEFAULT_REPORTS: tuple[str, ...] = (
 _TIMING = re.compile(r"latency|elapsed|duration|runtime|\btime\b", re.IGNORECASE)
 
 _PLACEHOLDER = " <timing> "
+
+#: Any numeric literal, so a timing stated in prose can be blanked too.
+_NUMBER = re.compile(r"\d+(?:\.\d+)?")
 
 
 class ReportDrift(Exception):
@@ -78,7 +84,10 @@ def normalize_markdown(text: str) -> str:
         if not stripped.startswith("|"):
             in_table = False
             timing_columns = set()
-            output.append(line)
+            # Timings also appear as prose, e.g. the classifier report's
+            # "- Batch inference latency: 0.004 ms/document (CPU)". Blank the
+            # numbers on any line that names a timing; leave everything else.
+            output.append(_NUMBER.sub(_PLACEHOLDER, line) if _TIMING.search(line) else line)
             continue
 
         cells = _split_row(line)
@@ -105,11 +114,38 @@ def normalize_markdown(text: str) -> str:
     return "\n".join(output)
 
 
+def _strip_timing_keys(value: object) -> object:
+    """Drop timing-named keys anywhere in a JSON document.
+
+    Case reports carry no timings today, and the workflow node records were
+    written without them on purpose. This is here so that adding one later
+    degrades into "the gate stops watching that field" rather than "the gate
+    fails on every commit until somebody deletes it".
+    """
+    if isinstance(value, dict):
+        return {
+            key: _strip_timing_keys(item) for key, item in value.items() if not _TIMING.search(key)
+        }
+    if isinstance(value, list):
+        return [_strip_timing_keys(item) for item in value]
+    return value
+
+
+def normalize_json(text: str) -> str:
+    try:
+        document = json.loads(text)
+    except json.JSONDecodeError:
+        # Not valid JSON: compare it verbatim rather than silently passing it.
+        return text
+    return json.dumps(_strip_timing_keys(document), indent=2, sort_keys=True)
+
+
 def normalize(path: Path, text: str) -> str:
     """Strip machine-dependent values so the rest can be compared exactly."""
     if path.suffix == ".md":
         return normalize_markdown(text)
-    # Case reports carry no timing fields, so they are compared as written.
+    if path.suffix == ".json":
+        return normalize_json(text)
     return text
 
 

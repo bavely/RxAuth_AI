@@ -29,6 +29,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from .config import get_settings
 from .criteria_extraction import (
     CRITERIA_EXTRACTOR_VERSION,
     DEFAULT_CRITERIA_CONFIDENCE_THRESHOLD,
@@ -38,7 +39,7 @@ from .criteria_extraction import (
 from .models import Criterion
 from .policy_corpus import DEFAULT_POLICY_DIR, PolicyDocument, load_corpus
 
-DEFAULT_GOLD_PATH = Path("data/policy_criteria_gold.jsonl")
+DEFAULT_GOLD_PATH = get_settings().data_dir / "policy_criteria_gold.jsonl"
 
 
 class GoldCriterion(BaseModel):
@@ -353,7 +354,7 @@ def main() -> None:
     )
     parser.add_argument("--gold-path", type=Path, default=DEFAULT_GOLD_PATH)
     parser.add_argument("--policy-dir", type=Path, default=DEFAULT_POLICY_DIR)
-    parser.add_argument("--output-dir", type=Path, default=Path("reports"))
+    parser.add_argument("--output-dir", type=Path, default=get_settings().reports_dir)
     parser.add_argument(
         "--confidence-threshold", type=float, default=DEFAULT_CRITERIA_CONFIDENCE_THRESHOLD
     )

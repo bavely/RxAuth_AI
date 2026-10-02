@@ -21,3 +21,14 @@ env/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Runtime reviewer feedback store (PHI-bearing in a real deployment, README section 19)
+data/reviewer_feedback.jsonl
+
+# Personal agent config and agent worktrees (shared config lives in .claude/)
+CLAUDE.local.md
+.claude/settings.local.json
+.claude/worktrees/
+
+# Alembic bytecode
+alembic/versions/__pycache__/

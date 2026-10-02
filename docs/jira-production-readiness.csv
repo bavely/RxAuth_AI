@@ -1,0 +1,850 @@
+"Issue ID","Issue Type","Summary","Description","Priority","Labels","Parent"
+"100","Epic","Scope and release gates","Phase: P0
+Repository evidence: AGENTS.md; README.md sections 3, 19, 20; docs/code-walkthrough.md
+Complete when all applicable child tasks have accepted evidence. Existing prototype work is not duplicated. Commercial prerequisites gate real-data deployment only.
+Assessment: 2026-10-02; static repository inspection, not executed application tests.","High","rxauth-production",""
+"101","Task","Define production V1 and commercial pilot boundaries","Backlog ID: RXAUTH-PLAN-101
+Phase: P0
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Approve synthetic-only production V1 and separately gated commercial pilot; preserve offline core, human review and excluded V1 features.
+Dependencies (CSV-local IDs, not Jira keys): -
+Repository evidence / likely change surface: AGENTS.md; README.md sections 3, 19, 20; docs/code-walkthrough.md
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","Highest","rxauth-production","100"
+"102","Task","Assign release owners and service objectives","Backlog ID: RXAUTH-PLAN-102
+Phase: P0
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Agree measurable availability, case volume, latency, queue age, recovery and cost targets with owners and measurement methods; do not invent baselines.
+Dependencies (CSV-local IDs, not Jira keys): 101
+Repository evidence / likely change surface: AGENTS.md; README.md sections 3, 19, 20; docs/code-walkthrough.md
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","100"
+"103","Task","Create requirements-to-evidence release checklist","Backlog ID: RXAUTH-PLAN-103
+Phase: P0
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Map every repository invariant and workstream to acceptance evidence and an accountable release owner.
+Dependencies (CSV-local IDs, not Jira keys): 101
+Repository evidence / likely change surface: AGENTS.md; README.md sections 3, 19, 20; docs/code-walkthrough.md
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","100"
+"104","Task","Create threat model and data-flow inventory","Backlog ID: RXAUTH-PLAN-104
+Phase: P0
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Review browser, UI server, API, worker, PostgreSQL, S3, IdP, telemetry and scratch trust boundaries and tenant attack paths.
+Dependencies (CSV-local IDs, not Jira keys): 101
+Repository evidence / likely change surface: AGENTS.md; README.md sections 3, 19, 20; docs/code-walkthrough.md
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","100"
+"105","Task","Approve complete retention and legal-hold policy","Backlog ID: RXAUTH-PLAN-105
+Phase: P0
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Review current 10-year documents, 6-year successful jobs, 90-day failures and 72-hour scratch; resolve runs, reviews, quarantine and backups before irreversible Object Lock provisioning.
+Dependencies (CSV-local IDs, not Jira keys): 101
+Repository evidence / likely change surface: AGENTS.md; README.md sections 3, 19, 20; docs/code-walkthrough.md
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","100"
+"106","Task","Record AWS deployment architecture decision","Backlog ID: RXAUTH-PLAN-106
+Phase: P0
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Choose compute and managed PostgreSQL arrangements for separate migration, API, worker and UI roles; document network, scaling, recovery and measured cost method without Kubernetes.
+Dependencies (CSV-local IDs, not Jira keys): 102;104;105
+Repository evidence / likely change surface: AGENTS.md; README.md sections 3, 19, 20; docs/code-walkthrough.md
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","100"
+"200","Epic","Reviewer identity and access","Phase: P1
+Repository evidence: web/src/lib/auth.ts; src/rxauth_ai/auth.py; docs/authentication.md; tests/test_auth.py
+Complete when all applicable child tasks have accepted evidence. Existing prototype work is not duplicated. Commercial prerequisites gate real-data deployment only.
+Assessment: 2026-10-02; static repository inspection, not executed application tests.","High","rxauth-production",""
+"201","Task","Configure staging identity provider","Backlog ID: RXAUTH-PLAN-201
+Phase: P1
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Configure audience, asymmetric signing, org/role claims and synthetic reviewer accounts; demonstrate valid staging token verification.
+Dependencies (CSV-local IDs, not Jira keys): 104;106
+Repository evidence / likely change surface: web/src/lib/auth.ts; src/rxauth_ai/auth.py; docs/authentication.md; tests/test_auth.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","200"
+"202","Task","Implement per-reviewer OIDC sign-in","Backlog ID: RXAUTH-PLAN-202
+Phase: P1
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Implement OidcSessionTokenProvider with authorization code, PKCE, state and nonce; distinct reviewers have distinct verified subjects and server-side tokens.
+Dependencies (CSV-local IDs, not Jira keys): 201
+Repository evidence / likely change surface: web/src/lib/auth.ts; src/rxauth_ai/auth.py; docs/authentication.md; tests/test_auth.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","Highest","rxauth-production","200"
+"203","Task","Implement protected session refresh and logout","Backlog ID: RXAUTH-PLAN-203
+Phase: P1
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Secure cookies and server session store support expiry, rotation, revoked sessions and concurrent refresh; no token reaches browser storage, bundles or logs.
+Dependencies (CSV-local IDs, not Jira keys): 202
+Repository evidence / likely change surface: web/src/lib/auth.ts; src/rxauth_ai/auth.py; docs/authentication.md; tests/test_auth.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","200"
+"204","Task","Fail closed for unsafe deployed UI authentication","Backlog ID: RXAUTH-PLAN-204
+Phase: P1
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Validate deployed UI settings and reject local principal or shared machine-token reviewer mode at startup; never silently attribute human reviews to one service identity.
+Dependencies (CSV-local IDs, not Jira keys): 202
+Repository evidence / likely change surface: web/src/lib/auth.ts; src/rxauth_ai/auth.py; docs/authentication.md; tests/test_auth.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","Highest","rxauth-production","200"
+"205","Task","Verify role and tenant isolation through the full stack","Backlog ID: RXAUTH-PLAN-205
+Phase: P1
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Exercise UI, proxy, API, jobs, storage and repository with multiple orgs; cross-org IDs return 404 and admin remains tenant-scoped; clients cannot forge reviewer identity.
+Dependencies (CSV-local IDs, not Jira keys): 203;204
+Repository evidence / likely change surface: web/src/lib/auth.ts; src/rxauth_ai/auth.py; docs/authentication.md; tests/test_auth.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","Highest","rxauth-production","200"
+"206","Task","Test real-provider JWT errors and signing-key rotation","Backlog ID: RXAUTH-PLAN-206
+Phase: P1
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Exercise wrong issuer/audience, expired token, JWKS rotation and IdP outage; verification failures remain bounded and fail closed.
+Dependencies (CSV-local IDs, not Jira keys): 201;203
+Repository evidence / likely change surface: web/src/lib/auth.ts; src/rxauth_ai/auth.py; docs/authentication.md; tests/test_auth.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","200"
+"207","Task","Document provisioning offboarding and access reviews","Backlog ID: RXAUTH-PLAN-207
+Phase: P1
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Assign owners for MFA policy, role approval, tenant provisioning and periodic reviews; synthetic offboarding drill revokes access and records audit evidence.
+Dependencies (CSV-local IDs, not Jira keys): 205;206
+Repository evidence / likely change surface: web/src/lib/auth.ts; src/rxauth_ai/auth.py; docs/authentication.md; tests/test_auth.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","200"
+"300","Epic","Reviewer workflow completion","Phase: P2
+Repository evidence: docs/reviewer-ui.md; web/src/app; web/src/lib/api.ts; src/rxauth_ai/api.py
+Complete when all applicable child tasks have accepted evidence. Existing prototype work is not duplicated. Commercial prerequisites gate real-data deployment only.
+Assessment: 2026-10-02; static repository inspection, not executed application tests.","High","rxauth-production",""
+"301","Task","Add case creation and document upload UI","Backlog ID: RXAUTH-PLAN-301
+Phase: P2
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Server-mediated forms use existing APIs and explicit input pa_required; supported uploads work and authoritative validation errors are visible.
+Dependencies (CSV-local IDs, not Jira keys): 204
+Repository evidence / likely change surface: docs/reviewer-ui.md; web/src/app; web/src/lib/api.ts; src/rxauth_ai/api.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","300"
+"302","Task","Expose durable job progress and recovery","Backlog ID: RXAUTH-PLAN-302
+Phase: P2
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Show queue, running, retry and failure states with safe refresh and actionable errors; restart and retry preserve run history and permissions.
+Dependencies (CSV-local IDs, not Jira keys): 204
+Repository evidence / likely change surface: docs/reviewer-ui.md; web/src/app; web/src/lib/api.ts; src/rxauth_ai/api.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","300"
+"303","Task","Add worklist pagination and navigation","Backlog ID: RXAUTH-PLAN-303
+Phase: P2
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Use existing limit/offset API; all authorized cases are reachable beyond 100 records with correct empty, loading and error states.
+Dependencies (CSV-local IDs, not Jira keys): 204
+Repository evidence / likely change surface: docs/reviewer-ui.md; web/src/app; web/src/lib/api.ts; src/rxauth_ai/api.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","300"
+"304","Task","Persist immutable ingested page text and provenance","Backlog ID: RXAUTH-PLAN-304
+Phase: P2
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Worker stores per-page text with org/run/document checksum and OCR versions; migration preserves old runs and request handlers never perform OCR.
+Dependencies (CSV-local IDs, not Jira keys): 105
+Repository evidence / likely change surface: docs/reviewer-ui.md; web/src/app; web/src/lib/api.ts; src/rxauth_ai/api.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","300"
+"305","Task","Serve and display exact per-page citations","Backlog ID: RXAUTH-PLAN-305
+Phase: P2
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Tenant-scoped page-text API/UI verifies quotes for multi-page PDF/OCR; unavailable/mismatched spans stay explicit and cross-org requests return 404.
+Dependencies (CSV-local IDs, not Jira keys): 304;205
+Repository evidence / likely change surface: docs/reviewer-ui.md; web/src/app; web/src/lib/api.ts; src/rxauth_ai/api.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","300"
+"306","Task","Display exact policy source documents in context","Backlog ID: RXAUTH-PLAN-306
+Phase: P2
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Serve immutable policy version and surrounding page text used by historical run; missing source is flagged and never replaced with current policy.
+Dependencies (CSV-local IDs, not Jira keys): 601
+Repository evidence / likely change surface: docs/reviewer-ui.md; web/src/app; web/src/lib/api.ts; src/rxauth_ai/api.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","300"
+"307","Task","Complete evidence correction and human escalation UI","Backlog ID: RXAUTH-PLAN-307
+Phase: P2
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Support authorized evidence selection, notes and append-only history; meaningful corrections are required, original result remains visible and reviewer identity comes from session.
+Dependencies (CSV-local IDs, not Jira keys): 202;305
+Repository evidence / likely change surface: docs/reviewer-ui.md; web/src/app; web/src/lib/api.ts; src/rxauth_ai/api.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","300"
+"308","Task","Make reviewer flows accessible and responsive","Backlog ID: RXAUTH-PLAN-308
+Phase: P2
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Keyboard, focus, labels, contrast and screen-reader checks cover uploads, worklist, runs, citations and review forms; status wording preserves uncertainty.
+Dependencies (CSV-local IDs, not Jira keys): 301;305;307
+Repository evidence / likely change surface: docs/reviewer-ui.md; web/src/app; web/src/lib/api.ts; src/rxauth_ai/api.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","300"
+"309","Task","Handle concurrent reviews and duplicate form submission","Backlog ID: RXAUTH-PLAN-309
+Phase: P2
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Stale-view conflicts are explicit; repeated submission cannot silently duplicate decisions or overwrite prior reviews.
+Dependencies (CSV-local IDs, not Jira keys): 307
+Repository evidence / likely change surface: docs/reviewer-ui.md; web/src/app; web/src/lib/api.ts; src/rxauth_ai/api.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","300"
+"400","Epic","Upload and processing security","Phase: P1
+Repository evidence: src/rxauth_ai/uploads.py; src/rxauth_ai/storage.py; src/rxauth_ai/case_jobs.py; docs/production-hardening.md
+Complete when all applicable child tasks have accepted evidence. Existing prototype work is not duplicated. Commercial prerequisites gate real-data deployment only.
+Assessment: 2026-10-02; static repository inspection, not executed application tests.","High","rxauth-production",""
+"401","Task","Design quarantine scan and release lifecycle","Backlog ID: RXAUTH-PLAN-401
+Phase: P1
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: ADR and schema define object versions, scan states, callback trust and failures; unscanned or rejected objects are inaccessible to downloads and workers.
+Dependencies (CSV-local IDs, not Jira keys): 104;105;106
+Repository evidence / likely change surface: src/rxauth_ai/uploads.py; src/rxauth_ai/storage.py; src/rxauth_ai/case_jobs.py; docs/production-hardening.md
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","400"
+"402","Task","Implement asynchronous malware scan and release","Backlog ID: RXAUTH-PLAN-402
+Phase: P1
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Use reviewed AWS-compatible scanner and distinct IAM permissions; harmless scanner fixtures test clean, rejected, timeout and callback replay behavior for exact object versions.
+Dependencies (CSV-local IDs, not Jira keys): 401
+Repository evidence / likely change surface: src/rxauth_ai/uploads.py; src/rxauth_ai/storage.py; src/rxauth_ai/case_jobs.py; docs/production-hardening.md
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","400"
+"403","Task","Enforce quarantine at enqueue hydration and download","Backlog ID: RXAUTH-PLAN-403
+Phase: P1
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Only verified released bytes can run or be served; races, changed checksum, stale scan callback and cross-tenant access fail closed.
+Dependencies (CSV-local IDs, not Jira keys): 402
+Repository evidence / likely change surface: src/rxauth_ai/uploads.py; src/rxauth_ai/storage.py; src/rxauth_ai/case_jobs.py; docs/production-hardening.md
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","Highest","rxauth-production","400"
+"404","Task","Isolate PDF image and OCR parser resources","Backlog ID: RXAUTH-PLAN-404
+Phase: P1
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Bound CPU, memory, scratch, child processes and privileges; malformed and decompression-heavy synthetic files cannot exhaust API or expose other tenant files.
+Dependencies (CSV-local IDs, not Jira keys): 104;403
+Repository evidence / likely change surface: src/rxauth_ai/uploads.py; src/rxauth_ai/storage.py; src/rxauth_ai/case_jobs.py; docs/production-hardening.md
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","400"
+"405","Task","Add tenant quotas and queue admission controls","Backlog ID: RXAUTH-PLAN-405
+Phase: P1
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Configurable request and run limits retain existing upload limits; burst tests show bounded queue growth, fairness and actionable 429 responses.
+Dependencies (CSV-local IDs, not Jira keys): 102;403
+Repository evidence / likely change surface: src/rxauth_ai/uploads.py; src/rxauth_ai/storage.py; src/rxauth_ai/case_jobs.py; docs/production-hardening.md
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","400"
+"406","Task","Harden document responses and browser headers","Backlog ID: RXAUTH-PLAN-406
+Phase: P1
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Verify MIME, disposition, no-store, CSP, framing and TLS headers; malicious synthetic filenames/active content cannot execute or enter shared caches.
+Dependencies (CSV-local IDs, not Jira keys): 203;305
+Repository evidence / likely change surface: src/rxauth_ai/uploads.py; src/rxauth_ai/storage.py; src/rxauth_ai/case_jobs.py; docs/production-hardening.md
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","400"
+"407","Task","Reconcile temporary orphaned and quarantined data","Backlog ID: RXAUTH-PLAN-407
+Phase: P1
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Extend existing maintenance for interrupted uploads and DB/S3 mismatch; crash tests eventually reconcile state without deleting active or retained objects.
+Dependencies (CSV-local IDs, not Jira keys): 105;403
+Repository evidence / likely change surface: src/rxauth_ai/uploads.py; src/rxauth_ai/storage.py; src/rxauth_ai/case_jobs.py; docs/production-hardening.md
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","400"
+"500","Epic","Pipeline evaluation and quality","Phase: P2
+Repository evidence: reports/evaluation_suite.md; reports/ingestion_benchmark.md; Dockerfile; src/rxauth_ai/evaluation_suite.py
+Complete when all applicable child tasks have accepted evidence. Existing prototype work is not duplicated. Commercial prerequisites gate real-data deployment only.
+Assessment: 2026-10-02; static repository inspection, not executed application tests.","High","rxauth-production",""
+"501","Task","Enable and version OCR in deployment images","Backlog ID: RXAUTH-PLAN-501
+Phase: P2
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Include optional Python OCR backend as well as Tesseract; fresh container processes synthetic scans and records tested runtime versions.
+Dependencies (CSV-local IDs, not Jira keys): 106
+Repository evidence / likely change surface: reports/evaluation_suite.md; reports/ingestion_benchmark.md; Dockerfile; src/rxauth_ai/evaluation_suite.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","Highest","rxauth-production","500"
+"502","Task","Measure OCR accuracy and confidence","Backlog ID: RXAUTH-PLAN-502
+Phase: P2
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Run actual OCR benchmark with reviewed CER/confidence criteria; regenerate reports by commands and replace explicitly unmeasured OCR results with observed evidence.
+Dependencies (CSV-local IDs, not Jira keys): 501
+Repository evidence / likely change surface: reports/evaluation_suite.md; reports/ingestion_benchmark.md; Dockerfile; src/rxauth_ai/evaluation_suite.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","500"
+"503","Task","Add independently authored synthetic challenge sets","Backlog ID: RXAUTH-PLAN-503
+Phase: P2
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Document independent authorship, adjudication and leakage-resistant splits for policy variety, OCR, dates, conflicts and aliases; do not rewrite frozen gold to improve scores.
+Dependencies (CSV-local IDs, not Jira keys): 101
+Repository evidence / likely change surface: reports/evaluation_suite.md; reports/ingestion_benchmark.md; Dockerfile; src/rxauth_ai/evaluation_suite.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","500"
+"504","Task","Evaluate full cases across supported input formats","Backlog ID: RXAUTH-PLAN-504
+Phase: P2
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Multi-case end-to-end benchmark covers text, PDF, scans and multiple pages with five-state outcomes, policy version, citation accuracy and false-support metrics.
+Dependencies (CSV-local IDs, not Jira keys): 502;503
+Repository evidence / likely change surface: reports/evaluation_suite.md; reports/ingestion_benchmark.md; Dockerfile; src/rxauth_ai/evaluation_suite.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","500"
+"505","Task","Review adversarial invariant regression coverage","Backlog ID: RXAUTH-PLAN-505
+Phase: P2
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Tests detect weakened citation gates, guessed uncertainty, wrong metadata filters, missing criteria, negation/unit/ALL-ANY errors and bypassed terminal human review.
+Dependencies (CSV-local IDs, not Jira keys): 503
+Repository evidence / likely change surface: reports/evaluation_suite.md; reports/ingestion_benchmark.md; Dockerfile; src/rxauth_ai/evaluation_suite.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","500"
+"506","Task","Validate confidence and review-routing thresholds","Backlog ID: RXAUTH-PLAN-506
+Phase: P2
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Use validation-only independent synthetic data and OCR quality; regenerate calibration evidence and never select thresholds on frozen test/challenge data.
+Dependencies (CSV-local IDs, not Jira keys): 503;504
+Repository evidence / likely change surface: reports/evaluation_suite.md; reports/ingestion_benchmark.md; Dockerfile; src/rxauth_ai/evaluation_suite.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","500"
+"507","Task","Enforce behavior versions and report reproducibility","Backlog ID: RXAUTH-PLAN-507
+Phase: P2
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Behavior-changing releases require tests, affected module version bumps and command-regenerated reports; existing ratchets/gold remain protected.
+Dependencies (CSV-local IDs, not Jira keys): 504;505;506
+Repository evidence / likely change surface: reports/evaluation_suite.md; reports/ingestion_benchmark.md; Dockerfile; src/rxauth_ai/evaluation_suite.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","500"
+"508","Task","Publish supported capability and limitation matrix","Backlog ID: RXAUTH-PLAN-508
+Phase: P2
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Cite measured synthetic evidence for formats, policies, dates and medication support; unsupported inputs route to review and no clinical/generalization claim is made.
+Dependencies (CSV-local IDs, not Jira keys): 504;506
+Repository evidence / likely change surface: reports/evaluation_suite.md; reports/ingestion_benchmark.md; Dockerfile; src/rxauth_ai/evaluation_suite.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","500"
+"600","Epic","Policy and model lifecycle","Phase: P1
+Repository evidence: src/rxauth_ai/policy_corpus.py; src/rxauth_ai/policy_retrieval.py; src/rxauth_ai/registry.py; Dockerfile
+Complete when all applicable child tasks have accepted evidence. Existing prototype work is not duplicated. Commercial prerequisites gate real-data deployment only.
+Assessment: 2026-10-02; static repository inspection, not executed application tests.","High","rxauth-production",""
+"601","Task","Package immutable policy versions and source provenance","Backlog ID: RXAUTH-PLAN-601
+Phase: P1
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Retain exact source bytes, metadata, effective dates and checksums; historical runs retain original sources and PA-207 trap stays unchanged.
+Dependencies (CSV-local IDs, not Jira keys): 101
+Repository evidence / likely change surface: src/rxauth_ai/policy_corpus.py; src/rxauth_ai/policy_retrieval.py; src/rxauth_ai/registry.py; Dockerfile
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","600"
+"602","Task","Validate policy publication and ambiguous version windows","Backlog ID: RXAUTH-PLAN-602
+Phase: P1
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Reject or explicitly route invalid metadata, duplicate IDs, overlapping effective windows and unsupported prose; never add metadata-weakening similarity fallback.
+Dependencies (CSV-local IDs, not Jira keys): 601
+Repository evidence / likely change surface: src/rxauth_ai/policy_corpus.py; src/rxauth_ai/policy_retrieval.py; src/rxauth_ai/registry.py; Dockerfile
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","600"
+"603","Task","Create reviewed policy update and rollback process","Backlog ID: RXAUTH-PLAN-603
+Phase: P1
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Verify source permission, staged activation and regression evaluation; update/rollback drill reproduces old runs with no core network retrieval.
+Dependencies (CSV-local IDs, not Jira keys): 602;507
+Repository evidence / likely change surface: src/rxauth_ai/policy_corpus.py; src/rxauth_ai/policy_retrieval.py; src/rxauth_ai/registry.py; Dockerfile
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","600"
+"604","Task","Distribute verified classifier artifact in fresh deployment","Backlog ID: RXAUTH-PLAN-604
+Phase: P1
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Promote trained pickle-free manifest/checksum artifact without relying on local volume or implicit training; missing/corrupt artifact fails readiness.
+Dependencies (CSV-local IDs, not Jira keys): 106
+Repository evidence / likely change surface: src/rxauth_ai/policy_corpus.py; src/rxauth_ai/policy_retrieval.py; src/rxauth_ai/registry.py; Dockerfile
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","Highest","rxauth-production","600"
+"605","Task","Record complete release provenance per run","Backlog ID: RXAUTH-PLAN-605
+Phase: P1
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Trace commit/release, policy checksum, classifier fingerprint and all producer versions; retained authorized inputs reproduce historical output.
+Dependencies (CSV-local IDs, not Jira keys): 601;604
+Repository evidence / likely change surface: src/rxauth_ai/policy_corpus.py; src/rxauth_ai/policy_retrieval.py; src/rxauth_ai/registry.py; Dockerfile
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","600"
+"606","Task","Control model promotion compatibility and rollback","Backlog ID: RXAUTH-PLAN-606
+Phase: P1
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Validation selects candidate, frozen evaluation gates release and rollback restores prior artifact; retain classical baseline unless measured evidence justifies replacement.
+Dependencies (CSV-local IDs, not Jira keys): 507;604;605
+Repository evidence / likely change surface: src/rxauth_ai/policy_corpus.py; src/rxauth_ai/policy_retrieval.py; src/rxauth_ai/registry.py; Dockerfile
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","600"
+"700","Epic","AWS deployment and delivery","Phase: P1
+Repository evidence: Dockerfile; web/Dockerfile; docker-compose.yml; .github/workflows/ci.yml; docs/production-hardening.md
+Complete when all applicable child tasks have accepted evidence. Existing prototype work is not duplicated. Commercial prerequisites gate real-data deployment only.
+Assessment: 2026-10-02; static repository inspection, not executed application tests.","High","rxauth-production",""
+"701","Task","Provision isolated environments with infrastructure as code","Backlog ID: RXAUTH-PLAN-701
+Phase: P1
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Clean AWS synthetic staging reproduces compute, PostgreSQL, S3 and network without console-only dependencies or committed secrets.
+Dependencies (CSV-local IDs, not Jira keys): 106
+Repository evidence / likely change surface: Dockerfile; web/Dockerfile; docker-compose.yml; .github/workflows/ci.yml; docs/production-hardening.md
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","700"
+"702","Task","Configure private networks TLS and least-privilege workload IAM","Backlog ID: RXAUTH-PLAN-702
+Phase: P1
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Separate API, worker, migration and UI permissions; database/buckets are private and ingress/database transport encrypted with tested denial boundaries.
+Dependencies (CSV-local IDs, not Jira keys): 701;104
+Repository evidence / likely change surface: Dockerfile; web/Dockerfile; docker-compose.yml; .github/workflows/ci.yml; docs/production-hardening.md
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","700"
+"703","Task","Configure encryption secrets and credential rotation","Backlog ID: RXAUTH-PLAN-703
+Phase: P1
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Encrypt storage, backups and scratch; managed secrets and workload credentials rotate successfully without appearing in logs or source.
+Dependencies (CSV-local IDs, not Jira keys): 702
+Repository evidence / likely change surface: Dockerfile; web/Dockerfile; docker-compose.yml; .github/workflows/ci.yml; docs/production-hardening.md
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","700"
+"704","Task","Provision Object Lock versioning and retention lifecycle","Backlog ID: RXAUTH-PLAN-704
+Phase: P1
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Verify approved production COMPLIANCE retain-until settings and permissions in AWS; lifecycle cannot remove locked objects and tenant namespaces stay isolated.
+Dependencies (CSV-local IDs, not Jira keys): 105;701;703
+Repository evidence / likely change surface: Dockerfile; web/Dockerfile; docker-compose.yml; .github/workflows/ci.yml; docs/production-hardening.md
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","Highest","rxauth-production","700"
+"705","Task","Harden reproducible production containers","Backlog ID: RXAUTH-PLAN-705
+Phase: P1
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Pin base/tool digests, omit dev dependencies, review ownership, use read-only code and explicit writable scratch; fresh non-root images process cases.
+Dependencies (CSV-local IDs, not Jira keys): 501;604
+Repository evidence / likely change surface: Dockerfile; web/Dockerfile; docker-compose.yml; .github/workflows/ci.yml; docs/production-hardening.md
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","700"
+"706","Task","Automate immutable build staging and protected promotion","Backlog ID: RXAUTH-PLAN-706
+Phase: P1
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Build once from lockfiles, publish traceable artifacts, gate staging and promote same release; no mutable latest tag deploys.
+Dependencies (CSV-local IDs, not Jira keys): 705;507
+Repository evidence / likely change surface: Dockerfile; web/Dockerfile; docker-compose.yml; .github/workflows/ci.yml; docs/production-hardening.md
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","700"
+"707","Task","Automate migrations and compatibility checks","Backlog ID: RXAUTH-PLAN-707
+Phase: P1
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Separate coordinated migration task supports expand/contract; synthetic historical data survives rehearsal, failure blocks rollout and rollback compatibility is documented.
+Dependencies (CSV-local IDs, not Jira keys): 701;304;401
+Repository evidence / likely change surface: Dockerfile; web/Dockerfile; docker-compose.yml; .github/workflows/ci.yml; docs/production-hardening.md
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","700"
+"708","Task","Add dependency readiness and worker health probes","Backlog ID: RXAUTH-PLAN-708
+Phase: P1
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Separate liveness from DB/schema/artifact/policy/storage readiness; worker heartbeat and UI probes work with OIDC and stop unsafe traffic/processing.
+Dependencies (CSV-local IDs, not Jira keys): 604;702
+Repository evidence / likely change surface: Dockerfile; web/Dockerfile; docker-compose.yml; .github/workflows/ci.yml; docs/production-hardening.md
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","700"
+"709","Task","Implement graceful draining and rolling releases","Backlog ID: RXAUTH-PLAN-709
+Phase: P1
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: SIGTERM, lease renewal and in-flight migration/API/UI compatibility tests demonstrate no lost accepted job or duplicate persisted run during replacement.
+Dependencies (CSV-local IDs, not Jira keys): 707;708
+Repository evidence / likely change surface: Dockerfile; web/Dockerfile; docker-compose.yml; .github/workflows/ci.yml; docs/production-hardening.md
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","700"
+"710","Task","Configure measured autoscaling and resource caps","Backlog ID: RXAUTH-PLAN-710
+Phase: P1
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Size API/OCR workers independently using queue/CPU/load and DB connection budget; target volume meets objectives without tenant starvation or adding brokers.
+Dependencies (CSV-local IDs, not Jira keys): 405;903
+Repository evidence / likely change surface: Dockerfile; web/Dockerfile; docker-compose.yml; .github/workflows/ci.yml; docs/production-hardening.md
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","700"
+"800","Epic","Observability and operations","Phase: P3
+Repository evidence: src/rxauth_ai/observability.py; src/rxauth_ai/worker.py; src/rxauth_ai/jobs.py; tests/test_observability.py
+Complete when all applicable child tasks have accepted evidence. Existing prototype work is not duplicated. Commercial prerequisites gate real-data deployment only.
+Assessment: 2026-10-02; static repository inspection, not executed application tests.","High","rxauth-production",""
+"801","Task","Add safe service pipeline and queue metrics","Backlog ID: RXAUTH-PLAN-801
+Phase: P3
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Measure latency, error rate, retries, queue age, OCR time and review routing with bounded labels and no document text, tokens or patient identifiers.
+Dependencies (CSV-local IDs, not Jira keys): 102
+Repository evidence / likely change surface: src/rxauth_ai/observability.py; src/rxauth_ai/worker.py; src/rxauth_ai/jobs.py; tests/test_observability.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","800"
+"802","Task","Build actionable dashboards and paging alerts","Backlog ID: RXAUTH-PLAN-802
+Phase: P3
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Inject synthetic worker, database, scanner and cleanup faults; alerts link to runbooks with assigned owners and reviewed noise thresholds.
+Dependencies (CSV-local IDs, not Jira keys): 801;708
+Repository evidence / likely change surface: src/rxauth_ai/observability.py; src/rxauth_ai/worker.py; src/rxauth_ai/jobs.py; tests/test_observability.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","800"
+"803","Task","Correlate UI API queue worker and storage events","Backlog ID: RXAUTH-PLAN-803
+Phase: P3
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Safe correlation IDs trace one synthetic case through components; spans and payloads exclude document text and credentials.
+Dependencies (CSV-local IDs, not Jira keys): 801
+Repository evidence / likely change surface: src/rxauth_ai/observability.py; src/rxauth_ai/worker.py; src/rxauth_ai/jobs.py; tests/test_observability.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","800"
+"804","Task","Add protected security audit events","Backlog ID: RXAUTH-PLAN-804
+Phase: P3
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Record access, upload, scan release, run, review and admin actor/tenant/time; append-only protected storage has reviewed access and retention.
+Dependencies (CSV-local IDs, not Jira keys): 105;205;403
+Repository evidence / likely change surface: src/rxauth_ai/observability.py; src/rxauth_ai/worker.py; src/rxauth_ai/jobs.py; tests/test_observability.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","800"
+"805","Task","Verify safe logs traces and exceptions end to end","Backlog ID: RXAUTH-PLAN-805
+Phase: P3
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Sentinel synthetic text and tokens never appear in deployed telemetry/error sinks; third-party parser errors are sanitized and local text logging stays explicit.
+Dependencies (CSV-local IDs, not Jira keys): 803;804
+Repository evidence / likely change surface: src/rxauth_ai/observability.py; src/rxauth_ai/worker.py; src/rxauth_ai/jobs.py; tests/test_observability.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","800"
+"806","Task","Write incident and failure recovery runbooks","Backlog ID: RXAUTH-PLAN-806
+Phase: P3
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Operator drills cover IdP/scanner/DB/S3 outage, missing artifacts, failed jobs, citation mismatch, backlog and leases without bypassing gates.
+Dependencies (CSV-local IDs, not Jira keys): 802;805
+Repository evidence / likely change surface: src/rxauth_ai/observability.py; src/rxauth_ai/worker.py; src/rxauth_ai/jobs.py; tests/test_observability.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","800"
+"807","Task","Measure usage capacity and retention cost","Backlog ID: RXAUTH-PLAN-807
+Phase: P3
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Report measured compute/OCR, database pressure and storage growth; budgets account for long retention with documented assumptions and no fabricated costs.
+Dependencies (CSV-local IDs, not Jira keys): 801;704
+Repository evidence / likely change surface: src/rxauth_ai/observability.py; src/rxauth_ai/worker.py; src/rxauth_ai/jobs.py; tests/test_observability.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","800"
+"900","Epic","Durability performance and recovery","Phase: P3
+Repository evidence: src/rxauth_ai/jobs.py; src/rxauth_ai/case_jobs.py; src/rxauth_ai/persistence; tests/test_jobs.py
+Complete when all applicable child tasks have accepted evidence. Existing prototype work is not duplicated. Commercial prerequisites gate real-data deployment only.
+Assessment: 2026-10-02; static repository inspection, not executed application tests.","High","rxauth-production",""
+"901","Task","Test multi-worker claim lease and crash durability","Backlog ID: RXAUTH-PLAN-901
+Phase: P3
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: PostgreSQL integration tests exercise SKIP LOCKED, heartbeat, lease expiry, races and crash after run persistence; accepted jobs survive and existing run ID is reused.
+Dependencies (CSV-local IDs, not Jira keys): 709
+Repository evidence / likely change surface: src/rxauth_ai/jobs.py; src/rxauth_ai/case_jobs.py; src/rxauth_ai/persistence; tests/test_jobs.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","900"
+"902","Task","Rehearse dependency interruption and restart recovery","Backlog ID: RXAUTH-PLAN-902
+Phase: P3
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Inject DB/S3/worker/API/scan failures and checksum mismatch; retry respects policy and failed nodes leave later nodes not-run with no invented evidence.
+Dependencies (CSV-local IDs, not Jira keys): 901;403
+Repository evidence / likely change surface: src/rxauth_ai/jobs.py; src/rxauth_ai/case_jobs.py; src/rxauth_ai/persistence; tests/test_jobs.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","900"
+"903","Task","Run representative load and soak benchmarks","Backlog ID: RXAUTH-PLAN-903
+Phase: P3
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Synthetic mixed-format and maximum-limit workloads record p50/p95/p99, throughput, memory, scratch, DB connections and queue age against approved objectives.
+Dependencies (CSV-local IDs, not Jira keys): 102;504;701
+Repository evidence / likely change surface: src/rxauth_ai/jobs.py; src/rxauth_ai/case_jobs.py; src/rxauth_ai/persistence; tests/test_jobs.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","900"
+"904","Task","Review execution budget and stalled-job response","Backlog ID: RXAUTH-PLAN-904
+Phase: P3
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Keep no-hard-attempt-timeout decision unless deliberately revised; distinguish lease from execution timeout and prove observable safe response to hung parsers.
+Dependencies (CSV-local IDs, not Jira keys): 902;903
+Repository evidence / likely change surface: src/rxauth_ai/jobs.py; src/rxauth_ai/case_jobs.py; src/rxauth_ai/persistence; tests/test_jobs.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","900"
+"905","Task","Tune measured database query and index bottlenecks","Backlog ID: RXAUTH-PLAN-905
+Phase: P3
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Profile worklist, runs, queue, audit and retention; reviewed migrations improve target-load performance while preserving tenant predicates.
+Dependencies (CSV-local IDs, not Jira keys): 903
+Repository evidence / likely change surface: src/rxauth_ai/jobs.py; src/rxauth_ai/case_jobs.py; src/rxauth_ai/persistence; tests/test_jobs.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","900"
+"906","Task","Configure encrypted backups and point-in-time recovery","Backlog ID: RXAUTH-PLAN-906
+Phase: P3
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Approved recovery objectives and retention cover PostgreSQL, config/artifact catalog and consistent S3 version reconstruction with monitored backups.
+Dependencies (CSV-local IDs, not Jira keys): 105;703;605
+Repository evidence / likely change surface: src/rxauth_ai/jobs.py; src/rxauth_ai/case_jobs.py; src/rxauth_ai/persistence; tests/test_jobs.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","900"
+"907","Task","Rehearse full environment restore and disaster recovery","Backlog ID: RXAUTH-PLAN-907
+Phase: P3
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Restore synthetic auth/API/worker/data/artifacts from backups; citations and review history reproduce within approved RPO/RTO with recorded evidence.
+Dependencies (CSV-local IDs, not Jira keys): 906;904
+Repository evidence / likely change surface: src/rxauth_ai/jobs.py; src/rxauth_ai/case_jobs.py; src/rxauth_ai/persistence; tests/test_jobs.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","900"
+"908","Task","Verify retention cleanup and restore consistency","Backlog ID: RXAUTH-PLAN-908
+Phase: P3
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Controlled clocks exercise job/temp/quarantine retention; active work and Object Lock remain safe and restored metadata never silently points to changed bytes.
+Dependencies (CSV-local IDs, not Jira keys): 407;907
+Repository evidence / likely change surface: src/rxauth_ai/jobs.py; src/rxauth_ai/case_jobs.py; src/rxauth_ai/persistence; tests/test_jobs.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","900"
+"909","Task","Verify retry idempotency for create upload and enqueue","Backlog ID: RXAUTH-PLAN-909
+Phase: P3
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Lost response and concurrent repeat tests show documented non-duplicate outcomes; add tenant-scoped idempotency where required without DB/object inconsistency.
+Dependencies (CSV-local IDs, not Jira keys): 901;309
+Repository evidence / likely change surface: src/rxauth_ai/jobs.py; src/rxauth_ai/case_jobs.py; src/rxauth_ai/persistence; tests/test_jobs.py
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","900"
+"1000","Epic","Integration and security assurance","Phase: P2
+Repository evidence: .github/workflows/ci.yml; tests/test_api.py; tests/test_persistence.py; docs/reviewer-ui.md
+Complete when all applicable child tasks have accepted evidence. Existing prototype work is not duplicated. Commercial prerequisites gate real-data deployment only.
+Assessment: 2026-10-02; static repository inspection, not executed application tests.","High","rxauth-production",""
+"1001","Task","Add full reviewer browser end-to-end CI tests","Backlog ID: RXAUTH-PLAN-1001
+Phase: P2
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Real synthetic UI/API/Postgres/worker/IdP stack tests sign-in, uploads, run, PDF/OCR citations, correction, escalation, logout and role/tenant boundaries.
+Dependencies (CSV-local IDs, not Jira keys): 205;301;305;307
+Repository evidence / likely change surface: .github/workflows/ci.yml; tests/test_api.py; tests/test_persistence.py; docs/reviewer-ui.md
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","1000"
+"1002","Task","Add behavior tests for risky UI interactions","Backlog ID: RXAUTH-PLAN-1002
+Phase: P2
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Test upload errors, inaccessible citations, evidence corrections, stale review, job states and keyboard navigation using reviewer-visible outcomes.
+Dependencies (CSV-local IDs, not Jira keys): 308;309
+Repository evidence / likely change surface: .github/workflows/ci.yml; tests/test_api.py; tests/test_persistence.py; docs/reviewer-ui.md
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","1000"
+"1003","Task","Test AWS storage Object Lock and scanning integration","Backlog ID: RXAUTH-PLAN-1003
+Phase: P2
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Isolated synthetic staging verifies object versions/checksums, quarantine permissions, retention and signed scan replay defenses beyond local mocks.
+Dependencies (CSV-local IDs, not Jira keys): 403;704
+Repository evidence / likely change surface: .github/workflows/ci.yml; tests/test_api.py; tests/test_persistence.py; docs/reviewer-ui.md
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","1000"
+"1004","Task","Validate API and TypeScript contract compatibility","Backlog ID: RXAUTH-PLAN-1004
+Phase: P2
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Generate or verify payload and error shapes; contract mismatch fails CI and old/new deployed versions coexist during rolling release.
+Dependencies (CSV-local IDs, not Jira keys): 707
+Repository evidence / likely change surface: .github/workflows/ci.yml; tests/test_api.py; tests/test_persistence.py; docs/reviewer-ui.md
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","1000"
+"1005","Task","Automate dependency secret and container scans with SBOM","Backlog ID: RXAUTH-PLAN-1005
+Phase: P2
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Scan Python/Node/image trees and secret fixtures; reviewed risk exceptions are tracked and no unaccepted blocking finding ships.
+Dependencies (CSV-local IDs, not Jira keys): 705;706
+Repository evidence / likely change surface: .github/workflows/ci.yml; tests/test_api.py; tests/test_persistence.py; docs/reviewer-ui.md
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","1000"
+"1006","Task","Commission independent application penetration assessment","Backlog ID: RXAUTH-PLAN-1006
+Phase: P2
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Authorized synthetic staging review covers IDOR, tenant escape, parser abuse, sessions/CSRF, headers and privileges; remediate and retest every release blocker.
+Dependencies (CSV-local IDs, not Jira keys): 1001;1003;1005
+Repository evidence / likely change surface: .github/workflows/ci.yml; tests/test_api.py; tests/test_persistence.py; docs/reviewer-ui.md
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","Highest","rxauth-production","1000"
+"1007","Task","Enforce complete release verification gates","Backlog ID: RXAUTH-PLAN-1007
+Phase: P2
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Retain Windows/Ubuntu lint/tests/report ratchets and add migration, browser, AWS, artifact/security evidence; deliberate failure prevents promotion.
+Dependencies (CSV-local IDs, not Jira keys): 507;1001;1003;1004;1005
+Repository evidence / likely change surface: .github/workflows/ci.yml; tests/test_api.py; tests/test_persistence.py; docs/reviewer-ui.md
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","1000"
+"1100","Epic","Commercial pilot prerequisites","Phase: P4-commercial
+Repository evidence: AGENTS.md invariant 6; README.md section 19; docs/production-hardening.md
+Complete when all applicable child tasks have accepted evidence. Existing prototype work is not duplicated. Commercial prerequisites gate real-data deployment only.
+Assessment: 2026-10-02; static repository inspection, not executed application tests.","High","rxauth-commercial-gate",""
+"1101","Task","Authorize separate commercial pilot scope and data boundary","Backlog ID: RXAUTH-PLAN-1101
+Phase: P4-commercial
+Applicability: Commercial pilot only; separately authorized real-data environment. Not required to launch synthetic V1.
+Work and acceptance criteria: Current repository remains synthetic-only; accountable owners approve separate real-data environment and intended administrative use before any patient documents.
+Dependencies (CSV-local IDs, not Jira keys): 101
+Repository evidence / likely change surface: AGENTS.md invariant 6; README.md section 19; docs/production-hardening.md
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-commercial-gate","1100"
+"1102","Task","Complete expert privacy security and contractual review","Backlog ID: RXAUTH-PLAN-1102
+Phase: P4-commercial
+Applicability: Commercial pilot only; separately authorized real-data environment. Not required to launch synthetic V1.
+Work and acceptance criteria: Qualified owners assess applicable obligations and required customer/vendor terms and BAAs; signed prerequisites precede real data and no compliance claim is inferred.
+Dependencies (CSV-local IDs, not Jira keys): 1101;104
+Repository evidence / likely change surface: AGENTS.md invariant 6; README.md section 19; docs/production-hardening.md
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-commercial-gate","1100"
+"1103","Task","Approve commercial data governance and retention","Backlog ID: RXAUTH-PLAN-1103
+Phase: P4-commercial
+Applicability: Commercial pilot only; separately authorized real-data environment. Not required to launch synthetic V1.
+Work and acceptance criteria: Review permitted access, residency, legal holds, backups and deletion constraints; reconcile irreversible Object Lock before real uploads.
+Dependencies (CSV-local IDs, not Jira keys): 1102;105;908
+Repository evidence / likely change surface: AGENTS.md invariant 6; README.md section 19; docs/production-hardening.md
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-commercial-gate","1100"
+"1104","Task","Establish commercial security and privacy incident program","Backlog ID: RXAUTH-PLAN-1104
+Phase: P4-commercial
+Applicability: Commercial pilot only; separately authorized real-data environment. Not required to launch synthetic V1.
+Work and acceptance criteria: Tabletop triage, vendor response, breach assessment and communication; responsible experts confirm applicable notification duties and close exercise gaps.
+Dependencies (CSV-local IDs, not Jira keys): 1102;806
+Repository evidence / likely change surface: AGENTS.md invariant 6; README.md section 19; docs/production-hardening.md
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-commercial-gate","1100"
+"1105","Task","Validate representative pilot cases outside public repository","Backlog ID: RXAUTH-PLAN-1105
+Phase: P4-commercial
+Applicability: Commercial pilot only; separately authorized real-data environment. Not required to launch synthetic V1.
+Work and acceptance criteria: Approved independently adjudicated protocol defines provenance, protected data access, success/stop rules and evidence; no PHI enters repo/CI and synthetic scores are not marketed as clinical validation.
+Dependencies (CSV-local IDs, not Jira keys): 1102;508
+Repository evidence / likely change surface: AGENTS.md invariant 6; README.md section 19; docs/production-hardening.md
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-commercial-gate","1100"
+"1106","Task","Validate administrative use and train pilot reviewers","Backlog ID: RXAUTH-PLAN-1106
+Phase: P4-commercial
+Applicability: Commercial pilot only; separately authorized real-data environment. Not required to launch synthetic V1.
+Work and acceptance criteria: Qualified domain review and training demonstrate understanding of uncertainty, scope and escalation; no diagnosis, treatment or approve/deny function is introduced.
+Dependencies (CSV-local IDs, not Jira keys): 1105;308
+Repository evidence / likely change surface: AGENTS.md invariant 6; README.md section 19; docs/production-hardening.md
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-commercial-gate","1100"
+"1107","Task","Approve commercial real-document go-live gate","Backlog ID: RXAUTH-PLAN-1107
+Phase: P4-commercial
+Applicability: Commercial pilot only; separately authorized real-data environment. Not required to launch synthetic V1.
+Work and acceptance criteria: Accountable signed decision covers identity, scanning, audit, contracts, restore, security and pilot evidence; no open blocker and stop/rollback authority is named.
+Dependencies (CSV-local IDs, not Jira keys): 1103;1104;1106;1006;907
+Repository evidence / likely change surface: AGENTS.md invariant 6; README.md section 19; docs/production-hardening.md
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","Highest","rxauth-commercial-gate","1100"
+"1200","Epic","Production acceptance and launch","Phase: P4
+Repository evidence: AGENTS.md; README.md; docs/production-hardening.md; .github/workflows/ci.yml
+Complete when all applicable child tasks have accepted evidence. Existing prototype work is not duplicated. Commercial prerequisites gate real-data deployment only.
+Assessment: 2026-10-02; static repository inspection, not executed application tests.","High","rxauth-production",""
+"1201","Task","Reconcile documentation and production setup","Backlog ID: RXAUTH-PLAN-1201
+Phase: P4
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Resolve stale API/UI and thread-pool descriptions; clean checkout setup matches durable worker behavior and supported limitations.
+Dependencies (CSV-local IDs, not Jira keys): 1007
+Repository evidence / likely change surface: AGENTS.md; README.md; docs/production-hardening.md; .github/workflows/ci.yml
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","1200"
+"1202","Task","Run synthetic reviewer user acceptance testing","Backlog ID: RXAUTH-PLAN-1202
+Phase: P4
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Domain reviewers sign evidence for missing/conflicting inputs, failed citations, all five outcomes, permissions and terminal human review with no critical workflow defect.
+Dependencies (CSV-local IDs, not Jira keys): 1001;508;1201
+Repository evidence / likely change surface: AGENTS.md; README.md; docs/production-hardening.md; .github/workflows/ci.yml
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","1200"
+"1203","Task","Rehearse release rollback and support handover","Backlog ID: RXAUTH-PLAN-1203
+Phase: P4
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Promote/revert with in-flight work and schema compatibility; no data loss, duplicate review or policy substitution; on-call accepts dashboards/runbooks.
+Dependencies (CSV-local IDs, not Jira keys): 709;907;806
+Repository evidence / likely change surface: AGENTS.md; README.md; docs/production-hardening.md; .github/workflows/ci.yml
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","1200"
+"1204","Task","Approve production readiness evidence and release decision","Backlog ID: RXAUTH-PLAN-1204
+Phase: P4
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Consolidate CI, measured objectives, UAT, security and recovery evidence; accountable owner approves synthetic V1 with no open blocker; commercial additionally requires 1107.
+Dependencies (CSV-local IDs, not Jira keys): 1202;1203;1006;807
+Repository evidence / likely change surface: AGENTS.md; README.md; docs/production-hardening.md; .github/workflows/ci.yml
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","Highest","rxauth-production","1200"
+"1205","Task","Launch synthetic production with staged rollout","Backlog ID: RXAUTH-PLAN-1205
+Phase: P4
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Deploy approved immutable release, smoke-test identity/upload/queue/citations/reviewer attribution and watch rollback triggers; no real patient data is introduced.
+Dependencies (CSV-local IDs, not Jira keys): 1204
+Repository evidence / likely change surface: AGENTS.md; README.md; docs/production-hardening.md; .github/workflows/ci.yml
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","1200"
+"1206","Task","Complete post-launch soak and stabilization","Backlog ID: RXAUTH-PLAN-1206
+Phase: P4
+Applicability: Synthetic production V1; preserve repository invariants.
+Work and acceptance criteria: Agreed observation window meets measured objectives; review queue, alert quality, capacity/cost and feedback, close blockers and obtain steady-state acceptance.
+Dependencies (CSV-local IDs, not Jira keys): 1205
+Repository evidence / likely change surface: AGENTS.md; README.md; docs/production-hardening.md; .github/workflows/ci.yml
+Baseline: Core pipeline, API, persistence, durable jobs, auth validation, upload limits and reviewer UI already exist. This task completes or verifies the specified surface.
+Definition of done: Reviewed implementation or operating decision, appropriate verification evidence, documented limits and accountable owner. Behavior changes require tests, affected module version bumps and command-regenerated reports. Never edit gold or fabricated metrics to pass. Preserve tenant isolation, every cited claim, five results, explicit PA input and terminal human review.
+Assessment: 2026-10-02; static inspection only. Proposed hardening is not evidence of an observed exploit or failing test. No estimates, assignments or dates are invented.","High","rxauth-production","1200"

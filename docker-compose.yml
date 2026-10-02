@@ -1,0 +1,92 @@
+# Local stack. Postgres is real; object storage falls back to disk because no
+# bucket is configured, which `Settings` permits only in `local`.
+#
+#   docker compose up --build
+#   curl localhost:8000/health
+#
+# The one-shot migrate service upgrades the schema before the API and durable
+# worker start. Local object storage is shared through api-artifacts.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: rxauth
+      POSTGRES_PASSWORD: rxauth
+      POSTGRES_DB: rxauth
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rxauth -d rxauth"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  migrate:
+    build: .
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      RXAUTH_ENVIRONMENT: local
+      RXAUTH_DATABASE_URL: postgresql+psycopg://rxauth:rxauth@postgres:5432/rxauth
+
+  api:
+    build: .
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      RXAUTH_ENVIRONMENT: local
+      RXAUTH_LOG_FORMAT: json
+      RXAUTH_DATABASE_URL: postgresql+psycopg://rxauth:rxauth@postgres:5432/rxauth
+      RXAUTH_POLICY_DIR: /app/data/policies
+      RXAUTH_ARTIFACTS_DIR: /app/artifacts
+      RXAUTH_CLASSIFIER_PATH: /app/artifacts/classifier_baseline
+      # The reviewer UI's dev server. Plain HTTP is accepted only because this
+      # stack is RXAUTH_ENVIRONMENT=local; staging and production refuse it, and
+      # refuse '*', at startup. Replace with the deployed origin there.
+      RXAUTH_CORS_ALLOWED_ORIGINS: http://localhost:3000
+      # To use S3 instead of local disk, set RXAUTH_S3_BUCKET and let boto3
+      # resolve credentials from the environment or an instance role. Never
+      # commit a key here.
+      # RXAUTH_S3_BUCKET: your-bucket
+      # RXAUTH_S3_REGION: us-east-1
+    ports:
+      - "8000:8000"
+    volumes:
+      - api-artifacts:/app/artifacts
+
+  worker:
+    build: .
+    command: ["rxauth-worker"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      RXAUTH_ENVIRONMENT: local
+      RXAUTH_LOG_FORMAT: json
+      RXAUTH_DATABASE_URL: postgresql+psycopg://rxauth:rxauth@postgres:5432/rxauth
+      RXAUTH_POLICY_DIR: /app/data/policies
+      RXAUTH_ARTIFACTS_DIR: /app/artifacts
+      RXAUTH_CLASSIFIER_PATH: /app/artifacts/classifier_baseline
+    volumes:
+      - api-artifacts:/app/artifacts
+
+  web:
+    build: ./web
+    depends_on:
+      - api
+    environment:
+      # Server to server, inside the compose network. The browser never calls
+      # the API directly: the reviewer UI fetches on the server so no access
+      # token and no patient document reaches client JavaScript.
+      RXAUTH_API_URL: http://api:8000
+    ports:
+      - "3000:3000"
+
+volumes:
+  postgres-data:
+  api-artifacts:

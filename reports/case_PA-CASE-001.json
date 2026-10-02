@@ -1015,5 +1015,360 @@
         ]
       }
     ]
+  },
+  "workflow": {
+    "version": "case-graph-v1",
+    "nodes": [
+      {
+        "name": "validate_case",
+        "status": "ok",
+        "attempts": 1,
+        "summary": "PA-CASE-001: 5 document(s) for Example Health Plan / Drug A",
+        "versions": {},
+        "error_type": null,
+        "error": null
+      },
+      {
+        "name": "resolve_pa_trigger",
+        "status": "ok",
+        "attempts": 1,
+        "summary": "pa_required=True (declared in case.json, never inferred)",
+        "versions": {},
+        "error_type": null,
+        "error": null
+      },
+      {
+        "name": "ingest_documents",
+        "status": "ok",
+        "attempts": 1,
+        "summary": "5 document(s) read once via text",
+        "versions": {},
+        "error_type": null,
+        "error": null
+      },
+      {
+        "name": "classify_documents",
+        "status": "ok",
+        "attempts": 1,
+        "summary": "5 classified, 0 below threshold",
+        "versions": {},
+        "error_type": null,
+        "error": null
+      },
+      {
+        "name": "extract_case_evidence",
+        "status": "ok",
+        "attempts": 1,
+        "summary": "12 cited fact(s), 1 routed to review, 0 span(s) suppressed",
+        "versions": {
+          "extractor": "regex-v3"
+        },
+        "error_type": null,
+        "error": null
+      },
+      {
+        "name": "link_cross_document_evidence",
+        "status": "ok",
+        "attempts": 1,
+        "summary": "2 fact(s) corroborated across documents",
+        "versions": {},
+        "error_type": null,
+        "error": null
+      },
+      {
+        "name": "resolve_request_date",
+        "status": "ok",
+        "attempts": 1,
+        "summary": "2026-01-14 [extracted from 01_pa_request.txt (D1-EV5)]",
+        "versions": {},
+        "error_type": null,
+        "error": null
+      },
+      {
+        "name": "retrieve_policy",
+        "status": "ok",
+        "attempts": 1,
+        "summary": "PA-104 v2026-01 via payer='Example Health Plan', medication='Drug A', indication='Example Condition', as_of_date='2026-01-14'",
+        "versions": {
+          "embedding": "tfidf-v1"
+        },
+        "error_type": null,
+        "error": null
+      },
+      {
+        "name": "extract_policy_criteria",
+        "status": "ok",
+        "attempts": 1,
+        "summary": "6 criterion/criteria (all), 2 exclusion(s) not evaluated",
+        "versions": {
+          "criteria_extractor": "policy-rules-v1"
+        },
+        "error_type": null,
+        "error": null
+      },
+      {
+        "name": "evaluate_criteria",
+        "status": "ok",
+        "attempts": 1,
+        "summary": "4 supported, 1 need review, 1 missing (of 6); gate PASS",
+        "versions": {
+          "matcher": "evidence-match-v2",
+          "normalization": "clinical-units-v1"
+        },
+        "error_type": null,
+        "error": null
+      },
+      {
+        "name": "generate_requirement_checklist",
+        "status": "ok",
+        "attempts": 1,
+        "summary": "6 claim(s) drafted by checklist-v1",
+        "versions": {
+          "generator": "checklist-v1"
+        },
+        "error_type": null,
+        "error": null
+      },
+      {
+        "name": "check_draft_groundedness",
+        "status": "ok",
+        "attempts": 1,
+        "summary": "PASS; 0 ungrounded claim(s)",
+        "versions": {},
+        "error_type": null,
+        "error": null
+      },
+      {
+        "name": "await_human_review",
+        "status": "ok",
+        "attempts": 1,
+        "summary": "prepared for review; 5 item(s) need a person. Nothing is submitted.",
+        "versions": {},
+        "error_type": null,
+        "error": null
+      }
+    ]
+  },
+  "checklist": {
+    "case_id": "PA-CASE-001",
+    "policy_id": "PA-104",
+    "policy_version": "2026-01",
+    "generator_version": "checklist-v1",
+    "prompt_version": null,
+    "claims": [
+      {
+        "criterion_id": "C1",
+        "claim_type": "requirement_met",
+        "text": "The patient has a documented diagnosis of Example Condition. The record supports this requirement. Documented: \"Diagnosis: Example Condition\"; \"Assessment: Example Condition\".",
+        "evidence_ids": [
+          "D1-EV2",
+          "D3-EV1"
+        ],
+        "policy_source": {
+          "document_id": "PA-104",
+          "filename": "PA-104_2026-01.txt",
+          "page": 3,
+          "start_char": 116,
+          "end_char": 179,
+          "source_text": "1. The patient has a documented diagnosis of Example Condition."
+        },
+        "patient_evidence_sources": [
+          {
+            "document_id": "D1",
+            "filename": "01_pa_request.txt",
+            "page": 1,
+            "start_char": 149,
+            "end_char": 177,
+            "source_text": "Diagnosis: Example Condition"
+          },
+          {
+            "document_id": "D3",
+            "filename": "03_clinical_note.txt",
+            "page": 1,
+            "start_char": 74,
+            "end_char": 103,
+            "source_text": "Assessment: Example Condition"
+          }
+        ]
+      },
+      {
+        "criterion_id": "C2",
+        "claim_type": "requirement_met",
+        "text": "The patient has completed at least 12 weeks of therapy with Drug A. The record supports this requirement. Documented: \"Drug A \u2014 16 weeks of therapy documented\"; \"Drug A \u2014 started 2025-06-05, discontinued due to inadequate response\".",
+        "evidence_ids": [
+          "D4-EV1"
+        ],
+        "policy_source": {
+          "document_id": "PA-104",
+          "filename": "PA-104_2026-01.txt",
+          "page": 3,
+          "start_char": 180,
+          "end_char": 250,
+          "source_text": "2. The patient has completed at least 12 weeks of therapy with Drug A."
+        },
+        "patient_evidence_sources": [
+          {
+            "document_id": "D4",
+            "filename": "04_medication_history.txt",
+            "page": 1,
+            "start_char": 54,
+            "end_char": 93,
+            "source_text": "Drug A \u2014 16 weeks of therapy documented"
+          },
+          {
+            "document_id": "D4",
+            "filename": "04_medication_history.txt",
+            "page": 1,
+            "start_char": 95,
+            "end_char": 163,
+            "source_text": "Drug A \u2014 started 2025-06-05, discontinued due to inadequate response"
+          }
+        ]
+      },
+      {
+        "criterion_id": "C3",
+        "claim_type": "requirement_met",
+        "text": "The patient had an inadequate response to therapy with Drug A after at least 12 weeks. The record supports this requirement. Documented: \"Drug A \u2014 16 weeks of therapy documented\"; \"Drug A \u2014 started 2025-06-05, discontinued due to inadequate response\".",
+        "evidence_ids": [
+          "D4-EV1"
+        ],
+        "policy_source": {
+          "document_id": "PA-104",
+          "filename": "PA-104_2026-01.txt",
+          "page": 3,
+          "start_char": 251,
+          "end_char": 340,
+          "source_text": "3. The patient had an inadequate response to therapy with Drug A after at least 12 weeks."
+        },
+        "patient_evidence_sources": [
+          {
+            "document_id": "D4",
+            "filename": "04_medication_history.txt",
+            "page": 1,
+            "start_char": 54,
+            "end_char": 93,
+            "source_text": "Drug A \u2014 16 weeks of therapy documented"
+          },
+          {
+            "document_id": "D4",
+            "filename": "04_medication_history.txt",
+            "page": 1,
+            "start_char": 95,
+            "end_char": 163,
+            "source_text": "Drug A \u2014 started 2025-06-05, discontinued due to inadequate response"
+          }
+        ]
+      },
+      {
+        "criterion_id": "C4",
+        "claim_type": "requirement_met",
+        "text": "The most recent A1c is below 8.0 percent. The record supports this requirement. Documented: \"A1c: 7.4%\".",
+        "evidence_ids": [
+          "D5-EV1"
+        ],
+        "policy_source": {
+          "document_id": "PA-104",
+          "filename": "PA-104_2026-01.txt",
+          "page": 3,
+          "start_char": 341,
+          "end_char": 385,
+          "source_text": "4. The most recent A1c is below 8.0 percent."
+        },
+        "patient_evidence_sources": [
+          {
+            "document_id": "D5",
+            "filename": "05_lab_report.txt",
+            "page": 1,
+            "start_char": 52,
+            "end_char": 61,
+            "source_text": "A1c: 7.4%"
+          }
+        ]
+      },
+      {
+        "criterion_id": "C5",
+        "claim_type": "evidence_missing",
+        "text": "Required screening documentation is on file. The record does not document this requirement.",
+        "evidence_ids": [],
+        "policy_source": {
+          "document_id": "PA-104",
+          "filename": "PA-104_2026-01.txt",
+          "page": 3,
+          "start_char": 386,
+          "end_char": 433,
+          "source_text": "5. Required screening documentation is on file."
+        },
+        "patient_evidence_sources": []
+      },
+      {
+        "criterion_id": "C6",
+        "claim_type": "needs_review",
+        "text": "The duration of the most recent therapy course is documented and is at least 8 weeks. The record addresses this requirement without stating it precisely enough to check. Documented: \"on therapy for several months\".",
+        "evidence_ids": [
+          "D3-EV2"
+        ],
+        "policy_source": {
+          "document_id": "PA-104",
+          "filename": "PA-104_2026-01.txt",
+          "page": 3,
+          "start_char": 434,
+          "end_char": 522,
+          "source_text": "6. The duration of the most recent therapy course is documented and is at least 8 weeks."
+        },
+        "patient_evidence_sources": [
+          {
+            "document_id": "D3",
+            "filename": "03_clinical_note.txt",
+            "page": 1,
+            "start_char": 172,
+            "end_char": 201,
+            "source_text": "on therapy for several months"
+          }
+        ]
+      }
+    ],
+    "human_review_required": true
+  },
+  "draft_groundedness": {
+    "passed": true,
+    "assessments": [
+      {
+        "criterion_id": "C1",
+        "claim_type": "requirement_met",
+        "status": "grounded",
+        "reason": "Every value in the claim appears in a cited source."
+      },
+      {
+        "criterion_id": "C2",
+        "claim_type": "requirement_met",
+        "status": "grounded",
+        "reason": "Every value in the claim appears in a cited source."
+      },
+      {
+        "criterion_id": "C3",
+        "claim_type": "requirement_met",
+        "status": "grounded",
+        "reason": "Every value in the claim appears in a cited source."
+      },
+      {
+        "criterion_id": "C4",
+        "claim_type": "requirement_met",
+        "status": "grounded",
+        "reason": "Every value in the claim appears in a cited source."
+      },
+      {
+        "criterion_id": "C5",
+        "claim_type": "evidence_missing",
+        "status": "partially_grounded",
+        "reason": "Grounded in the policy requirement; the record documents nothing to cite."
+      },
+      {
+        "criterion_id": "C6",
+        "claim_type": "needs_review",
+        "status": "requires_review",
+        "reason": "Routed to a reviewer by the evaluation."
+      }
+    ],
+    "issues": []
   }
 }

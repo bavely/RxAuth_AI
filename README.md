@@ -1,7 +1,7 @@
 # RxAuth AI
 ## Specialty Pharmacy Prior Authorization Intelligence Copilot
 
-> **Status:** Phase 4 complete. The policy is no longer a fixture: retrieval selects the applicable payer-policy *version* by metadata before it ranks anything, criteria extraction reads that version's requirements out of its prose, and the end-to-end run reproduces the Milestone 0 criterion profile from a document on disk. Criteria-to-evidence matching (§12) is now measured against its own gold set. The LangGraph workflow (§13) is next.
+> **Status:** Phase 4 complete. The policy is no longer a fixture: retrieval selects the applicable payer-policy *version* by metadata before it ranks anything, criteria extraction reads that version's requirements out of its prose, and the end-to-end run reproduces the Milestone 0 criterion profile from a document on disk. Criteria-to-evidence matching (§12) is measured against its own gold set, and the AI workflow is complete: the run is an explicit state graph (§13) that drafts a cited requirement checklist (§14) behind a claim-level groundedness gate, with one command scoring every layer against a threshold (§15) and a schema that turns reviewer corrections into regression cases (§16). The service layer, the production hardening, and the reviewer UI are in: cases, documents, and jobs are durable Postgres records behind an authenticated, tenant-scoped API, and a Next.js reviewer UI shows every cited span inside the document it came from.
 > **Goal:** One flagship AI-engineering project that begins as IBM AI Engineering coursework, grows into a portfolio system, and has a credible path to a commercial pilot — built incrementally so the commit history traces the progression from classical ML through deep learning to RAG and agentic systems.
 
 **Author:** Bavely S. Tawfik — [pavli-tawfik.com](https://pavli-tawfik.com) · [linkedin.com/in/bavelytawfik](https://www.linkedin.com/in/bavelytawfik) · [github.com/bavely](https://github.com/bavely)
@@ -28,6 +28,7 @@ uv run rxauth-benchmark-retrieval
 uv run rxauth-benchmark-criteria
 uv run rxauth-benchmark-matching
 uv run rxauth-run-case data/cases/PA-CASE-001
+uv run rxauth-evaluate
 uv run rxauth-check-reports
 uv run pytest
 ```
@@ -35,6 +36,13 @@ uv run pytest
 `rxauth-run-case` is the one that runs the whole spine on real files — ingest, classify, extract,
 resolve, retrieve the policy, structure its criteria, match, groundedness gate — so it needs the
 classifier artifact that `rxauth-train-classifier` writes.
+
+The whole stack — Postgres, migrations, the API, the durable worker, and the reviewer UI — comes
+up together, with the UI on `http://localhost:3000`:
+
+```bash
+docker compose up --build
+```
 
 Run the optional deep-learning comparison separately:
 
@@ -126,15 +134,81 @@ The synthetic classifier and rendered ingestion corpora are checked in for repro
 - Classification is injectable behind a one-method protocol, so the trained baseline, a served model, or a test stub all drop in without touching assembly.
 - `pa_required` stays declared input: §3 forbids inferring a live benefit from policy text, because a public policy cannot establish a member's benefit status. It is the only remaining supplied value in the flow. See [the case-assembly guide](docs/case-assembly.md).
 
+### The workflow, the draft, and how both are checked
+
+- The end-to-end run is an explicit state graph of thirteen named nodes over typed state (§13). Every node records how it ended, and a failure marks the nodes after it `not_run` — so a partial result can never be read as a complete one.
+- Each node records the component versions its output depended on: extractor, embedding, criteria extractor, matcher, normalization, generator. "Which matcher produced this evidence" is answerable from the report rather than from the commit that wrote it.
+- The graph is linear on purpose (§13), and the executor is hand-written rather than LangGraph. That is a considered trade recorded in [ADR 001](docs/adr-001-workflow-runtime.md): this graph makes zero model calls and has no branches, loops, or concurrency, so the framework's capabilities would go unexercised while its dependency tree landed in a package whose CI lightness is a stated goal. The decomposition and typed contracts are runtime-agnostic, so adopting LangGraph later is an adapter, not a rewrite.
+- `Node.retries` exists and every node sets it to zero, because every node is deterministic and offline and a retry could only repeat the same failure. A test asserts that, so the first networked node has to justify its own policy.
+- Building the graph exposed that every document was being read twice — once by the classifier and once by the extractor, meaning every scan was OCR'd twice. Ingestion is now one node feeding both.
+- `rxauth-run-case` drafts a **cited requirement checklist** (§14). Sentences are assembled from structured results and quote their source spans verbatim; a missing requirement drafts as "not documented", never as a guess.
+- The claim-level groundedness gate re-derives support from the case rather than trusting the generator's own citations. Every number and every medication name in a drafted sentence must appear in a span that sentence cites, so a generator that invents a duration **and** a citation for it still fails. A restated policy threshold is allowed, because quoting the requirement is not a claim about the patient.
+- `DraftGenerator` is the seam a prompted model drops into, and it inherits no extra trust: a test swaps in a deliberately fabricating generator and asserts the gate catches it. The offline default is deterministic, which is why no published number here contains model-generated text.
+- No field anywhere marks a checklist submittable. §20 puts autonomous submission permanently out of scope, so the data model gives it nowhere to be recorded, and the terminal node reports what a person still has to do.
+- `rxauth-evaluate` (§15) scores **22 metrics across six layers** — classification, extraction, retrieval, criteria, matching, generation — against thresholds set at the values the current code produces. Regressions fail the build; relaxing a threshold is a visible diff. False-support rate and unsupported-claim rate are the two ceilings, because every other error asks a human for more work and those two tell them there is none.
+- Reviewer corrections are typed, append-only, and versioned (§16). Agreement is stored too — a component nobody corrects and one nobody reviews are otherwise indistinguishable — which is what makes correction-rate-per-matcher-version answerable.
+- A correction exports as a `matching_gold.jsonl` record and is verified against the real loader in a test, so a reviewer disagreeing with the matcher becomes a regression case rather than an anecdote. Exports default to the validation split, keeping the frozen test split frozen.
+
+### Configuration, logging, and model artifacts
+
+- Every path, threshold, and logging choice comes from one validated `Settings` object read from `RXAUTH_*` environment variables. An empty environment reproduces the historical CLI defaults exactly — which is how this landed without moving a single number in `reports/`.
+- There are no CWD-relative `Path()` literals left outside `config.py`. A CLI flag beats an environment variable beats the default, and the settings object is the *source* of the argparse defaults rather than a competitor to them.
+- Settings are frozen and read once. Settings that change under a running process produce bugs nobody can reproduce.
+- Structured logging implements the §18 schema — `request_id`, `case_id`, `workflow_node`, versions, `latency_ms`, `estimated_cost_usd`, `error_type` — with one line per workflow node, correlated by a request ID. Before this the project had **zero** `logging` calls and 100+ `print` statements.
+- Log fields are **allow-listed, not deny-listed**. `log_event` takes an event name and structured fields — never a format string — and anything outside `LOGGABLE_FIELDS` is dropped with the drop itself recorded. A deny-list of "PHI-ish" names fails the moment someone invents a field, and the failure mode is patient text in an aggregator with no retention policy.
+- `RXAUTH_LOG_SOURCE_TEXT=true` is refused unless `RXAUTH_ENVIRONMENT=local`, and a test runs a whole case and asserts that **no quoted span from any document reached any log handler**. The allow-list is the guard rail; that test is the guarantee.
+- Latency lives in the logs, never in `reports/`. The committed reports are evidence and are gated on reproducing exactly, so a duration would make them differ every run for reasons that say nothing about correctness.
+- The classifier artifact is no longer a pickle. It is a directory — `model.json`, `weights.npz`, `manifest.json` — that is readable without executing anything, records what trained it (data fingerprint, split sizes, metrics, library versions), and is SHA-256 verified on load. A tampered or truncated artifact is refused; a scikit-learn minor-version change warns rather than refuses, because reconstruction uses documented fitted attributes.
+- The round trip is exact: a test asserts a reconstructed model reproduces every prediction to zero absolute tolerance.
+- `rxauth-check-reports` now gates ten reports, including the classifier report, whose latency is stated in prose rather than a table cell.
+
+### The service layer
+
+- `docker compose up --build` brings up Postgres, runs `alembic upgrade head`, then starts the API and a separate durable worker. The CLI still needs none of it — a missing `RXAUTH_DATABASE_URL` means "you are running the CLI", not a misconfiguration.
+- Six endpoints, matching the §5 flow: create a case, upload documents, start a run, poll the job, read the run, record a reviewer decision. Nothing in the API decides anything the CLI does not; it is a way to reach the workflow, not a second implementation of it.
+- **The read surface assumes a person, not a script.** Every write endpoint needs an identifier the caller already holds; a reviewer opening a browser holds none. `GET /cases` is the worklist — one page of the organization's cases, newest first, each with its document count and latest run, and a `total` so a full page is distinguishable from the end of the list. A case nobody has run yet still appears, because that is the one most likely to need attention.
+- **A citation can now be opened.** `GET /runs/{run_id}/documents/{document_id}/content` takes the run-local id a `Provenance` carries — `D1`, not the upload's UUID — and returns the original bytes, verified against the SHA-256 recorded at upload. A mismatch is a 502 rather than a document: serving it would put a file of unknown provenance in front of a reviewer as though it were evidence. The test that matters asserts the citation's character range indexes into the bytes the endpoint serves, so the project's central promise is checked over HTTP rather than asserted in prose.
+- Fixing that endpoint surfaced a real bug: `case_jobs` keyed its object-key dict by filename stem while `save_case_run` read it by run-local document id, so **every `storage_key` on the service path persisted as NULL**. The column looked present and no citation could ever have been fetched. The repository test passed a correctly keyed dict straight in and so never exercised the join.
+- Documents are served `attachment` with `nosniff` and `no-store`. Uploads accept several formats, and rendering one inline in the reviewer's origin would make the document viewer an XSS surface.
+- `RXAUTH_CORS_ALLOWED_ORIGINS` is empty by default, so an unconfigured API sends no CORS headers at all — right for a service whose clients are the CLI and the worker. Staging and production refuse `*` and refuse plain HTTP at startup; a wildcard on an authenticated PHI API lets any page spend a stolen token. Origins carrying a path or a trailing slash are refused everywhere, because a browser matches `scheme://host[:port]` and a policy that matches nothing silently blocks what it was written to allow.
+- Handlers are sync `def`, deliberately. Everything underneath — scikit-learn, regex extraction, pypdf, OpenCV — is synchronous and CPU-bound, and `async def` would run it on the event loop and block every other request. FastAPI puts plain `def` handlers on a threadpool, which is where that work belongs.
+- A case run returns **202 with a job to poll**, not a held-open request. Runs are seconds on text and minutes on a scanned packet.
+- **The API is authenticated and tenant-scoped.** Staging and production require OIDC/JWT validation configured with a fixed issuer, audience, asymmetric algorithm allow-list, and JWKS endpoint. Case writes require `case:write`, reads require a case role, reviewer decisions require `case:review`, and `admin` is the explicit override. The verified token subject becomes the reviewer ID; clients cannot assert one.
+- The token's configurable organization claim (default `org_id`) scopes case working directories, object-storage keys, jobs, case-run queries, and reviewer-decision queries. A guessed identifier in another organization returns the same 404 as an absent resource. Local development uses the explicit `local-developer` / `local` synthetic principal; it is unavailable in staging and production.
+- `Settings` refuses to fall back to local disk for document storage in staging and production. It also rejects deployed startup when authentication is disabled or its issuer, audience, or JWKS URL is incomplete.
+- The schema keeps a column only for what is filtered, joined, or ordered on, and stores the validated Pydantic object as JSON alongside — so `models.py` stays the single definition of every shape and a read round-trips to the exact object the pipeline produced, citations included.
+- Running the same case twice keeps **both** runs. Overwriting would destroy the comparison that makes "did the new matcher change anything?" answerable — which is the question the version columns exist for.
+- Document rows record a storage key, never document bytes. Uploads go to S3 with `ServerSideEncryption` set per object rather than left to a bucket policy, and credentials are never settings fields — boto3 resolves them from the standard chain, because a secret in a settings object is one `repr()` from a log line.
+- Migrations are the deployed path, so migrations are what CI exercises: `alembic upgrade head`, then `alembic check` to prove the migration still matches the models, then the suite, then `alembic downgrade base`. Alembic reads the URL from the environment, so no connection string is committed.
+- The persistence schema is dialect-neutral, so the same assertions run on SQLite locally and Postgres in CI. **No pgvector yet** — retrieval is TF-IDF computed in memory and nothing reads embeddings from a store, so persisting vectors would be unmeasured infrastructure. `EmbeddingBackend` remains the seam.
+- Cases, uploaded-document metadata, and jobs are durable PostgreSQL records. Workers claim due rows with `FOR UPDATE SKIP LOCKED`, renew leases while processing, and recover abandoned work after a process restart without adding Redis or another queue dependency. A job ID is also its run ID, making a retry idempotent if a worker saves the run and exits before acknowledging completion.
+- Upload validation, initial resource limits, durable-worker behavior, retry/lease timings, and retention enforcement are recorded in [the production-hardening guide](docs/production-hardening.md).
+- The worklist, the citation contract, the origin policy, and what this stage deliberately does not do are recorded in [the reviewer API guide](docs/reviewer-api.md).
+
+### The reviewer UI
+
+- Three pages — a worklist, a case, and a run — in [`web/`](web). It adds no endpoint and decides nothing: everything shown is read from the API, and the one thing it writes is a reviewer decision the API validates and attributes to a verified identity.
+- **The browser never talks to the API.** Every call happens in the Next.js server; the browser gets rendered HTML. A browser-side client would need an access token within reach of any script on the page, and patient documents would be fetched by client code into the browser cache and the network log. Keeping both on one server removes that class of problem rather than mitigating it. `lib/auth.ts` and `lib/api.ts` open with `import "server-only"`, so importing either into a client component is a build error rather than a review comment.
+- Stated plainly: **this design does not exercise the CORS policy from the previous stage.** That policy is still what any direct browser or programmatic client needs, and it is what compose configures — but no weaker architecture was chosen to make it look used.
+- **A citation is shown inside its document.** Given the served bytes and one `Provenance`, the resolver returns the span with its surrounding lines and one of six statuses. `mismatch` is the one that matters: the alternative is highlighting whatever sits at those offsets with total confidence, and a reviewer trusts a highlight. Multi-page documents are refused rather than guessed, because character offsets index an *ingested page* and raw bytes are not that page. All 38 citations in the demo packet resolve as `verified`.
+- Two bugs in that resolver were caught by its own tests before it ever ran: context snapped to the nearest line boundary, which returns nothing when a span starts a line — and nearly every span in this corpus starts a line. The forward side had the mirror-image bug.
+- The worklist shows **counts, not a score.** The five results are not points on one axis, and averaging `MISSING` against `SATISFIED` would invent a number the pipeline never computed. A case nobody has run appears as "Not run" rather than being filtered out.
+- Authentication is a seam, not an implementation. `LocalPrincipalTokenProvider` mirrors the API's synthetic local principal; `OidcSessionTokenProvider` is the single place to implement and throws until someone does. Writing an authorization-code flow against a provider this repository cannot test would be the unmeasured infrastructure it refuses elsewhere.
+- The UI's own CI job runs `npm ci`, lint, typecheck, tests, and a build, and needs neither a database nor a running API. Architecture, the six citation statuses, and what this stage deliberately does not do are recorded in [the reviewer UI guide](docs/reviewer-ui.md).
+
 ### Repository layout
 
 ```text
 .
 ├── src/rxauth_ai/    # installable application package and CLI entry points
 ├── tests/            # automated tests
+├── web/              # reviewer UI (Next.js); its own lockfile, tests, and CI job
 ├── data/             # synthetic document corpus, policy corpus, gold sets, case packets
 ├── reports/          # reproducible evaluation artifacts
 ├── docs/             # milestone and architecture documentation
+├── alembic/          # database migrations (URL comes from the environment)
+├── Dockerfile        # API image, pinned Tesseract, non-root
+├── docker-compose.yml# local Postgres, API, worker, and reviewer UI
 ├── pyproject.toml    # package, dependency, test, and lint configuration
 └── uv.lock           # reproducible dependency lock
 ```
@@ -355,10 +429,12 @@ That principle governs the architecture, interface, evaluation strategy, and com
 - [x] Real-document case assembly — the Milestone 0 spine now runs on ingested, classified, and extracted documents instead of fixtures
 - [x] Payer-policy RAG (§10) + criteria extraction (§11) — metadata-filtered retrieval with a measured ablation against vector-only search, policy-version selection driven by an extracted request date, and prose-to-structured criteria that retain, flag, and route what they cannot check
 - [x] Criteria-to-evidence matching (§12) — hybrid retrieval, unit normalization, five-state results, and a 42-record gold set scoring the cited evidence alongside the status
-- [ ] LangGraph workflow (§13) — next
-- [ ] Draft generation + groundedness gate (§14)
-- [ ] Evaluation suite (§15)
-- [ ] Human-in-the-loop feedback (§16)
-- [ ] Reviewer UI (Next.js)
-- [ ] Production hardening (versioning, observability, Docker, CI)
+- [x] Workflow state graph (§13) — thirteen named nodes over typed state, per-node status, component versions, and an explicit failure state ([ADR 001](docs/adr-001-workflow-runtime.md) records why the executor is hand-written rather than LangGraph)
+- [x] Draft generation + groundedness gate (§14) — a cited requirement checklist behind a claim-level gate that rejects any value or medication absent from the spans the claim cites
+- [x] Evaluation suite (§15) — `rxauth-evaluate` scores 22 metrics across six layers against ratcheted thresholds and fails CI on a regression
+- [x] Human-in-the-loop feedback (§16) — typed, append-only reviewer decisions that export as matching-gold records
+- [x] Authentication, RBAC, and tenant isolation — OIDC/JWT verification, role-gated endpoints, token-derived reviewer identity, and organization-scoped paths, object keys, jobs, runs, and decisions
+- [x] Reviewer read surface — a paginated case worklist, uploaded-document metadata, and byte-level retrieval of any cited document behind a validated CORS policy ([the reviewer API guide](docs/reviewer-api.md))
+- [x] Reviewer UI (Next.js) — a worklist, a case view, and a run view that shows every cited span inside the document it came from, server-rendered so no access token or patient document reaches the browser ([the reviewer UI guide](docs/reviewer-ui.md))
+- [x] Production hardening — typed settings, §18 structured logging with a PHI-safe guarantee, pickle-free versioned model artifacts, SQLAlchemy/Alembic persistence, a sync FastAPI service with a thread-pool job runner, S3 document storage, and a Docker/compose stack
 - [ ] *Later, not first:* denial-risk model (only with real labeled data), MCP server

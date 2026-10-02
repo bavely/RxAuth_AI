@@ -2,7 +2,8 @@
 
 Trains TF-IDF + Logistic Regression on the synthetic dataset in `data/` and
 writes the evaluation report to `reports/classifier_baseline.md`.
-The fitted vectorizer/model bundle is saved to `artifacts/classifier_baseline.pkl`.
+The fitted bundle is saved as a pickle-free artifact directory in
+`artifacts/classifier_baseline/` (model.json + weights.npz + manifest.json).
 
 Usage:
     rxauth-build-dataset
@@ -15,6 +16,8 @@ import argparse
 from pathlib import Path
 
 from .classifier import load_manifest, render_report_md, train_and_evaluate
+from .config import get_settings
+from .registry import fingerprint_training_data
 
 
 def main() -> None:
@@ -22,20 +25,20 @@ def main() -> None:
     parser.add_argument(
         "--data-dir",
         type=Path,
-        default=Path("data"),
+        default=get_settings().data_dir,
         help="Dataset directory (default: ./data).",
     )
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path("reports"),
+        default=get_settings().reports_dir,
         help="Report directory (default: ./reports).",
     )
     parser.add_argument(
         "--artifact-path",
         type=Path,
-        default=Path("artifacts/classifier_baseline.pkl"),
-        help="Saved classifier bundle (default: ./artifacts/classifier_baseline.pkl).",
+        default=Path(get_settings().classifier_path),
+        help="Artifact directory (default: ./artifacts/classifier_baseline).",
     )
     parser.add_argument(
         "--confidence-threshold",
@@ -56,7 +59,19 @@ def main() -> None:
     args.output_dir.mkdir(parents=True, exist_ok=True)
     out_path = args.output_dir / "classifier_baseline.md"
     out_path.write_text(report_md, encoding="utf-8", newline="\n")
-    results["classifier"].save(args.artifact_path)
+    train = splits["train"]
+    results["classifier"].save(
+        args.artifact_path,
+        metrics={
+            "test_macro_f1": results["evaluations"]["test"]["macro_f1"],
+            "challenge_macro_f1": results["evaluations"]["challenge"]["macro_f1"],
+            "test_accuracy": results["test_accuracy"],
+        },
+        split_sizes={name: len(splits[name]) for name in sorted(splits)},
+        training_data_fingerprint=fingerprint_training_data(
+            list(train.case_ids), list(train.labels)
+        ),
+    )
 
     print(report_md)
     print(f"Report written to: {out_path}")

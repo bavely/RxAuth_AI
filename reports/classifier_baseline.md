@@ -21,7 +21,7 @@ _Reproducible: `rxauth-build-dataset` then `rxauth-train-classifier`._
 - Mean confidence: 0.614
 - Expected calibration error (10 bins): 0.323
 - Human-review routing rate: 45.8%
-- Batch inference latency: 0.004 ms/document (CPU)
+- Batch inference latency: 0.003 ms/document (CPU)
 
 ```
                     precision    recall  f1-score   support
@@ -46,7 +46,7 @@ medication_history      1.000     0.667     0.800         6
 - Mean confidence: 0.561
 - Expected calibration error (10 bins): 0.418
 - Human-review routing rate: 68.8%
-- Batch inference latency: 0.004 ms/document (CPU)
+- Batch inference latency: 0.003 ms/document (CPU)
 
 ```
                     precision    recall  f1-score   support
@@ -71,7 +71,7 @@ medication_history      1.000     0.833     0.909         6
 - Mean confidence: 0.560
 - Expected calibration error (10 bins): 0.357
 - Human-review routing rate: 68.8%
-- Batch inference latency: 0.004 ms/document (CPU)
+- Batch inference latency: 0.003 ms/document (CPU)
 
 ```
                     precision    recall  f1-score   support

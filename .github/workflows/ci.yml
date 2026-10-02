@@ -26,7 +26,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version-file: .python-version
-      - run: uv sync --locked --group dev
+      - run: uv sync --locked --extra service --group dev
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run pytest --cov=rxauth_ai --cov-report=term-missing --cov-report=xml
@@ -37,9 +37,64 @@ jobs:
           name: coverage
           path: coverage.xml
 
+  postgres:
+    name: Persistence on Postgres
+    runs-on: ubuntu-latest
+    # The schema is dialect-neutral so the same assertions run on SQLite in the
+    # `test` job and here on the database that actually ships. Both, because
+    # each catches what the other misses.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: rxauth
+          POSTGRES_PASSWORD: rxauth
+          POSTGRES_DB: rxauth
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U rxauth -d rxauth"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      RXAUTH_ENVIRONMENT: ci
+      RXAUTH_DATABASE_URL: postgresql+psycopg://rxauth:rxauth@localhost:5432/rxauth
+      RXAUTH_TEST_DATABASE_URL: postgresql+psycopg://rxauth:rxauth@localhost:5432/rxauth
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+      - run: uv sync --locked --extra service --group dev
+
+      # Migrations are the deployed path, so they are what CI exercises —
+      # `create_all` would test a schema no environment actually runs.
+      - name: Apply migrations
+        run: uv run alembic upgrade head
+
+      - name: Check the migration matches the models
+        run: |
+          uv run alembic check
+
+      - name: Run persistence and API tests against Postgres
+        run: uv run pytest tests/test_persistence.py tests/test_api.py -q
+
+      - name: Migrations roll back
+        run: uv run alembic downgrade base
+
   reports:
     name: Reports reproduce
     runs-on: ubuntu-latest
+    # Exercises the settings layer rather than relying on defaults, and proves
+    # the PHI-safe log path: `environment: ci` makes RXAUTH_LOG_SOURCE_TEXT
+    # unsettable, so no quoted span can reach the build log.
+    env:
+      RXAUTH_ENVIRONMENT: ci
+      RXAUTH_LOG_FORMAT: json
     steps:
       - uses: actions/checkout@v4
         with:
@@ -73,9 +128,40 @@ jobs:
           uv run rxauth-calibrate-extraction
           uv run rxauth-compare-extractors
 
+      # One scorecard across every layer, each metric against a threshold set
+      # at the value the current code produces. Exits non-zero on a regression,
+      # so relaxing a threshold has to be a deliberate, reviewable diff.
+      - name: Score every layer against its threshold
+        run: uv run rxauth-evaluate
+
       # Published reports are evidence (README §3). A committed report the
       # current code would not reproduce is a number nobody can regenerate.
       # Wall-clock timings are excluded; every quality metric is compared
       # exactly.
       - name: Fail on report drift
         run: uv run rxauth-check-reports
+
+  web:
+    name: Reviewer UI
+    runs-on: ubuntu-latest
+    # The UI is a separate toolchain with its own lockfile, so it gets its own
+    # job rather than a step bolted onto the Python matrix. It needs no database
+    # and no API: everything below is lint, types, unit tests, and a build.
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      # `npm ci` and not `npm install`: the lockfile is the build input, and a
+      # CI run that can resolve a different tree proves nothing about the tree
+      # that ships.
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build

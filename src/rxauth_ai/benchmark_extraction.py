@@ -10,6 +10,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
+from .config import get_settings
 from .extraction import DEFAULT_CONFIDENCE_THRESHOLD, EXTRACTOR_VERSION, extract_evidence
 from .ingestion import IngestedDocument, IngestedPage
 from .models import Evidence
@@ -360,8 +361,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Benchmark information extraction against gold JSONL."
     )
-    parser.add_argument("--gold-path", type=Path, default=Path("data/extraction_gold.jsonl"))
-    parser.add_argument("--output-dir", type=Path, default=Path("reports"))
+    parser.add_argument(
+        "--gold-path", type=Path, default=get_settings().data_dir / "extraction_gold.jsonl"
+    )
+    parser.add_argument("--output-dir", type=Path, default=get_settings().reports_dir)
     parser.add_argument("--confidence-threshold", type=float, default=DEFAULT_CONFIDENCE_THRESHOLD)
     args = parser.parse_args()
     if not 0.0 <= args.confidence_threshold <= 1.0:

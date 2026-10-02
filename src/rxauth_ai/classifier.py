@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import csv
-import pickle
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -14,7 +13,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, f1_score
 
-from .ingestion import ingest_document
+from .ingestion import IngestedDocument, ingest_document
 from .models import Document, DocumentType
 
 
@@ -54,31 +53,46 @@ class DocumentClassifier:
             requires_human_review=confidence < self.confidence_threshold,
         )
 
-    def classify_path(self, path: Path, *, document_id: str) -> tuple[Document, bool]:
-        ingested = ingest_document(path)
+    def classify_ingested(
+        self, ingested: IngestedDocument, *, document_id: str
+    ) -> tuple[Document, bool]:
+        """Classify a document that has already been read off disk.
+
+        Classification and extraction both need the same page text. Taking the
+        ingested document rather than the path means a scan is OCR'd once per
+        run instead of once per consumer.
+        """
         prediction = self.predict_text(ingested.text)
         document = Document(
             id=document_id,
-            filename=path.name,
+            filename=ingested.filename,
             document_type=DocumentType(prediction.label),
             classification_confidence=prediction.confidence,
             page_count=len(ingested.pages),
         )
         return document, prediction.requires_human_review
 
-    def save(self, path: Path) -> None:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("wb") as handle:
-            pickle.dump(self, handle)
+    def classify_path(self, path: Path, *, document_id: str) -> tuple[Document, bool]:
+        """Read and classify one file. Convenience wrapper for single-document use."""
+        return self.classify_ingested(ingest_document(path), document_id=document_id)
+
+    def save(self, path: Path, **manifest_fields: object) -> None:
+        """Write a self-describing artifact directory.
+
+        This used to `pickle.dump(self)`. A pickle is executable data, is not
+        portable across scikit-learn versions, and records nothing about what
+        trained it — see `registry` for the whole argument.
+        """
+        from .registry import save_classifier
+
+        save_classifier(self, Path(path), **manifest_fields)  # type: ignore[arg-type]
 
     @classmethod
     def load(cls, path: Path) -> DocumentClassifier:
-        # Pickle artifacts are executable data and must only be loaded from a trusted build.
-        with path.open("rb") as handle:
-            loaded = pickle.load(handle)  # noqa: S301
-        if not isinstance(loaded, cls):
-            raise TypeError(f"Artifact at {path} is not a {cls.__name__}.")
-        return loaded
+        """Reconstruct from an artifact directory, verifying it is intact."""
+        from .registry import load_classifier
+
+        return load_classifier(Path(path)).classifier
 
 
 def validate_split_isolation(splits: dict[str, DatasetSplit]) -> None:

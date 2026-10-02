@@ -33,7 +33,7 @@ def test_missing_deep_dependencies_have_an_actionable_message(monkeypatch):
 
 
 def test_artifact_size_supports_file_and_directory(tmp_path: Path):
-    model_file = tmp_path / "baseline.pkl"
+    model_file = tmp_path / "baseline.bin"
     model_file.write_bytes(b"a" * 1024)
     model_dir = tmp_path / "deep"
     model_dir.mkdir()

@@ -7,6 +7,7 @@ import gc
 from pathlib import Path
 
 from .classifier import load_manifest, train_and_evaluate
+from .config import get_settings
 from .deep_classifier import (
     DeepTrainingConfig,
     artifact_size_mb,
@@ -19,13 +20,15 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Fine-tune a transformer and compare it with the classical baseline."
     )
-    parser.add_argument("--data-dir", type=Path, default=Path("data"))
-    parser.add_argument("--output-dir", type=Path, default=Path("reports"))
-    parser.add_argument("--deep-artifact-dir", type=Path, default=Path("artifacts/classifier_deep"))
+    parser.add_argument("--data-dir", type=Path, default=get_settings().data_dir)
+    parser.add_argument("--output-dir", type=Path, default=get_settings().reports_dir)
+    parser.add_argument(
+        "--deep-artifact-dir", type=Path, default=get_settings().artifacts_dir / "classifier_deep"
+    )
     parser.add_argument(
         "--baseline-artifact-path",
         type=Path,
-        default=Path("artifacts/classifier_baseline.pkl"),
+        default=Path(get_settings().classifier_path),
     )
     parser.add_argument("--model-name", default="distilbert-base-uncased")
     parser.add_argument("--epochs", type=int, default=4)
