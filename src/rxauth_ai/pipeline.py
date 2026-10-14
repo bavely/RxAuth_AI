@@ -92,6 +92,7 @@ def run_pipeline(
         policy_id=policy.id,
         policy_version=policy.version,
         policy_effective_date=policy.effective_date,
+        policy_source_sha256=policy.source_sha256,
         payer=policy.payer,
         medication=policy.medication,
         indication=policy.indication,

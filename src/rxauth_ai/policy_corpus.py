@@ -26,11 +26,26 @@ retrieves exact PA criteria most reliably?") with one deliberate rule: an
 enumerated requirement is its own chunk. A reviewer asking what the policy
 requires about A1c should get the A1c line and its citation, not the whole
 section it happened to live in.
+
+A published policy version is immutable (backlog task 601). Every version in
+the corpus is listed in a publication manifest beside it, with the SHA-256 and
+size of its exact source bytes, and `load_corpus` refuses a corpus that has
+drifted from that record: a changed file, a missing one, or one nobody
+published. A run stamps the digest of the bytes it was evaluated against, and
+because published bytes can neither change nor disappear, that digest resolves
+back to the original source for as long as the run is kept. Changing a
+published version, including setting its superseded date, is therefore a
+deliberate act this module will not perform; the reviewed process for it is
+task 603.
 """
 
 from __future__ import annotations
 
+import argparse
+import hashlib
+import json
 import re
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -39,8 +54,13 @@ from pydantic import BaseModel, Field, model_validator
 from .config import get_settings
 from .medications import MEDICATION_ALIASES
 
-CORPUS_VERSION = "policy-corpus-v1"
+CORPUS_VERSION = "policy-corpus-v2"
 DEFAULT_POLICY_DIR = get_settings().policy_dir
+
+#: The publication record that sits beside the policy files it describes.
+MANIFEST_FILENAME = "policy_manifest.json"
+#: Bumped only if the manifest's shape changes; an unknown format is refused.
+MANIFEST_FORMAT_VERSION = 1
 
 _PAGE_BREAK = re.compile(r"^---\s*page\s+(?P<page>\d+)\s*---\s*$", re.IGNORECASE | re.MULTILINE)
 _SECTION_HEADING = re.compile(r"^SECTION\s+(?P<number>\d+)\.\s*(?P<title>.+?)\s*$", re.MULTILINE)
@@ -132,6 +152,8 @@ class PolicyDocument(BaseModel):
     title: str | None = None
     source_url: str | None = None
     filename: str
+    source_sha256: str = Field(description="SHA-256 of the exact source bytes, before cleaning.")
+    source_bytes: int = Field(ge=0)
     page_count: int = Field(ge=1)
     chunks: list[PolicyChunk] = Field(default_factory=list)
 
@@ -329,7 +351,10 @@ def _chunk_section(
 def parse_policy(path: Path) -> PolicyDocument:
     """Parse one policy file into metadata plus citable chunks."""
     path = Path(path)
-    text = _clean(path.read_text(encoding="utf-8"))
+    # Hashed before `_clean`: the digest names the file as published, not the
+    # text this module derives from it.
+    raw = path.read_bytes()
+    text = _clean(raw.decode("utf-8"))
     metadata = parse_metadata(text)
 
     missing = [key for key in _REQUIRED_METADATA if not metadata.get(key)]
@@ -377,13 +402,22 @@ def parse_policy(path: Path) -> PolicyDocument:
         title=metadata.get("policy title"),
         source_url=metadata.get("source"),
         filename=path.name,
+        source_sha256=hashlib.sha256(raw).hexdigest(),
+        source_bytes=len(raw),
         page_count=max(page.number for page in pages),
         chunks=chunks,
     )
 
 
-def load_corpus(policy_dir: Path = DEFAULT_POLICY_DIR) -> list[PolicyDocument]:
-    """Parse every policy in a directory, rejecting duplicate policy versions."""
+def load_corpus(
+    policy_dir: Path = DEFAULT_POLICY_DIR, *, verify_publication: bool = True
+) -> list[PolicyDocument]:
+    """Parse every policy in a directory, rejecting duplicate policy versions.
+
+    With `verify_publication` (the default), the corpus must match its
+    publication manifest exactly. Only publishing itself parses an unverified
+    directory, because it is what produces the manifest.
+    """
     policy_dir = Path(policy_dir)
     paths = sorted(policy_dir.glob("*.txt")) if policy_dir.is_dir() else []
     if not paths:
@@ -403,4 +437,140 @@ def load_corpus(policy_dir: Path = DEFAULT_POLICY_DIR) -> list[PolicyDocument]:
             )
         seen[document.key] = path.name
         documents.append(document)
+
+    if verify_publication:
+        _verify_publication(documents, read_manifest(policy_dir), policy_dir)
     return documents
+
+
+def _manifest_entry(document: PolicyDocument) -> dict[str, object]:
+    return {
+        "key": document.key,
+        "policy_id": document.policy_id,
+        "version": document.version,
+        "filename": document.filename,
+        "effective_date": document.effective_date,
+        "superseded_date": document.superseded_date,
+        "sha256": document.source_sha256,
+        "bytes": document.source_bytes,
+    }
+
+
+def read_manifest(policy_dir: Path = DEFAULT_POLICY_DIR) -> dict[str, dict[str, object]]:
+    """Published policy versions, keyed by `policy_id:version`."""
+    path = Path(policy_dir) / MANIFEST_FILENAME
+    if not path.is_file():
+        raise PolicyCorpusError(
+            f"{policy_dir} has no {MANIFEST_FILENAME}, so nothing in it is published. "
+            "Run `uv run rxauth-publish-policies` to publish its policy versions."
+        )
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    if manifest.get("format_version") != MANIFEST_FORMAT_VERSION:
+        raise PolicyCorpusError(
+            f"{path} has format_version {manifest.get('format_version')!r}; this code reads "
+            f"format {MANIFEST_FORMAT_VERSION} only."
+        )
+    return {entry["key"]: entry for entry in manifest["policies"]}
+
+
+def _verify_publication(
+    documents: list[PolicyDocument], published: dict[str, dict[str, object]], policy_dir: Path
+) -> None:
+    present = {document.key: document for document in documents}
+    problems: list[str] = []
+    for key, document in present.items():
+        entry = published.get(key)
+        if entry is None:
+            problems.append(f"{document.filename} ({key}) was never published")
+        elif entry["sha256"] != document.source_sha256:
+            problems.append(
+                f"{document.filename} ({key}) no longer matches its published bytes; "
+                "a published version is immutable, so publish a new version instead"
+            )
+        elif entry["filename"] != document.filename:
+            problems.append(
+                f"{key} was published as {entry['filename']}, found {document.filename}"
+            )
+    for key, entry in published.items():
+        if key not in present:
+            problems.append(
+                f"published version {key} ({entry['filename']}) is missing; "
+                "runs that cite it must keep resolving to their source"
+            )
+    if problems:
+        raise PolicyCorpusError(
+            f"The policy corpus in {policy_dir} does not match its publication manifest:\n- "
+            + "\n- ".join(problems)
+        )
+
+
+def read_published_source(sha256: str, policy_dir: Path = DEFAULT_POLICY_DIR) -> bytes:
+    """The exact bytes a run was evaluated against, found by the digest it recorded.
+
+    Re-hashed on every read, so a source that changed after publication is
+    refused rather than shown to a reviewer as the policy the run used.
+    """
+    policy_dir = Path(policy_dir)
+    for entry in read_manifest(policy_dir).values():
+        if entry["sha256"] != sha256:
+            continue
+        raw = (policy_dir / str(entry["filename"])).read_bytes()
+        if hashlib.sha256(raw).hexdigest() != sha256:
+            raise PolicyCorpusError(
+                f"{entry['filename']} no longer matches the digest it was published with."
+            )
+        return raw
+    raise PolicyCorpusError(f"No published policy version has source digest {sha256}.")
+
+
+def publish_corpus(policy_dir: Path = DEFAULT_POLICY_DIR) -> list[str]:
+    """Append every unpublished policy version to the manifest; return the new keys.
+
+    Append-only by construction: a version already published must still be
+    present with the same bytes, or publishing refuses and changes nothing.
+    """
+    policy_dir = Path(policy_dir)
+    documents = load_corpus(policy_dir, verify_publication=False)
+    manifest_path = policy_dir / MANIFEST_FILENAME
+    published = read_manifest(policy_dir) if manifest_path.is_file() else {}
+    _verify_publication(
+        [document for document in documents if document.key in published],
+        published,
+        policy_dir,
+    )
+    added = sorted(document.key for document in documents if document.key not in published)
+    entries = {**published, **{d.key: _manifest_entry(d) for d in documents if d.key in added}}
+    if added:
+        payload = {
+            "format_version": MANIFEST_FORMAT_VERSION,
+            "policies": [entries[key] for key in sorted(entries)],
+        }
+        manifest_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    return added
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Publish new policy versions to the corpus manifest. Published versions are "
+            "immutable: a changed or removed one is refused."
+        )
+    )
+    parser.add_argument("--policy-dir", type=Path, default=DEFAULT_POLICY_DIR)
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Verify the corpus matches its manifest and publish nothing.",
+    )
+    args = parser.parse_args()
+
+    try:
+        if args.check:
+            documents = load_corpus(args.policy_dir)
+            print(f"{len(documents)} published policy versions match {MANIFEST_FILENAME}.")
+            return
+        added = publish_corpus(args.policy_dir)
+    except PolicyCorpusError as error:
+        print(error, file=sys.stderr)
+        raise SystemExit(1) from error
+    print(f"Published {len(added)} policy version(s): {', '.join(added) or 'none'}.")

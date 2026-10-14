@@ -5,7 +5,7 @@ _Reproducible: `rxauth-benchmark-retrieval`._
 ## Contract
 - Policy corpus: `data/policies/` (8 policy versions, 67 chunks)
 - Gold queries: `data/policy_retrieval_gold.jsonl` (16 queries)
-- Corpus parser: `policy-corpus-v1`
+- Corpus parser: `policy-corpus-v2`
 - Chunk strategy: `section+enumerated-item` — an enumerated requirement is its own chunk.
 - K = 5
 - A chunk counts as relevant only if it belongs to the expected policy **version** *and* contains a hand-authored gold snippet.
@@ -18,10 +18,10 @@ _Reproducible: `rxauth-benchmark-retrieval`._
 ## Results
 | Embedding | Mode | Correct-policy rate | Recall@K | Precision@K | MRR | Abstentions correct | Latency (ms/query) |
 |---|---|---:|---:|---:|---:|---:|---:|
-| `tfidf-v1` | metadata+similarity | 1.000 | 0.846 | 0.169 | 0.572 | 3/3 | 0.431 |
-| `tfidf-v1` | similarity_only | 0.625 | 0.692 | 0.138 | 0.454 | 0/3 | 0.363 |
-| `tfidf-lsa-v1[64]` | metadata+similarity | 1.000 | 0.846 | 0.169 | 0.572 | 3/3 | 0.480 |
-| `tfidf-lsa-v1[64]` | similarity_only | 0.625 | 0.692 | 0.138 | 0.454 | 0/3 | 0.507 |
+| `tfidf-v1` | metadata+similarity | 1.000 | 0.846 | 0.169 | 0.572 | 3/3 | 0.456 |
+| `tfidf-v1` | similarity_only | 0.625 | 0.692 | 0.138 | 0.454 | 0/3 | 0.486 |
+| `tfidf-lsa-v1[64]` | metadata+similarity | 1.000 | 0.846 | 0.169 | 0.572 | 3/3 | 0.430 |
+| `tfidf-lsa-v1[64]` | similarity_only | 0.625 | 0.692 | 0.138 | 0.454 | 0/3 | 0.535 |
 
 ## Failures by configuration
 

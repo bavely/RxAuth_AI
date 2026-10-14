@@ -7,16 +7,23 @@ page it was cut from. A chunk that cannot be pointed at is not evidence.
 
 from __future__ import annotations
 
+import hashlib
+import json
+import shutil
 from pathlib import Path
 
 import pytest
 
 from rxauth_ai.policy_corpus import (
+    MANIFEST_FILENAME,
     PolicyCorpusError,
     _clean,
     _split_pages,
     load_corpus,
     parse_policy,
+    publish_corpus,
+    read_manifest,
+    read_published_source,
 )
 
 _POLICY_DIR = Path(__file__).resolve().parents[1] / "data" / "policies"
@@ -120,3 +127,113 @@ def test_two_documents_claiming_one_policy_version_are_rejected(tmp_path):
 def test_an_empty_policy_directory_says_where_the_corpus_lives(tmp_path):
     with pytest.raises(PolicyCorpusError, match="data/policies"):
         load_corpus(tmp_path)
+
+
+# Publication and source provenance (backlog task 601). Each test works on a copy
+# of the shipped corpus, so the real directory and its manifest are never touched.
+
+_PA_207_PUBLISHED_SHA256 = "fad5ecc34c54cc465cf02c0cad6ce8edc9364b2252bd0f66a6bf7af5c856c377"
+
+
+@pytest.fixture()
+def published_copy(tmp_path):
+    destination = tmp_path / "policies"
+    shutil.copytree(_POLICY_DIR, destination)
+    return destination
+
+
+def test_every_document_records_the_digest_of_its_exact_source_bytes(corpus):
+    published = read_manifest(_POLICY_DIR)
+    for document in corpus:
+        raw = (_POLICY_DIR / document.filename).read_bytes()
+        assert document.source_sha256 == hashlib.sha256(raw).hexdigest()
+        assert document.source_bytes == len(raw)
+        entry = published[document.key]
+        assert entry["sha256"] == document.source_sha256
+        assert entry["effective_date"] == document.effective_date
+        assert entry["superseded_date"] == document.superseded_date
+
+
+def test_the_pa_207_retrieval_trap_is_published_unchanged(corpus):
+    """PA-207 is a deliberate near-miss. A republished manifest would follow an
+    edit to it, so its digest is pinned here as well."""
+    trap = next(document for document in corpus if document.policy_id == "PA-207")
+    assert trap.source_sha256 == _PA_207_PUBLISHED_SHA256
+
+
+def test_a_published_policy_whose_bytes_change_is_refused(published_copy):
+    path = published_copy / "PA-104_2026-01.txt"
+    path.write_bytes(path.read_bytes().replace(b"below 8.0 percent", b"below 9.0 percent"))
+
+    with pytest.raises(PolicyCorpusError, match="no longer matches its published bytes"):
+        load_corpus(published_copy)
+
+
+def test_a_published_policy_that_disappears_is_refused(published_copy):
+    (published_copy / "PA-104_2024-06.txt").unlink()
+
+    with pytest.raises(PolicyCorpusError, match="PA-104:2024-06 .* is missing"):
+        load_corpus(published_copy)
+
+
+def test_a_corpus_with_no_manifest_has_nothing_published(published_copy):
+    (published_copy / MANIFEST_FILENAME).unlink()
+
+    with pytest.raises(PolicyCorpusError, match="rxauth-publish-policies"):
+        load_corpus(published_copy)
+
+
+def test_an_unknown_manifest_format_is_refused_rather_than_guessed_at(published_copy):
+    path = published_copy / MANIFEST_FILENAME
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    path.write_text(json.dumps({**manifest, "format_version": 99}), encoding="utf-8")
+
+    with pytest.raises(PolicyCorpusError, match="format_version 99"):
+        load_corpus(published_copy)
+
+
+def test_a_new_version_loads_only_once_published_and_earlier_entries_never_change(
+    published_copy,
+):
+    body = (published_copy / "PA-104_2026-01.txt").read_text(encoding="utf-8")
+    (published_copy / "PA-104_2027-01.txt").write_text(
+        body.replace("Version: 2026-01", "Version: 2027-01"), encoding="utf-8"
+    )
+    before = read_manifest(published_copy)
+
+    with pytest.raises(PolicyCorpusError, match=r"PA-104:2027-01\) was never published"):
+        load_corpus(published_copy)
+
+    assert publish_corpus(published_copy) == ["PA-104:2027-01"]
+    after = read_manifest(published_copy)
+    assert {key: after[key] for key in before} == before
+    assert any(document.key == "PA-104:2027-01" for document in load_corpus(published_copy))
+
+
+def test_publishing_refuses_to_rewrite_a_published_version(published_copy):
+    manifest = (published_copy / MANIFEST_FILENAME).read_bytes()
+    path = published_copy / "PA-207_2025-09.txt"
+    path.write_bytes(path.read_bytes() + b"\n")
+
+    with pytest.raises(PolicyCorpusError, match="immutable"):
+        publish_corpus(published_copy)
+    assert (published_copy / MANIFEST_FILENAME).read_bytes() == manifest
+
+
+def test_a_recorded_digest_resolves_to_the_original_source(corpus):
+    document = next(document for document in corpus if document.key == "PA-104:2024-06")
+
+    raw = read_published_source(document.source_sha256, _POLICY_DIR)
+
+    assert raw == (_POLICY_DIR / document.filename).read_bytes()
+
+
+def test_a_source_that_changed_after_publication_is_not_served_as_the_original(published_copy):
+    path = published_copy / "PA-118_2025-03.txt"
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    path.write_bytes(path.read_bytes() + b"amended\n")
+
+    with pytest.raises(PolicyCorpusError, match="no longer matches the digest"):
+        read_published_source(digest, published_copy)
+    with pytest.raises(PolicyCorpusError, match="No published policy version"):
+        read_published_source("0" * 64, published_copy)

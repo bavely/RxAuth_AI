@@ -15,9 +15,9 @@ _Reproducible: `rxauth-benchmark-matching`._
 
 | Split | Matches | Result accuracy | Macro F1 | Evidence F1 | Retrieval recall | False support | Missing recall | Ambiguity recall | Review recall | Citation accuracy | Latency (ms) |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| validation | 15 | 1.000 | 1.000 | 1.000 | 1.000 | 0.000 | 1.000 | 1.000 | 1.000 | 1.000 | 0.074 |
-| test | 14 | 1.000 | 1.000 | 1.000 | 1.000 | 0.000 | 1.000 | 1.000 | 1.000 | 1.000 | 0.030 |
-| challenge | 13 | 1.000 | 1.000 | 1.000 | 1.000 | 0.000 | 1.000 | 1.000 | 1.000 | 1.000 | 0.034 |
+| validation | 15 | 1.000 | 1.000 | 1.000 | 1.000 | 0.000 | 1.000 | 1.000 | 1.000 | 1.000 | 0.060 |
+| test | 14 | 1.000 | 1.000 | 1.000 | 1.000 | 0.000 | 1.000 | 1.000 | 1.000 | 1.000 | 0.044 |
+| challenge | 13 | 1.000 | 1.000 | 1.000 | 1.000 | 0.000 | 1.000 | 1.000 | 1.000 | 1.000 | 0.048 |
 
 ## Validation failures
 None.

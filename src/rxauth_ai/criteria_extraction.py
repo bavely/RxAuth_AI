@@ -471,6 +471,7 @@ def build_policy(
         superseded_date=document.superseded_date,
         source_url=document.source_url,
         filename=document.filename,
+        source_sha256=document.source_sha256,
         version=document.version,
         criteria_connective=extraction.connective,
         criteria=extraction.criteria,

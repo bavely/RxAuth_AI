@@ -459,6 +459,14 @@ def build_output(
         "readiness": report.model_dump(mode="json"),
         "policy": {
             "selected": resolved.document.key,
+            # Enough to recover the exact bytes later (`read_published_source`),
+            # so the run stays checkable after the corpus gains newer versions.
+            "source": {
+                "filename": resolved.document.filename,
+                "sha256": resolved.document.source_sha256,
+                "bytes": resolved.document.source_bytes,
+                "source_url": resolved.document.source_url,
+            },
             "request_date": resolved.request_date,
             "request_date_source": resolved.request_date_source,
             "retrieval": resolved.retrieval.as_dict(),

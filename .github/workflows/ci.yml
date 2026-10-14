@@ -112,6 +112,11 @@ jobs:
       # `artifacts/` is gitignored, so the flagship command cannot run on a
       # fresh clone until the classifier is trained. Nothing in CI trained it,
       # which is how `rxauth-run-case` went unexercised for four phases.
+      # Published policy versions are immutable (task 601); a changed, missing,
+      # or unpublished policy file fails here, before any report is produced.
+      - name: Verify the policy corpus matches its publication manifest
+        run: uv run rxauth-publish-policies --check
+
       - name: Train the document classifier
         run: uv run rxauth-train-classifier
 

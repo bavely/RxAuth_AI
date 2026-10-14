@@ -30,6 +30,8 @@ FROM deps AS app
 COPY src/ src/
 COPY alembic.ini ./
 COPY alembic/ alembic/
+# The directory carries its publication manifest; the API and worker refuse to
+# load a corpus whose bytes differ from it, so an image cannot ship an edited policy.
 COPY data/policies/ data/policies/
 RUN uv sync --locked --extra service
 

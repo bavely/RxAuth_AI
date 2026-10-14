@@ -55,6 +55,8 @@ export interface ReadinessReport {
   policy_id: string;
   policy_version: string;
   policy_effective_date: string | null;
+  /** SHA-256 of the exact policy source the run used; absent on runs before policy-corpus-v2. */
+  policy_source_sha256?: string | null;
   matcher_version: string;
   payer: string;
   medication: string;

@@ -1,0 +1,85 @@
+{
+  "format_version": 1,
+  "policies": [
+    {
+      "key": "PA-104:2024-06",
+      "policy_id": "PA-104",
+      "version": "2024-06",
+      "filename": "PA-104_2024-06.txt",
+      "effective_date": "2024-06-01",
+      "superseded_date": "2025-12-31",
+      "sha256": "080627678e8e24689bfa2e5c9df8633a43c931a1112700ebdcb4f332473ab041",
+      "bytes": 1160
+    },
+    {
+      "key": "PA-104:2026-01",
+      "policy_id": "PA-104",
+      "version": "2026-01",
+      "filename": "PA-104_2026-01.txt",
+      "effective_date": "2026-01-01",
+      "superseded_date": null,
+      "sha256": "ba9f430508fe8240f732bd4fc3ce93a1555e3dbf08c1a152bb13bc434c6505fc",
+      "bytes": 2109
+    },
+    {
+      "key": "PA-118:2025-03",
+      "policy_id": "PA-118",
+      "version": "2025-03",
+      "filename": "PA-118_2025-03.txt",
+      "effective_date": "2025-03-01",
+      "superseded_date": null,
+      "sha256": "fa7470601c8d68c38f6dbb9fafa2b14c08b3361ae8536afef21bca2cb8bbb4bd",
+      "bytes": 1297
+    },
+    {
+      "key": "PA-207:2025-09",
+      "policy_id": "PA-207",
+      "version": "2025-09",
+      "filename": "PA-207_2025-09.txt",
+      "effective_date": "2025-09-01",
+      "superseded_date": null,
+      "sha256": "fad5ecc34c54cc465cf02c0cad6ce8edc9364b2252bd0f66a6bf7af5c856c377",
+      "bytes": 1397
+    },
+    {
+      "key": "PA-233:2025-07",
+      "policy_id": "PA-233",
+      "version": "2025-07",
+      "filename": "PA-233_2025-07.txt",
+      "effective_date": "2025-07-01",
+      "superseded_date": null,
+      "sha256": "a3acbd09393fbd8beca7189c46f62f10dcf4074874f201e6ce522a5951f52de5",
+      "bytes": 1319
+    },
+    {
+      "key": "PA-341:2026-02",
+      "policy_id": "PA-341",
+      "version": "2026-02",
+      "filename": "PA-341_2026-02.txt",
+      "effective_date": "2026-02-01",
+      "superseded_date": null,
+      "sha256": "1d9a4060f5f2bc87fbdd0b21974eef584421aa8b1d2d2f59bee1a3a7174c5d7f",
+      "bytes": 1106
+    },
+    {
+      "key": "PA-402:2025-11",
+      "policy_id": "PA-402",
+      "version": "2025-11",
+      "filename": "PA-402_2025-11.txt",
+      "effective_date": "2025-11-01",
+      "superseded_date": null,
+      "sha256": "3b6e0c7e201960e19c523aff00cba22d4843e3844a4ca10fe37db132bef54b3f",
+      "bytes": 1473
+    },
+    {
+      "key": "PA-509:2025-05",
+      "policy_id": "PA-509",
+      "version": "2025-05",
+      "filename": "PA-509_2025-05.txt",
+      "effective_date": "2025-05-01",
+      "superseded_date": null,
+      "sha256": "569a2ad22544b14625e096bb1b5245bd4e25a5b55acc9ef35af471cfb47eeef9",
+      "bytes": 1162
+    }
+  ]
+}

@@ -202,6 +202,13 @@ class Policy(BaseModel):
     superseded_date: Optional[str] = None
     source_url: Optional[str] = None
     filename: Optional[str] = None
+    source_sha256: Optional[str] = Field(
+        default=None,
+        description=(
+            "SHA-256 of the published policy source these criteria were read from. Unset only "
+            "for a hand-built policy that never came from the corpus."
+        ),
+    )
     version: str = "v1"
     criteria_connective: Literal["all", "any", "unknown"] = Field(
         default="all",
@@ -362,6 +369,7 @@ class CaseReadinessReport(BaseModel):
     policy_id: str
     policy_version: str = "v1"
     policy_effective_date: Optional[str] = None
+    policy_source_sha256: Optional[str] = None
     matcher_version: str = "typed-match-v1"
     payer: str
     medication: str

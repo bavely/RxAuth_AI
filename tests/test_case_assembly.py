@@ -15,6 +15,7 @@ import pytest
 from rxauth_ai.case_assembly import (
     CaseManifest,
     assemble_case,
+    build_output,
     case_document_paths,
     link_cross_document_evidence,
     load_classifier,
@@ -24,6 +25,7 @@ from rxauth_ai.case_assembly import (
     run_case,
 )
 from rxauth_ai.models import CriterionResult, Document, DocumentType, Evidence, Provenance
+from rxauth_ai.policy_corpus import read_published_source
 from rxauth_ai.policy_retrieval import PolicyNotFoundError, build_index
 
 _ROOT = Path(__file__).resolve().parents[1]
@@ -314,3 +316,19 @@ def test_exclusions_are_counted_but_never_evaluated_as_criteria(policy_index):
     assert report.criteria_total == len(resolved.policy.criteria)
     evaluated = {evaluation.criterion_id for evaluation in report.evaluations}
     assert evaluated.isdisjoint({exclusion.id for exclusion in resolved.policy.exclusions})
+
+
+def test_a_run_records_the_exact_policy_source_it_was_evaluated_against(policy_index):
+    """Backlog task 601: a stored run must still name the policy bytes it used
+    after the corpus moves on, so its digest has to resolve to the original."""
+    report, assembled, resolved = run_case(
+        _CASE_DIR, classifier=_FilenameClassifier(), index=policy_index
+    )
+    output = build_output(report, assembled, resolved, _CASE_DIR)
+
+    digest = report.policy_source_sha256
+    assert digest == resolved.policy.source_sha256 == resolved.document.source_sha256
+    assert output["policy"]["source"]["sha256"] == digest
+    original = read_published_source(digest, _POLICY_DIR)
+    assert original == (_POLICY_DIR / output["policy"]["source"]["filename"]).read_bytes()
+    assert len(original) == output["policy"]["source"]["bytes"]
