@@ -112,4 +112,6 @@ allowed headers are `Authorization` and `Content-Type`.
 - **No malware scanning**, unchanged from [production-hardening.md](production-hardening.md).
   Serving a stored document back to the organization that uploaded it does not widen that gap,
   but it does not close it either.
-- **No reviewer UI.** This is the surface one would consume.
+- **No case creation or upload in the UI.** The Next.js reviewer UI ([reviewer-ui.md](reviewer-ui.md))
+  consumes this surface server-side: worklist, case view, run view, and reviewer decisions. Cases
+  and documents are still created through the API directly (backlog task 301).

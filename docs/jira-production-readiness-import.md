@@ -1,12 +1,14 @@
 # Production-readiness backlog and Jira import
 
-Assessment date: 2026-10-02. Import file: [jira-production-readiness.csv](jira-production-readiness.csv).
+Assessment date: 2026-10-02, re-assessed 2026-10-22. Import file: [jira-production-readiness.csv](jira-production-readiness.csv).
 
-The backlog contains **101 work items: 12 epics and 89 tasks**. Seven tasks under
+The backlog contains **108 work items: 12 epics and 96 tasks**. Seven tasks under
 Commercial pilot prerequisites apply only to a separately authorized real-data
-deployment. The other 82 tasks cover completing and validating synthetic-only
+deployment. The other 89 tasks cover completing and validating synthetic-only
 production V1. This is a remaining-work backlog, not a list of previously completed
-milestones. Review and split tasks during team estimation; no staffing, estimates,
+milestones: a task is Done only once its accepted evidence is recorded in a dated
+`Progress:` line, and every other item is To Do. Each description's `Assessment:` line
+records the latest executed baseline. Review and split tasks during team estimation; no staffing, estimates,
 deadlines or live Jira project configuration were supplied.
 
 ## Assessment basis
@@ -30,8 +32,8 @@ deferred malware scanning, and absent browser end-to-end tests. Fresh deployment
 also needs an OCR Python backend and verified classifier artifact; a Tesseract
 binary or an empty artifacts volume alone does not supply these. Other hardening
 items are proposed production controls or verification work, not confirmed defects.
-Documentation includes stale thread-pool and absent-UI descriptions, so code and
-newer guides take precedence over those historical statements.
+The stale thread-pool and absent-UI descriptions noted at the initial assessment were
+corrected on 2026-10-22 (README.md and docs/reviewer-api.md).
 
 P0 defines scope and objectives; P1 establishes secure identity, artifacts and
 infrastructure; P2 completes reviewer flows and validation; P3 proves operations
@@ -56,16 +58,17 @@ Parents appear before their children.
 | Issue ID | Work item ID / Issue ID, used for import relationship resolution |
 | Issue Type | Work type / Issue Type; map Epic and Task to your project's equivalents |
 | Summary | Summary, required |
+| Status | Status; map To Do and Done to your workflow's equivalents |
 | Description | Description; includes acceptance criteria, dependencies, scope and evidence |
 | Priority | Priority; map High and Highest to supported values |
 | Labels | Labels |
 | Parent | Parent, referring to the CSV-local epic ID |
 
-The file uses UTF-8, commas, quoted fields, CRLF row endings and multiline
-descriptions. Choose UTF-8 and comma delimiters. Leave workflow status at the
-project's default initial state. Configure any additional fields required by your
-project during import; assignee, reporter, dates and estimates are intentionally
-absent. This avoids assigning people or claiming work is already done.
+The file uses UTF-8, commas, quoted fields, LF row endings and multiline
+descriptions. Choose UTF-8 and comma delimiters. Map Status, or leave it unmapped to import every
+item in the project's default initial state. Configure any additional fields required
+by your project during import; assignee, reporter, dates and estimates are
+intentionally absent, so no one is assigned work by the import.
 
 Current Jira Cloud supports work-item ID and Parent mappings for CSV hierarchy.
 See Atlassian's [CSV preparation guide](https://support.atlassian.com/jira-software-cloud/docs/prepare-a-csv-file-for-import/)
@@ -85,7 +88,7 @@ See [Atlassian's field-mapping guidance](https://support.atlassian.com/jira-soft
 for importers that support configured issue-link columns.
 
 Validate the preview, map priority/type values, import, then verify 12 epics and
-89 tasks, correct parent relationships, multiline descriptions and the separate
+96 tasks, correct parent relationships, multiline descriptions and the separate
 `rxauth-commercial-gate` label. Record the resulting Jira keys. Reimporting this
 creation CSV can create duplicates; it contains no existing issue keys for updates.
 
