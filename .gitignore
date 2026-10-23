@@ -32,3 +32,11 @@ CLAUDE.local.md
 
 # Alembic bytecode
 alembic/versions/__pycache__/
+
+# Terraform: state and real variable files hold secrets (client secret, temporary passwords)
+infra/**/.terraform/
+infra/**/.build/
+infra/**/*.tfstate
+infra/**/*.tfstate.*
+infra/**/*.tfvars
+infra/**/backend.hcl

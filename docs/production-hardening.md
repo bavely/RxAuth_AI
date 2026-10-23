@@ -57,6 +57,10 @@ worker service, all against the same PostgreSQL database and S3 bucket.
 | Successful jobs | 6 calendar years | PostgreSQL `expires_at`; hourly worker purge |
 | Terminal failed jobs | 90 days | PostgreSQL `expires_at`; hourly worker purge |
 
+These are the code defaults. Synthetic V1 deploys with a 1-year document lock and adds retention
+for runs, quarantine, backups, logs and legal holds; see the
+[retention and legal-hold policy](retention-policy.md) (task 105).
+
 `RXAUTH_S3_OBJECT_LOCK_MODE` defaults to `COMPLIANCE`, and production rejects a Governance
 override. The bucket must have versioning and Object Lock enabled when it is created. The
 application cannot add Object Lock to an existing bucket. In Compliance mode nobody, including the

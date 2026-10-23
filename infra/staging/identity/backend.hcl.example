@@ -1,0 +1,8 @@
+# Copy to backend.hcl (gitignored). The state bucket is created by task 701. It must be
+# versioned, encrypted, and readable only by the operator role, because state holds the app
+# client secrets. No user password is ever in state.
+bucket       = "CHANGE-ME-rxauth-staging-terraform-state"
+key          = "identity/terraform.tfstate"
+region       = "us-east-1"
+encrypt      = true
+use_lockfile = true

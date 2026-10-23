@@ -1,0 +1,11 @@
+# Copy to terraform.tfvars (gitignored) and fill in. Contains no secrets.
+domain_prefix = "rxauth-staging-CHANGE-ME"
+
+# The staging client: its client_id is the staging API's audience. HTTPS only.
+callback_urls = ["https://reviewer.staging.CHANGE-ME/api/auth/callback/cognito"]
+logout_urls   = ["https://reviewer.staging.CHANGE-ME/"]
+
+# A separate client for local UI development (task 202). The staging API refuses its tokens
+# because its client_id is a different audience.
+development_callback_urls = ["http://localhost:3000/api/auth/callback/cognito"]
+development_logout_urls   = ["http://localhost:3000/"]

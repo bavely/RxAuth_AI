@@ -45,7 +45,10 @@ not passing measurements. Keep identifiers out of metric labels and export no so
 
 The load and budget targets were accepted without a deployed baseline. Task 106 must
 check whether an architecture can meet both; adjust the contract through an explicit
-decision rather than claim unmeasured feasibility. Maximum-size packets are a separate
+decision rather than claim unmeasured feasibility. [ADR 003](adr-003-aws-deployment-architecture.md)
+(accepted 2026-10-22) estimates both environments under budget at list prices, and finds the
+burst queue-age target feasible within a 10-worker ceiling only if a case averages about a minute;
+task 903 measures that. Maximum-size packets are a separate
 capacity and parser-safety test, not assumed to meet the mixed-format latency target.
 
 ## Current evidence and known conflicts
@@ -66,7 +69,7 @@ and 60 minutes, use a 15-minute lease, and impose no hard attempt timeout. Faile
 abandoned attempts can exceed the accepted latency targets. Task 904 must reconcile
 these settings with the accepted objectives and define stalled-job escalation;
 this document changes no settings. RPO also needs database/object consistency proof,
-not merely enabled backups. Task 105 must approve retention before task 704 creates
+not merely enabled backups. Task 105 approved retention on 2026-10-22 ([retention-policy.md](retention-policy.md)); task 704 must apply it when it creates
 irreversible Object Lock obligations; the accepted budget is not that approval.
 
 ## Acceptance and breach response

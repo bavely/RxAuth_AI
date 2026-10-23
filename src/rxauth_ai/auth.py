@@ -13,13 +13,16 @@ resource merely because they know its identifier.
 
 from __future__ import annotations
 
+import argparse
+import json
 import re
+import sys
 from dataclasses import dataclass
 from typing import Any, Protocol
 
 from pydantic import BaseModel, Field
 
-from .config import Settings
+from .config import Settings, get_settings
 
 ROLE_CASE_READ = "case:read"
 ROLE_CASE_WRITE = "case:write"
@@ -87,6 +90,8 @@ class JWTAuthenticator:
         self._jwt = jwt
         self._issuer = settings.auth_issuer
         self._audience = settings.auth_audience
+        self._audience_claim = settings.auth_audience_claim
+        self._token_use = settings.auth_required_token_use
         self._organization_claim = settings.auth_organization_claim
         self._roles_claim = settings.auth_roles_claim
         self._algorithms = settings.auth_algorithm_list
@@ -110,17 +115,32 @@ class JWTAuthenticator:
         if not token:
             raise AuthenticationError()
 
+        # PyJWT verifies only `aud`. Any other audience claim is required, exempted
+        # from that check, and compared exactly below: never skipped, only moved.
+        standard_audience = self._audience_claim == "aud"
+        required = ["exp", "iat", "sub", self._organization_claim]
+        options: dict[str, Any] = {"require": required}
+        if not standard_audience:
+            required.append(self._audience_claim)
+            options["verify_aud"] = False
+        if self._token_use is not None:
+            required.append("token_use")
+
         try:
             signing_key = self._jwks.get_signing_key_from_jwt(token)
             claims = self._jwt.decode(
                 token,
                 signing_key,
                 algorithms=list(self._algorithms),
-                audience=self._audience,
+                audience=self._audience if standard_audience else None,
                 issuer=self._issuer,
                 leeway=self._leeway,
-                options={"require": ["exp", "iat", "sub", self._organization_claim]},
+                options=options,
             )
+            if not standard_audience and claims[self._audience_claim] != self._audience:
+                raise AuthenticationError()
+            if self._token_use is not None and claims["token_use"] != self._token_use:
+                raise AuthenticationError()
             return Principal(
                 subject=claims["sub"],
                 organization_id=claims[self._organization_claim],
@@ -136,6 +156,40 @@ def build_authenticator(settings: Settings) -> Authenticator:
     if settings.auth_enabled:
         return JWTAuthenticator(settings)
     return LocalDevelopmentAuthenticator(settings)
+
+
+def main(argv: list[str] | None = None) -> None:
+    """Verify one access token, read from stdin, exactly as the API would.
+
+    This is how a staging identity provider is proven to work (backlog task 201)
+    before any UI exists to carry its tokens. The token is read from stdin rather
+    than an argument so it never lands in shell history or a process listing, and
+    only the resulting principal is printed: never the token, never its claims.
+    """
+    parser = argparse.ArgumentParser(
+        description="Verify an access token from stdin against the configured OIDC provider."
+    )
+    parser.parse_args(argv)
+
+    settings = get_settings()
+    if not settings.auth_enabled:
+        raise SystemExit(
+            "RXAUTH_AUTH_ENABLED is false, so there is no provider to verify against. Set the "
+            "RXAUTH_AUTH_* settings for the target environment."
+        )
+    try:
+        principal = JWTAuthenticator(settings).authenticate(sys.stdin.read().strip())
+    except AuthenticationError as exc:
+        raise SystemExit(f"Rejected: {exc}") from None
+    print(
+        json.dumps(
+            {
+                "subject": principal.subject,
+                "organization_id": principal.organization_id,
+                "roles": sorted(principal.roles),
+            }
+        )
+    )
 
 
 __all__ = [

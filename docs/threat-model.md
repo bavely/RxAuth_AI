@@ -117,7 +117,7 @@ Severity reflects the deployed V1 configuration if it shipped today with the sta
 | T13 | Information disclosure | Credentials: compose uses a fixed local database password, acceptable only because compose is `environment=local`. Deployed secret storage and rotation do not exist yet | **Open** for deployment | 703 |
 | T14 | Information disclosure | Backups and restored environments carry PHI-class data outside the primary controls | **Open** | 906, 907 |
 | T15 | Tampering | Policy versions are files baked into the image. Since task 601 each run stamps the SHA-256 of the exact policy source it used, and a corpus that differs from its publication manifest refuses to load (`test_policy_corpus.py::test_a_published_policy_whose_bytes_change_is_refused`). The manifest is not signed, so whoever can change the image can republish it, and a run does not yet record the image or classifier artifact it ran on | **Partial** (policy sources are stamped and verified; release provenance is not) | 605 |
-| T16 | Denial of service, legal | Object Lock in `COMPLIANCE` mode is irreversible. Provisioning it before the retention policy is approved would make that policy unchangeable | **Process risk** | 105, 704 |
+| T16 | Denial of service, legal | Object Lock in `COMPLIANCE` mode is irreversible. Provisioning it before the retention policy is approved would make that policy unchangeable. Task 105 approved the policy on 2026-10-22 ([retention-policy.md](retention-policy.md): 1-year V1 lock, applied at release); provisioning must match it | **Process risk** (policy approved; provisioning pending) | 704 |
 | T17 | Information disclosure | A CSRF-style forged decision post. Next.js Server Actions reject a mismatched `Origin`, and the API takes the reviewer from the token. This needs re-verification once session cookies exist (task 202) | **Mitigated by framework, unverified** | 203, 1006 |
 
 ## Tenant attack paths, summarized
@@ -138,4 +138,7 @@ An attacker authenticated to organization A, attacking organization B:
 
 Clinical safety (the system makes no clinical decision, ADR 002); the commercial HIPAA program
 (epic 1100); physical and cloud-provider controls (the AWS shared-responsibility model applies
-once task 106 picks services).
+to the services [ADR 003](adr-003-aws-deployment-architecture.md) selected on 2026-10-22: ECS
+Fargate, RDS PostgreSQL, S3, ALB, NAT, WAF). ADR 003 adds an internal API load balancer and a
+public UI-only entry point; the component and flow tables above are revised when task 701
+provisions them, and their threats are closed by tasks 702, 703, 711 and 712.

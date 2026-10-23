@@ -34,6 +34,9 @@ from pydantic import BaseModel, Field, ValidationError, model_validator
 
 ENV_PREFIX = "RXAUTH_"
 
+#: Claims that name an audience or client and are set only by the provider.
+AUDIENCE_CLAIMS = frozenset({"aud", "client_id", "azp"})
+
 
 class ConfigurationError(RuntimeError):
     """Raised when the environment asks for something impossible."""
@@ -76,6 +79,13 @@ class Settings(BaseModel):
     auth_enabled: bool = False
     auth_issuer: Optional[str] = None
     auth_audience: Optional[str] = None
+    #: The claim that carries the audience. `aud` is the OIDC standard; Amazon
+    #: Cognito access tokens name their app client in `client_id` instead.
+    auth_audience_claim: str = "aud"
+    #: When set, the `token_use` claim must equal it. Cognito sets "access" or "id",
+    #: and only an access token may call the API: an ID token is handed around
+    #: the browser far more freely.
+    auth_required_token_use: Optional[str] = None
     auth_jwks_url: Optional[str] = None
     auth_algorithms: str = "RS256"
     auth_organization_claim: str = "org_id"
@@ -185,6 +195,14 @@ class Settings(BaseModel):
             raise ValueError(
                 "RXAUTH_AUTH_ALGORITHMS must contain only asymmetric algorithms: "
                 + ", ".join(sorted(allowed_algorithms))
+            )
+        # An allow-list, not a deny-list: any other claim (email, username, a
+        # custom attribute) may be something the user can write, and the audience
+        # check would then compare against a value an attacker chooses.
+        if self.auth_audience_claim not in AUDIENCE_CLAIMS:
+            raise ValueError(
+                f"RXAUTH_AUTH_AUDIENCE_CLAIM={self.auth_audience_claim!r} cannot carry the "
+                "audience; use one of: " + ", ".join(sorted(AUDIENCE_CLAIMS))
             )
         return self
 

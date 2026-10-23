@@ -156,6 +156,34 @@ def test_authentication_accepts_only_configured_asymmetric_algorithms():
         )
 
 
+@pytest.mark.parametrize(
+    "claim", ["sub", "org_id", "roles", "exp", "email", "cognito:username", "custom:org_id", ""]
+)
+def test_the_audience_cannot_be_read_from_an_identity_or_tenant_claim(claim):
+    with pytest.raises(ConfigurationError, match="cannot carry the audience"):
+        settings_from_env(
+            auth_enabled=True,
+            auth_issuer="https://identity.example.test/",
+            auth_audience="rxauth-api",
+            auth_jwks_url="https://identity.example.test/jwks.json",
+            auth_audience_claim=claim,
+        )
+
+
+def test_the_audience_claim_defaults_to_the_oidc_standard():
+    assert settings_from_env().auth_audience_claim == "aud"
+    assert (
+        settings_from_env(
+            auth_enabled=True,
+            auth_issuer="https://identity.example.test/",
+            auth_audience="rxauth-api",
+            auth_jwks_url="https://identity.example.test/jwks.json",
+            auth_audience_claim="client_id",
+        ).auth_audience_claim
+        == "client_id"
+    )
+
+
 def test_auth_algorithm_list_is_fixed_by_configuration():
     settings = settings_from_env(
         auth_enabled=True,
